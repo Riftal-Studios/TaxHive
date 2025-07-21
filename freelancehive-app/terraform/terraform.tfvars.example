@@ -1,0 +1,16 @@
+# Copy this file to terraform.tfvars and fill in the values
+
+app_name = "freelancehive"
+region   = "sin" # Singapore region for India proximity
+
+# Database password (generate a strong password)
+postgres_password = "your-secure-postgres-password"
+
+# NextAuth secret (generate with: openssl rand -base64 32)
+nextauth_secret = "your-nextauth-secret"
+
+# Email server configuration (e.g., smtp://user:pass@smtp.gmail.com:587)
+email_server = "smtp://user:password@smtp.example.com:587"
+
+# Cron job secret (generate with: openssl rand -hex 32)
+cron_secret = "your-cron-secret"

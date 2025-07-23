@@ -1,6 +1,6 @@
 # Copy this file to terraform.tfvars and fill in the values
 
-app_name = "freelancehive"
+app_name = "gsthive"
 region   = "sin" # Singapore region for India proximity
 
 # Database password (generate a strong password)

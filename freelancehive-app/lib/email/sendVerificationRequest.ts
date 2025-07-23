@@ -11,7 +11,7 @@ export async function sendVerificationRequest({
   const result = await transport.sendMail({
     to: email,
     from,
-    subject: 'Sign in to FreelanceHive',
+    subject: 'Sign in to GSTHive',
     text: text({ url, email }),
     html: html({ url, email }),
   })
@@ -33,18 +33,18 @@ function html({ url, email }: { url: string; email: string }) {
             <table width="100%" max-width="600" border="0" cellspacing="0" cellpadding="0" style="background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
               <tr>
                 <td style="padding: 40px;">
-                  <h1 style="color: #1f2937; font-size: 24px; font-weight: bold; margin: 0 0 24px;">Sign in to FreelanceHive</h1>
+                  <h1 style="color: #1f2937; font-size: 24px; font-weight: bold; margin: 0 0 24px;">Sign in to GSTHive</h1>
                   <p style="color: #4b5563; font-size: 16px; line-height: 24px; margin: 0 0 24px;">
                     Hello ${escapedEmail},
                   </p>
                   <p style="color: #4b5563; font-size: 16px; line-height: 24px; margin: 0 0 32px;">
-                    Click the button below to sign in to your FreelanceHive account. This link will expire in 24 hours.
+                    Click the button below to sign in to your GSTHive account. This link will expire in 24 hours.
                   </p>
                   <table border="0" cellspacing="0" cellpadding="0">
                     <tr>
                       <td align="center" style="border-radius: 6px; background: #4f46e5;">
                         <a href="${url}" target="_blank" style="display: inline-block; padding: 12px 24px; font-size: 16px; color: white; text-decoration: none; border-radius: 6px;">
-                          Sign in to FreelanceHive
+                          Sign in to GSTHive
                         </a>
                       </td>
                     </tr>
@@ -68,11 +68,11 @@ function html({ url, email }: { url: string; email: string }) {
 }
 
 function text({ url, email }: { url: string; email: string }) {
-  return `Sign in to FreelanceHive
+  return `Sign in to GSTHive
 
 Hello ${email},
 
-Click the link below to sign in to your FreelanceHive account:
+Click the link below to sign in to your GSTHive account:
 
 ${url}
 
@@ -80,6 +80,6 @@ This link will expire in 24 hours.
 
 If you didn't request this email, you can safely ignore it.
 
-FreelanceHive - GST-Compliant Invoice Management for Indian Freelancers
+GSTHive - GST-Compliant Invoice Management for Indian Businesses
 `
 }

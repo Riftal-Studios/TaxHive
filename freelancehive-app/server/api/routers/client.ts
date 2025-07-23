@@ -16,13 +16,31 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const client = await ctx.prisma.client.create({
-        data: {
-          ...input,
-          userId: ctx.session.user.id,
-        },
-      })
-      return client
+      // Ensure user ID exists
+      if (!ctx.session.user.id) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'User ID not found in session',
+        })
+      }
+
+      try {
+        const client = await ctx.prisma.client.create({
+          data: {
+            ...input,
+            userId: ctx.session.user.id,
+          },
+        })
+        return client
+      } catch (error) {
+        console.error('Client creation error:', error)
+        console.error('User ID:', ctx.session.user.id)
+        console.error('Session:', ctx.session)
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create client. Please ensure you are properly logged in.',
+        })
+      }
     }),
 
   list: protectedProcedure.query(async ({ ctx }) => {

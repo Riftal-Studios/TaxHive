@@ -1,5 +1,10 @@
 import puppeteer from 'puppeteer'
+
+// Re-export for backward compatibility
+export { uploadPDF } from './pdf-uploader'
 import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
+import { SAC_HSN_CODES } from './constants'
+import { numberToWordsIndian, numberToWordsInternational } from './utils/number-to-words'
 
 type InvoiceWithRelations = Invoice & {
   lineItems: InvoiceItem[]
@@ -36,7 +41,7 @@ export async function generateInvoicePDF(
     })
     
     await page.close()
-    return pdf
+    return Buffer.from(pdf)
   } catch (error) {
     console.error('PDF generation error:', error)
     throw new Error('Failed to generate PDF: ' + (error as Error).message)
@@ -45,6 +50,11 @@ export async function generateInvoicePDF(
       await browser.close()
     }
   }
+}
+
+function getServiceTypeDescription(serviceCode: string): string {
+  const service = SAC_HSN_CODES.find(s => s.code === serviceCode)
+  return service ? service.description : 'Professional Services'
 }
 
 function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string {
@@ -287,11 +297,11 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
           <div class="party">
             <h3>INVOICE DETAILS</h3>
             <div class="party-details">
-              <strong>Date:</strong> ${new Date(invoice.issueDate).toLocaleDateString('en-IN')}<br>
+              <strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}<br>
               <strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}<br>
               <strong>Place of Supply:</strong> ${invoice.placeOfSupply}<br>
               <strong>Service Code (HSN/SAC):</strong> ${invoice.serviceCode}<br>
-              <strong>Service Type:</strong> ${invoice.serviceDescription}
+              <strong>Service Type:</strong> ${getServiceTypeDescription(invoice.serviceCode)}
             </div>
           </div>
         </div>
@@ -299,13 +309,13 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
         ${invoice.lut ? `
           <div class="lut-declaration">
             SUPPLY MEANT FOR EXPORT UNDER LUT NO ${invoice.lut.lutNumber} 
-            DATED ${new Date(invoice.lut.issuedDate).toLocaleDateString('en-IN')} – TAX NOT PAYABLE
+            DATED ${new Date(invoice.lut.lutDate).toLocaleDateString('en-IN')} – TAX NOT PAYABLE
           </div>
         ` : ''}
 
         <div class="exchange-rate">
           <strong>Exchange Rate:</strong> 1 ${invoice.currency} = ${formatINR(Number(invoice.exchangeRate))} 
-          (${invoice.exchangeRateSource} as on ${new Date(invoice.issueDate).toLocaleDateString('en-IN')})
+          (${invoice.exchangeSource} as on ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')})
         </div>
 
         <table class="items-table">
@@ -351,11 +361,11 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
         <div class="invoice-meta">
           <div class="meta-row">
             <span class="meta-label">Amount in Words (INR):</span>
-            <span>${numberToWords(totalAmountINR)} Rupees Only</span>
+            <span>${numberToWordsIndian(totalAmountINR)} Rupees Only</span>
           </div>
           <div class="meta-row">
             <span class="meta-label">Amount in Words (${invoice.currency}):</span>
-            <span>${numberToWords(Number(invoice.totalAmount))} ${getCurrencyName(invoice.currency)} Only</span>
+            <span>${numberToWordsInternational(Number(invoice.totalAmount))} ${getCurrencyName(invoice.currency)} Only</span>
           </div>
         </div>
 
@@ -376,22 +386,6 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
   `
 }
 
-function numberToWords(num: number): string {
-  // Simplified number to words conversion
-  // In production, use a proper library like number-to-words
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-  
-  if (num === 0) return 'Zero'
-  
-  // For simplicity, handling up to 999,999
-  const intPart = Math.floor(num)
-  if (intPart > 999999) return intPart.toLocaleString()
-  
-  // This is a simplified version
-  return intPart.toLocaleString()
-}
 
 function getCurrencyName(currency: string): string {
   const names: Record<string, string> = {

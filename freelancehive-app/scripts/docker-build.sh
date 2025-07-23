@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Docker Build Script for FreelanceHive
+# Docker Build Script for GSTHive
 set -e
 
-echo "🐳 Building FreelanceHive Docker image..."
+echo "🐳 Building GSTHive Docker image..."
 
 # Default values
-IMAGE_NAME="${IMAGE_NAME:-freelancehive}"
+IMAGE_NAME="${IMAGE_NAME:-gsthive}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
 # Build the Docker image

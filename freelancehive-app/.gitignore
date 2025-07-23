@@ -45,3 +45,6 @@ prisma/*.db-journal
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# uploads
+/uploads/

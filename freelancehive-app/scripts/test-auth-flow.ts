@@ -38,8 +38,8 @@ async function testAuthFlow() {
   
   // 3. Check what happens with URL encoding
   console.log('3. Testing email encoding issues:')
-  const emailWithInvisibleChar = 'nasiridrishi@outlook\u200B.com' // Zero-width space
-  const normalEmail = 'nasiridrishi@outlook.com'
+  const emailWithInvisibleChar: string = 'nasiridrishi@outlook\u200B.com' // Zero-width space
+  const normalEmail: string = 'nasiridrishi@outlook.com'
   
   console.log(`   Normal email: "${normalEmail}"`)
   console.log(`   Email with invisible char: "${emailWithInvisibleChar}"`)

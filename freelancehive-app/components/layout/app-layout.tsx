@@ -14,10 +14,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { data: session } = useSession()
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard' },
-    { name: 'Clients', href: '/clients' },
-    { name: 'Invoices', href: '/invoices' },
-    { name: 'Settings', href: '/settings' },
+    { name: 'Dashboard', href: '/dashboard' as const },
+    { name: 'Clients', href: '/clients' as const },
+    { name: 'Invoices', href: '/invoices' as const },
+    { name: 'Settings', href: '/settings' as const },
   ]
 
   return (
@@ -27,7 +27,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="flex h-16 justify-between">
             <div className="flex">
               <div className="flex flex-shrink-0 items-center">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">FreelanceHive</h1>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">GSTHive</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 {navigation.map((item) => (

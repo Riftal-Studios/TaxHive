@@ -1,6 +1,6 @@
-# FreelanceHive Deployment Guide
+# GSTHive Deployment Guide
 
-This guide covers deploying FreelanceHive using Docker and Terraform.
+This guide covers deploying GSTHive using Docker and Terraform.
 
 ## Prerequisites
 
@@ -91,10 +91,10 @@ This guide covers deploying FreelanceHive using Docker and Terraform.
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
-| `NEXTAUTH_URL` | Application URL | `https://freelancehive.fly.dev` |
+| `NEXTAUTH_URL` | Application URL | `https://gsthive.com` |
 | `NEXTAUTH_SECRET` | NextAuth encryption secret | Generate with `openssl rand -base64 32` |
 | `EMAIL_SERVER` | SMTP server configuration | `smtp://user:pass@smtp.gmail.com:587` |
-| `EMAIL_FROM` | Sender email address | `noreply@freelancehive.com` |
+| `EMAIL_FROM` | Sender email address | `noreply@gsthive.com` |
 | `CRON_SECRET` | Secret for cron job auth | Generate with `openssl rand -hex 32` |
 
 ### Optional Variables

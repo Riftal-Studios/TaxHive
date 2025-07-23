@@ -18,6 +18,8 @@ model User {
   gstin         String?   // GST Identification Number
   pan           String?   // PAN Number
   address       String?
+  onboardingCompleted Boolean @default(false)
+  onboardingStep String?  // Current step: profile, client, lut, invoice, complete
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -26,6 +28,7 @@ model User {
   clients  Client[]
   invoices Invoice[]
   luts     LUT[]
+  emailHistory EmailHistory[]
 }
 
 model Account {
@@ -107,6 +110,11 @@ model Invoice {
   totalAmount    Decimal
   totalInINR     Decimal
   
+  // Payment Status
+  paymentStatus  String        @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID
+  amountPaid     Decimal       @default(0)
+  balanceDue     Decimal       @default(0)
+  
   // Additional Info
   description    String?
   paymentTerms   String?
@@ -124,10 +132,12 @@ model Invoice {
   lut         LUT?          @relation(fields: [lutId], references: [id])
   lineItems   InvoiceItem[]
   payments    Payment[]
+  emailHistory EmailHistory[]
 
   @@index([userId])
   @@index([clientId])
   @@index([status])
+  @@index([paymentStatus])
 }
 
 model InvoiceItem {
@@ -147,17 +157,31 @@ model InvoiceItem {
 model Payment {
   id            String   @id @default(cuid())
   invoiceId     String
-  amount        Decimal
+  amount        Decimal  // Amount client sent (Y in the payment flow)
   currency      String
   paymentDate   DateTime
   paymentMethod String
   reference     String?
   notes         String?
+  
+  // Payment flow details
+  amountReceivedBeforeFees Decimal? // Amount before platform fees (Z in the flow)
+  platformFeesInCurrency   Decimal? // Platform fees in original currency (Y - Z)
+  
+  // Bank credit details
+  creditedAmount     Decimal? // Actual amount credited to bank in INR
+  actualExchangeRate Decimal? // Exchange rate applied (INR per foreign currency unit)
+  bankChargesInr     Decimal? // Bank charges in INR if any
+  fircNumber         String?  // FIRC document number
+  fircDate           DateTime? // FIRC issue date
+  fircDocumentUrl    String?  // URL to uploaded FIRC document
+  
   createdAt     DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
+  @@index([fircNumber])
 }
 
 model LUT {
@@ -182,7 +206,7 @@ model ExchangeRate {
   id         String   @id @default(cuid())
   currency   String
   rate       Decimal
-  source     String   // RBI/ExchangeRatesAPI
+  source     String   // RBI/exchangerate-api.com/Manual
   date       DateTime
   createdAt  DateTime @default(now())
 
@@ -191,4 +215,30 @@ model ExchangeRate {
   @@index([date])
 }
 
+model EmailHistory {
+  id         String   @id @default(cuid())
+  userId     String
+  invoiceId  String?
+  type       String   // invoice, payment-reminder, lut-expiry, payment-received
+  to         String
+  cc         String?
+  bcc        String?
+  subject    String
+  template   String
+  messageId  String
+  status     String   // SENT, FAILED, BOUNCED
+  sentAt     DateTime
+  createdAt  DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([invoiceId])
+  @@index([type])
+  @@index([status])
+  @@index([sentAt])
+}
+
 // InvoiceStatus values: DRAFT, SENT, PAID, PARTIALLY_PAID, OVERDUE, CANCELLED
+// PaymentStatus values: UNPAID, PARTIALLY_PAID, PAID

@@ -3,6 +3,7 @@ import EmailProvider from 'next-auth/providers/email'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from './prisma'
 import { sendVerificationRequest } from './email/sendVerificationRequest'
+import { sendVerificationRequestConsole } from './email/consoleEmail'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as NextAuthOptions['adapter'],
@@ -11,9 +12,16 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     EmailProvider({
-      server: process.env.EMAIL_SERVER!,
-      from: process.env.EMAIL_FROM,
-      sendVerificationRequest,
+      server: process.env.EMAIL_SERVER || {
+        host: "localhost",
+        port: 25,
+        auth: {
+          user: "",
+          pass: ""
+        }
+      },
+      from: process.env.EMAIL_FROM || 'GSTHive <noreply@gsthive.com>',
+      sendVerificationRequest: process.env.EMAIL_SERVER ? sendVerificationRequest : sendVerificationRequestConsole,
       maxAge: 24 * 60 * 60, // 24 hours
     }),
   ],
@@ -23,7 +31,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user }) {
       // Log successful sign in
       console.log('User signing in:', user.email)
       return true
@@ -38,24 +46,29 @@ export const authOptions: NextAuthOptions = {
       return session
     },
     async jwt({ token, user }) {
-      const dbUser = await prisma.user.findFirst({
-        where: {
-          email: token.email!,
-        },
-      })
+      // If user is defined, this is the initial sign in
+      if (user) {
+        token.id = user.id
+        token.email = user.email
+        token.name = user.name
+      }
 
-      if (!dbUser) {
-        if (user) {
-          token.id = user?.id
+      // Always try to get the latest user data from database
+      if (token.email) {
+        const dbUser = await prisma.user.findFirst({
+          where: {
+            email: token.email,
+          },
+        })
+
+        if (dbUser) {
+          token.id = dbUser.id
+          token.name = dbUser.name
+          token.email = dbUser.email
         }
-        return token
       }
 
-      return {
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-      }
+      return token
     },
   },
 }

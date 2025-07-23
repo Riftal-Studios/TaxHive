@@ -63,12 +63,12 @@ export async function fetchRBIExchangeRates(): Promise<ExchangeRate[]> {
 
 export async function fetchFallbackExchangeRates(): Promise<ExchangeRate[]> {
   const rates: ExchangeRate[] = []
-  const currencies = Object.values(CURRENCY_CODES).filter(code => code !== 'INR')
+  const currencies = Object.values(CURRENCY_CODES)
   
   try {
     // Use a free exchange rate API as fallback
     // In production, you'd use a proper API key
-    const apiKey = process.env.EXCHANGE_RATES_API_KEY || 'demo'
+    // const apiKey = process.env.EXCHANGE_RATES_API_KEY || 'demo'
     
     for (const currency of currencies) {
       try {
@@ -84,7 +84,7 @@ export async function fetchFallbackExchangeRates(): Promise<ExchangeRate[]> {
           rates.push({
             currency,
             rate: data.rates.INR,
-            source: 'ExchangeRatesAPI',
+            source: 'exchangerate-api.com',
           })
         }
       } catch (error) {
@@ -194,4 +194,37 @@ export async function getExchangeRate(currency: string): Promise<number | null> 
   })
   
   return rate ? Number(rate.rate) : null
+}
+
+// Export functions for queue handler
+export async function fetchRBIRates(date: Date, currencies: string[]): Promise<Record<string, { rate: number; source: string }>> {
+  const rates = await fetchRBIExchangeRates()
+  const result: Record<string, { rate: number; source: string }> = {}
+  
+  for (const rate of rates) {
+    if (currencies.includes(rate.currency)) {
+      result[rate.currency] = {
+        rate: rate.rate,
+        source: rate.source,
+      }
+    }
+  }
+  
+  return result
+}
+
+export async function fetchFallbackRates(date: Date, currencies: string[]): Promise<Record<string, { rate: number; source: string }>> {
+  const rates = await fetchFallbackExchangeRates()
+  const result: Record<string, { rate: number; source: string }> = {}
+  
+  for (const rate of rates) {
+    if (currencies.includes(rate.currency)) {
+      result[rate.currency] = {
+        rate: rate.rate,
+        source: rate.source,
+      }
+    }
+  }
+  
+  return result
 }

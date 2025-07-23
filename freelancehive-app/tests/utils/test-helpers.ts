@@ -1,7 +1,19 @@
 import { PrismaClient } from '@prisma/client'
 import { faker } from '@faker-js/faker'
+import type { Session } from 'next-auth'
 
 export const prisma = new PrismaClient()
+
+// Test-specific context creator that doesn't rely on getServerSession
+export function createTestContext(session: Session | null = null) {
+  return {
+    session,
+    prisma,
+    req: {
+      headers: new Headers(),
+    } as any,
+  }
+}
 
 export async function createTestUser(overrides = {}) {
   return prisma.user.create({
@@ -28,6 +40,7 @@ export async function createTestClient(userId: string, overrides = {}) {
 }
 
 export async function createTestInvoice(userId: string, clientId: string, overrides = {}) {
+  const totalAmount = faker.number.float({ min: 1000, max: 10000, fractionDigits: 2 })
   return prisma.invoice.create({
     data: {
       userId,
@@ -41,11 +54,14 @@ export async function createTestInvoice(userId: string, clientId: string, overri
       currency: 'USD',
       exchangeRate: 83.50,
       exchangeSource: 'RBI',
-      subtotal: faker.number.float({ min: 1000, max: 10000, fractionDigits: 2 }),
+      subtotal: totalAmount,
       igstRate: 0,
       igstAmount: 0,
-      totalAmount: faker.number.float({ min: 1000, max: 10000, fractionDigits: 2 }),
-      totalInINR: faker.number.float({ min: 80000, max: 800000, fractionDigits: 2 }),
+      totalAmount,
+      totalInINR: totalAmount * 83.50,
+      paymentStatus: 'UNPAID',
+      amountPaid: 0,
+      balanceDue: totalAmount,
       ...overrides,
     },
   })
@@ -53,6 +69,7 @@ export async function createTestInvoice(userId: string, clientId: string, overri
 
 export async function cleanupDatabase() {
   // Delete in correct order to respect foreign keys
+  await prisma.emailHistory.deleteMany()
   await prisma.payment.deleteMany()
   await prisma.invoiceItem.deleteMany()
   await prisma.invoice.deleteMany()

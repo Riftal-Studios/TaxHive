@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# FreelanceHive Deployment Script
+# GSTHive Deployment Script
 set -e
 
-echo "🚀 Starting FreelanceHive deployment..."
+echo "🚀 Starting GSTHive deployment..."
 
 # Check if fly CLI is installed
 if ! command -v fly &> /dev/null; then

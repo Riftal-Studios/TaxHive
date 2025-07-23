@@ -73,9 +73,11 @@ describe('Invoice Router', () => {
       
       const invoice = await caller.invoices.create({
         clientId: testClient.id,
-        invoiceDate: new Date(),
+        issueDate: new Date(),
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         currency: 'USD',
+        exchangeRate: 1,
+        exchangeRateSource: 'Manual',
         lutId: testLUT.id,
         description: 'Software development services',
         paymentTerms: 'Net 30 days',
@@ -85,13 +87,13 @@ describe('Invoice Router', () => {
             description: 'Backend API Development',
             quantity: 80,
             rate: 50,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
           {
             description: 'Frontend Development',
             quantity: 20,
             rate: 50,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
         ],
       })
@@ -121,7 +123,7 @@ describe('Invoice Router', () => {
       await expect(
         caller.invoices.create({
           clientId: testClient.id,
-          invoiceDate: new Date(),
+          issueDate: new Date(),
           dueDate: new Date(),
           currency: 'USD',
           lutId: testLUT.id,
@@ -130,7 +132,7 @@ describe('Invoice Router', () => {
               description: 'Invalid service code',
               quantity: 1,
               rate: 100,
-              serviceCode: '9983', // Only 4 digits
+              sacCode: '9983', // Only 4 digits
             },
           ],
         })
@@ -141,7 +143,7 @@ describe('Invoice Router', () => {
       await expect(
         caller.invoices.create({
           clientId: testClient.id,
-          invoiceDate: new Date(),
+          issueDate: new Date(),
           dueDate: new Date(),
           currency: 'USD',
           lutId: testLUT.id,
@@ -151,7 +153,7 @@ describe('Invoice Router', () => {
               description: 'Service',
               quantity: 1,
               rate: 100,
-              serviceCode: '99831400',
+              sacCode: '99831400',
             },
           ],
         })
@@ -162,16 +164,18 @@ describe('Invoice Router', () => {
       // Create first invoice
       const invoice1 = await caller.invoices.create({
         clientId: testClient.id,
-        invoiceDate: new Date(),
+        issueDate: new Date(),
         dueDate: new Date(),
         currency: 'USD',
+        exchangeRate: 1,
+        exchangeRateSource: 'Manual',
         lutId: testLUT.id,
         lineItems: [
           {
             description: 'Service 1',
             quantity: 1,
             rate: 100,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
         ],
       })
@@ -179,16 +183,18 @@ describe('Invoice Router', () => {
       // Create second invoice
       const invoice2 = await caller.invoices.create({
         clientId: testClient.id,
-        invoiceDate: new Date(),
+        issueDate: new Date(),
         dueDate: new Date(),
         currency: 'USD',
+        exchangeRate: 1,
+        exchangeRateSource: 'Manual',
         lutId: testLUT.id,
         lineItems: [
           {
             description: 'Service 2',
             quantity: 1,
             rate: 100,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
         ],
       })
@@ -202,16 +208,18 @@ describe('Invoice Router', () => {
     it('should fetch current exchange rate', async () => {
       const invoice = await caller.invoices.create({
         clientId: testClient.id,
-        invoiceDate: new Date(),
+        issueDate: new Date(),
         dueDate: new Date(),
         currency: 'USD',
+        exchangeRate: 1,
+        exchangeRateSource: 'Manual',
         lutId: testLUT.id,
         lineItems: [
           {
             description: 'Service',
             quantity: 1,
             rate: 100,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
         ],
       })
@@ -236,7 +244,7 @@ describe('Invoice Router', () => {
       await expect(
         caller.invoices.create({
           clientId: testClient.id,
-          invoiceDate: new Date(),
+          issueDate: new Date(),
           dueDate: new Date(),
           currency: 'USD',
           lutId: expiredLUT.id,
@@ -245,7 +253,7 @@ describe('Invoice Router', () => {
               description: 'Service',
               quantity: 1,
               rate: 100,
-              serviceCode: '99831400',
+              sacCode: '99831400',
             },
           ],
         })
@@ -258,16 +266,18 @@ describe('Invoice Router', () => {
       // Create invoice for test user
       await caller.invoices.create({
         clientId: testClient.id,
-        invoiceDate: new Date(),
+        issueDate: new Date(),
         dueDate: new Date(),
         currency: 'USD',
+        exchangeRate: 1,
+        exchangeRateSource: 'Manual',
         lutId: testLUT.id,
         lineItems: [
           {
             description: 'Service',
             quantity: 1,
             rate: 100,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
         ],
       })
@@ -291,16 +301,18 @@ describe('Invoice Router', () => {
       
       await otherCaller.invoices.create({
         clientId: otherClient.id,
-        invoiceDate: new Date(),
+        issueDate: new Date(),
         dueDate: new Date(),
         currency: 'USD',
+        exchangeRate: 1,
+        exchangeRateSource: 'Manual',
         lutId: otherLUT.id,
         lineItems: [
           {
             description: 'Other Service',
             quantity: 1,
             rate: 200,
-            serviceCode: '99831400',
+            sacCode: '99831400',
           },
         ],
       })

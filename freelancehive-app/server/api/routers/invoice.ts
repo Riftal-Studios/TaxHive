@@ -1,15 +1,32 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
-import { generateInvoiceNumber, validateGSTCompliance } from '@/lib/invoice'
-import { FISCAL_YEAR, GST_CONSTANTS } from '@/lib/constants'
+import { 
+  generateInvoiceNumber, 
+  getCurrentFiscalYear, 
+  calculateSubtotal, 
+  calculateGST, 
+  calculateTotal, 
+  validateHSNCode 
+} from '@/lib/invoice-utils'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
+import { BullMQService } from '@/lib/queue/bullmq.service'
+import { GST_CONSTANTS } from '@/lib/constants'
+import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
+
+// Initialize queue service (in production, this would be injected via dependency injection)
+const queueService = new BullMQService({
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+  },
+})
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
   quantity: z.number().positive(),
   rate: z.number().positive(),
-  serviceCode: z.string().regex(/^\d{8}$/, 'Service code must be 8 digits'),
+  sacCode: exportHsnSacCodeSchema,
 })
 
 export const invoiceRouter = createTRPCRouter({
@@ -17,205 +34,121 @@ export const invoiceRouter = createTRPCRouter({
     .input(
       z.object({
         clientId: z.string(),
-        invoiceDate: z.date(),
+        lutId: z.string().optional(),
+        issueDate: z.date(),
         dueDate: z.date(),
         currency: z.string().default('USD'),
-        lutId: z.string().optional(),
-        igstRate: z.number().default(0),
-        description: z.string().optional(),
-        paymentTerms: z.string().optional(),
+        exchangeRate: z.number(),
+        exchangeRateSource: z.string(),
+        paymentTerms: z.number().optional(),
         bankDetails: z.string().optional(),
         notes: z.string().optional(),
         lineItems: z.array(lineItemSchema).min(1),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Validate user has GST details
-      const user = await ctx.prisma.user.findUnique({
-        where: { id: ctx.session.user.id },
-      })
-
-      if (!user?.gstin || !user?.pan) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Please update your GST details before creating invoices',
-        })
-      }
-
-      // Validate client exists and belongs to user
-      const client = await ctx.prisma.client.findFirst({
-        where: {
-          id: input.clientId,
-          userId: ctx.session.user.id,
-        },
-      })
-
-      if (!client) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Client not found',
-        })
-      }
-
-      // Validate LUT if provided
-      if (input.lutId) {
-        const lut = await ctx.prisma.lUT.findFirst({
+      const db = ctx.prisma
+      const userId = ctx.session.user.id
+      
+      // Use transaction for atomicity
+      return await db.$transaction(async (tx) => {
+        // Get the current fiscal year
+        const currentFY = getCurrentFiscalYear(input.issueDate)
+        
+        // Get the next invoice number
+        const invoiceCount = await tx.invoice.count({
           where: {
-            id: input.lutId,
-            userId: ctx.session.user.id,
-            isActive: true,
+            userId,
+            invoiceNumber: {
+              startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(-2)}/`,
+            },
           },
         })
-
-        if (!lut) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'LUT not found',
-          })
-        }
-
-        // Check if LUT is valid for invoice date
-        if (input.invoiceDate < lut.validFrom || input.invoiceDate > lut.validTill) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'LUT has expired or is not yet valid',
-          })
-        }
-
-        // Enforce 0% IGST for LUT exports
-        if (input.igstRate !== 0) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'IGST must be 0% for exports under LUT',
-          })
-        }
-      }
-
-      // Get current exchange rate
-      const exchangeRate = await ctx.prisma.exchangeRate.findFirst({
-        where: {
-          currency: input.currency,
-          date: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lt: new Date(new Date().setHours(23, 59, 59, 999)),
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      })
-
-      if (!exchangeRate) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `Exchange rate not found for ${input.currency}. Please update exchange rates.`,
-        })
-      }
-
-      // Calculate totals
-      const subtotal = input.lineItems.reduce(
-        (sum, item) => sum + item.quantity * item.rate,
-        0
-      )
-      const igstAmount = (subtotal * input.igstRate) / 100
-      const totalAmount = subtotal + igstAmount
-      const totalInINR = totalAmount * Number(exchangeRate.rate)
-
-      // Generate invoice number
-      const currentFY = FISCAL_YEAR.getCurrent()
-      const lastInvoice = await ctx.prisma.invoice.findFirst({
-        where: {
-          userId: ctx.session.user.id,
-          invoiceNumber: {
-            startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(7, 9)}/`,
-          },
-        },
-        orderBy: {
-          invoiceNumber: 'desc',
-        },
-      })
-
-      let sequence = 1
-      if (lastInvoice) {
-        const lastSequence = parseInt(lastInvoice.invoiceNumber.split('/')[1])
-        sequence = lastSequence + 1
-      }
-
-      const invoiceNumber = generateInvoiceNumber(currentFY, sequence)
-
-      // Create invoice with line items
-      const invoice = await ctx.prisma.invoice.create({
-        data: {
-          userId: ctx.session.user.id,
-          clientId: input.clientId,
-          invoiceNumber,
-          invoiceDate: input.invoiceDate,
-          dueDate: input.dueDate,
-          status: 'DRAFT',
+        
+        const invoiceNumber = generateInvoiceNumber(currentFY, invoiceCount + 1)
+        
+        // Calculate totals
+        const subtotal = calculateSubtotal(input.lineItems)
+        const gstAmount = 0 // Always 0 for exports under LUT
+        const totalAmount = calculateTotal(subtotal, gstAmount)
+        
+        // Validate GST compliance
+        const gstValidation = validateGSTInvoice({
           placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
-          serviceCode: input.lineItems[0].serviceCode, // Primary service code
+          serviceCode: input.lineItems[0].sacCode,
+          igstRate: 0,
           lutId: input.lutId,
           currency: input.currency,
-          exchangeRate: exchangeRate.rate,
-          exchangeSource: exchangeRate.source,
-          subtotal,
-          igstRate: input.igstRate,
-          igstAmount,
-          totalAmount,
-          totalInINR,
-          description: input.description,
-          paymentTerms: input.paymentTerms,
-          bankDetails: input.bankDetails,
-          notes: input.notes,
-          lineItems: {
-            create: input.lineItems.map((item) => ({
-              description: item.description,
-              quantity: item.quantity,
-              rate: item.rate,
-              amount: item.quantity * item.rate,
-              serviceCode: item.serviceCode,
-            })),
+          exchangeRate: input.exchangeRate,
+          exchangeSource: input.exchangeRateSource,
+        })
+        
+        if (!gstValidation.isValid) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `GST validation failed: ${gstValidation.errors.join(', ')}`,
+          })
+        }
+        
+        // Create invoice
+        const invoice = await tx.invoice.create({
+          data: {
+            userId,
+            clientId: input.clientId,
+            lutId: input.lutId,
+            invoiceNumber,
+            invoiceDate: input.issueDate,
+            dueDate: input.dueDate,
+            currency: input.currency,
+            exchangeRate: input.exchangeRate,
+            exchangeSource: input.exchangeRateSource,
+            subtotal,
+            igstRate: 0,
+            igstAmount: gstAmount,
+            totalAmount,
+            totalInINR: totalAmount * input.exchangeRate,
+            status: 'DRAFT',
+            placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
+            serviceCode: input.lineItems[0].sacCode,
+            paymentTerms: input.paymentTerms?.toString(),
+            bankDetails: input.bankDetails,
+            notes: input.notes,
           },
-        },
-        include: {
-          client: true,
-          lineItems: true,
-          lut: true,
-        },
+        })
+        
+        // Create line items
+        await tx.invoiceItem.createMany({
+          data: input.lineItems.map((item) => ({
+            invoiceId: invoice.id,
+            description: item.description,
+            quantity: item.quantity,
+            rate: item.rate,
+            amount: item.quantity * item.rate,
+            serviceCode: item.sacCode,
+          })),
+        })
+        
+        return invoice
       })
-
-      return invoice
     }),
 
   list: protectedProcedure.query(async ({ ctx }) => {
-    const invoices = await ctx.prisma.invoice.findMany({
-      where: {
-        userId: ctx.session.user.id,
-      },
-      include: {
-        client: true,
-        lineItems: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+    return await ctx.prisma.invoice.findMany({
+      where: { userId: ctx.session.user.id },
+      include: { client: true },
+      orderBy: { createdAt: 'desc' },
     })
-    return invoices
   }),
 
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const invoice = await ctx.prisma.invoice.findFirst({
-        where: {
-          id: input.id,
-          userId: ctx.session.user.id,
-        },
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.id, userId: ctx.session.user.id },
         include: {
           client: true,
           lineItems: true,
           lut: true,
-          payments: true,
         },
       })
 
@@ -229,6 +162,108 @@ export const invoiceRouter = createTRPCRouter({
       return invoice
     }),
 
+  update: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        clientId: z.string().optional(),
+        lutId: z.string().optional(),
+        issueDate: z.date().optional(),
+        dueDate: z.date().optional(),
+        currency: z.string().optional(),
+        exchangeRate: z.number().optional(),
+        exchangeRateSource: z.string().optional(),
+        paymentTerms: z.number().optional(),
+        bankDetails: z.string().optional(),
+        notes: z.string().optional(),
+        lineItems: z.array(lineItemSchema).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, lineItems, ...updateData } = input
+      const db = ctx.prisma
+      const userId = ctx.session.user.id
+      
+      return await db.$transaction(async (tx) => {
+        // Build update data with proper relation handling
+        const data: Record<string, unknown> = {}
+        
+        // Handle direct fields
+        if (updateData.issueDate !== undefined) data.invoiceDate = updateData.issueDate
+        if (updateData.dueDate !== undefined) data.dueDate = updateData.dueDate
+        if (updateData.currency !== undefined) data.currency = updateData.currency
+        if (updateData.exchangeRate !== undefined) data.exchangeRate = updateData.exchangeRate
+        if (updateData.exchangeRateSource !== undefined) data.exchangeSource = updateData.exchangeRateSource
+        if (updateData.paymentTerms !== undefined) data.paymentTerms = updateData.paymentTerms?.toString()
+        if (updateData.bankDetails !== undefined) data.bankDetails = updateData.bankDetails
+        if (updateData.notes !== undefined) data.notes = updateData.notes
+        
+        // Handle relations
+        if (updateData.clientId !== undefined) {
+          data.client = { connect: { id: updateData.clientId } }
+        }
+        if (updateData.lutId !== undefined) {
+          data.lut = updateData.lutId ? { connect: { id: updateData.lutId } } : { disconnect: true }
+        }
+        
+        // Update invoice
+        const invoice = await tx.invoice.update({
+          where: { id, userId },
+          data,
+        })
+        
+        // Update line items if provided
+        if (lineItems) {
+          // Delete existing line items
+          await tx.invoiceItem.deleteMany({
+            where: { invoiceId: id },
+          })
+          
+          // Create new line items
+          await tx.invoiceItem.createMany({
+            data: lineItems.map((item) => ({
+              invoiceId: id,
+              description: item.description,
+              quantity: item.quantity,
+              rate: item.rate,
+              amount: item.quantity * item.rate,
+              serviceCode: item.sacCode,
+            })),
+          })
+          
+          // Update invoice totals
+          const subtotal = calculateSubtotal(lineItems)
+          const totalAmount = calculateTotal(subtotal, 0)
+          
+          // Get the current invoice to get the exchange rate
+          const currentInvoice = await tx.invoice.findUnique({
+            where: { id },
+          })
+          
+          const exchangeRate = updateData.exchangeRate || Number(currentInvoice?.exchangeRate || 1)
+          
+          await tx.invoice.update({
+            where: { id },
+            data: {
+              subtotal,
+              totalAmount,
+              totalInINR: totalAmount * exchangeRate,
+            },
+          })
+        }
+        
+        return invoice
+      })
+    }),
+
+  delete: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return await ctx.prisma.invoice.delete({
+        where: { id: input.id, userId: ctx.session.user.id },
+      })
+    }),
+
   updateStatus: protectedProcedure
     .input(
       z.object({
@@ -237,24 +272,25 @@ export const invoiceRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const invoice = await ctx.prisma.invoice.updateMany({
+      return await ctx.prisma.invoice.update({
+        where: { id: input.id, userId: ctx.session.user.id },
+        data: { status: input.status },
+      })
+    }),
+
+  getNextInvoiceNumber: protectedProcedure
+    .query(async ({ ctx }) => {
+      const currentFY = getCurrentFiscalYear()
+      const count = await ctx.prisma.invoice.count({
         where: {
-          id: input.id,
           userId: ctx.session.user.id,
-        },
-        data: {
-          status: input.status,
+          invoiceNumber: {
+            startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(-2)}/`,
+          },
         },
       })
-
-      if (invoice.count === 0) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Invoice not found',
-        })
-      }
-
-      return { success: true }
+      
+      return generateInvoiceNumber(currentFY, count + 1)
     }),
 
   generatePDF: protectedProcedure
@@ -309,6 +345,282 @@ export const invoiceRouter = createTRPCRouter({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to generate PDF',
         })
+      }
+    }),
+
+  // Queue-based PDF generation
+  queuePDFGeneration: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify invoice exists and belongs to user
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+
+      try {
+        // Enqueue PDF generation job
+        const job = await queueService.enqueueJob('PDF_GENERATION', {
+          invoiceId: input.id,
+          userId: ctx.session.user.id,
+        })
+
+        return {
+          success: true,
+          jobId: job.id,
+          message: 'PDF generation queued successfully',
+        }
+      } catch (error) {
+        console.error('Failed to queue PDF generation:', error)
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to queue PDF generation',
+        })
+      }
+    }),
+
+  // Check PDF generation status
+  getPDFGenerationStatus: protectedProcedure
+    .input(z.object({ jobId: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const job = await queueService.getJob(input.jobId)
+
+        if (!job) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Job not found',
+          })
+        }
+
+        // Map job status to response
+        if (job.status === 'completed' && job.result) {
+          return {
+            jobId: job.id,
+            status: 'completed',
+            pdfUrl: (job.result as { pdfUrl: string }).pdfUrl,
+          }
+        } else if (job.status === 'failed') {
+          return {
+            jobId: job.id,
+            status: 'failed',
+            error: job.error || 'PDF generation failed',
+          }
+        } else {
+          return {
+            jobId: job.id,
+            status: job.status,
+            progress: job.progress,
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get job status:', error)
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to get job status',
+        })
+      }
+    }),
+
+  // Get current exchange rate for a currency
+  getCurrentExchangeRate: protectedProcedure
+    .input(z.object({
+      currency: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      // First check if we have today's rate
+      const exchangeRate = await ctx.prisma.exchangeRate.findFirst({
+        where: {
+          currency: input.currency,
+          date: {
+            gte: today,
+            lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+      
+      if (exchangeRate) {
+        return {
+          rate: Number(exchangeRate.rate),
+          source: exchangeRate.source,
+          date: exchangeRate.date,
+        }
+      }
+      
+      // If no rate found for today, get the most recent rate
+      const latestRate = await ctx.prisma.exchangeRate.findFirst({
+        where: {
+          currency: input.currency,
+        },
+        orderBy: {
+          date: 'desc',
+        },
+      })
+      
+      if (latestRate) {
+        return {
+          rate: Number(latestRate.rate),
+          source: latestRate.source,
+          date: latestRate.date,
+        }
+      }
+      
+      // No rates found - return null to indicate manual entry needed
+      return null
+    }),
+
+  // Send invoice email
+  sendInvoiceEmail: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      to: z.string().email(),
+      cc: z.string().email().optional(),
+      bcc: z.string().email().optional(),
+      customMessage: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify invoice ownership
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+        include: {
+          client: true,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+
+      // Queue email notification
+      const job = await queueService.enqueueJob('EMAIL_NOTIFICATION', {
+        type: 'invoice',
+        to: input.to || invoice.client.email,
+        cc: input.cc,
+        bcc: input.bcc,
+        invoiceId: invoice.id,
+        customMessage: input.customMessage,
+        userId: ctx.session.user.id,
+      })
+
+      // Update invoice status to SENT if it's a DRAFT
+      if (invoice.status === 'DRAFT') {
+        await ctx.prisma.invoice.update({
+          where: { id: invoice.id },
+          data: { status: 'SENT' },
+        })
+      }
+
+      return {
+        success: true,
+        jobId: job.id,
+      }
+    }),
+
+  // Send payment reminder
+  sendPaymentReminder: protectedProcedure
+    .input(z.object({
+      id: z.string(),
+      to: z.string().email().optional(),
+      cc: z.string().email().optional(),
+      bcc: z.string().email().optional(),
+      customMessage: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify invoice ownership
+      const invoice = await ctx.prisma.invoice.findFirst({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+        },
+        include: {
+          client: true,
+        },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+
+      // Queue payment reminder email
+      const job = await queueService.enqueueJob('EMAIL_NOTIFICATION', {
+        type: 'payment-reminder',
+        to: input.to || invoice.client.email,
+        cc: input.cc,
+        bcc: input.bcc,
+        invoiceId: invoice.id,
+        customMessage: input.customMessage,
+        userId: ctx.session.user.id,
+      })
+
+      return {
+        success: true,
+        jobId: job.id,
+      }
+    }),
+
+  // Get email history for an invoice
+  getEmailHistory: protectedProcedure
+    .input(z.object({
+      invoiceId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const emails = await ctx.prisma.emailHistory.findMany({
+        where: {
+          invoiceId: input.invoiceId,
+          userId: ctx.session.user.id,
+        },
+        orderBy: {
+          sentAt: 'desc',
+        },
+      })
+
+      return emails
+    }),
+
+  // Get email send status
+  getEmailStatus: protectedProcedure
+    .input(z.object({
+      jobId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const job = await queueService.getJob(input.jobId)
+      
+      if (!job) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Job not found',
+        })
+      }
+
+      return {
+        status: job.status,
+        progress: job.progress,
+        result: job.result,
+        error: job.error,
       }
     }),
 })

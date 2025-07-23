@@ -1,0 +1,29 @@
+# Cloudflare Tunnel Configuration for gsthive.com
+# This file is used when creating the tunnel manually (optional)
+
+tunnel: gsthive-tunnel
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # Main application
+  - hostname: gsthive.com
+    service: http://app:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  # WWW redirect
+  - hostname: www.gsthive.com
+    service: http://app:3000
+    originRequest:
+      noTLSVerify: true
+      connectTimeout: 30s
+      
+  # Health check endpoint (optional subdomain)
+  - hostname: health.gsthive.com
+    service: http://app:3000/api/health
+    originRequest:
+      noTLSVerify: true
+      
+  # Catch-all rule (required)
+  - service: http_status:404

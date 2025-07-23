@@ -13,7 +13,7 @@
 
 1. Update `.env` file:
    ```
-   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/freelancehive?schema=public"
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gsthive?schema=public"
    ```
 
 2. Update `prisma/schema.prisma`:

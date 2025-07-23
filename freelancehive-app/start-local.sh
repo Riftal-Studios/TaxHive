@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Starting FreelanceHive locally..."
+echo "🚀 Starting GSTHive locally..."
 
 # Colors for output
 RED='\033[0;31m'

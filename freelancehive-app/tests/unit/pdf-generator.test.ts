@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library'
 
 // Create mock functions
 const mockSetContent = vi.fn()
@@ -34,6 +35,9 @@ describe('PDF Invoice Generator', () => {
     gstin: '29ABCDE1234F1Z5',
     pan: 'ABCDE1234F',
     address: '123 Business St, Bangalore, Karnataka 560001',
+    emailVerified: null,
+    onboardingCompleted: true,
+    onboardingStep: 'complete',
     createdAt: new Date(),
     updatedAt: new Date(),
   }
@@ -48,6 +52,7 @@ describe('PDF Invoice Generator', () => {
     country: 'USA',
     phone: '+1-555-0123',
     taxId: 'US-TAX-123',
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   }
@@ -56,8 +61,10 @@ describe('PDF Invoice Generator', () => {
     id: 'lut-1',
     userId: 'user-1',
     lutNumber: 'LUT/2024/001',
-    issuedDate: new Date('2024-01-01'),
-    validUntil: new Date('2025-12-31'),
+    lutDate: new Date('2024-01-01'),
+    validFrom: new Date('2024-01-01'),
+    validTill: new Date('2025-12-31'),
+    isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   }
@@ -71,21 +78,28 @@ describe('PDF Invoice Generator', () => {
     userId: 'user-1',
     clientId: 'client-1',
     invoiceNumber: 'FY24-25/001',
-    issueDate: new Date('2024-04-15'),
+    invoiceDate: new Date('2024-04-15'),
     dueDate: new Date('2024-05-15'),
     status: 'draft',
     placeOfSupply: 'Outside India (Section 2-6)',
     serviceCode: '99831000',
-    serviceDescription: 'Software Development Services',
     lutId: 'lut-1',
-    igstRate: 0,
+    igstRate: new Decimal(0),
     currency: 'USD',
-    exchangeRate: 83.5,
-    exchangeRateSource: 'RBI Reference Rate',
-    subtotal: 5000,
-    igstAmount: 0,
-    totalAmount: 5000,
+    exchangeRate: new Decimal(83.5),
+    exchangeSource: 'RBI Reference Rate',
+    subtotal: new Decimal(5000),
+    igstAmount: new Decimal(0),
+    totalAmount: new Decimal(5000),
+    totalInINR: new Decimal(417500), // 5000 * 83.5
+    description: 'Development services for April 2024',
+    paymentTerms: 'Net 30 days',
+    bankDetails: 'Account: 1234567890, IFSC: SBIN0001234',
+    pdfUrl: null,
     notes: 'Thank you for your business',
+    paymentStatus: 'UNPAID',
+    amountPaid: new Decimal(0),
+    balanceDue: new Decimal(5000),
     createdAt: new Date(),
     updatedAt: new Date(),
     lineItems: [
@@ -93,21 +107,19 @@ describe('PDF Invoice Generator', () => {
         id: 'item-1',
         invoiceId: 'inv-1',
         description: 'Website Development - Phase 1',
-        quantity: 1,
-        rate: 3000,
-        amount: 3000,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        serviceCode: '99831000',
+        quantity: new Decimal(1),
+        rate: new Decimal(3000),
+        amount: new Decimal(3000),
       },
       {
         id: 'item-2',
         invoiceId: 'inv-1',
         description: 'API Integration Services',
-        quantity: 40,
-        rate: 50,
-        amount: 2000,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        serviceCode: '99831000',
+        quantity: new Decimal(40),
+        rate: new Decimal(50),
+        amount: new Decimal(2000),
       },
     ],
     client: mockClient,
@@ -187,9 +199,9 @@ describe('PDF Invoice Generator', () => {
       ...mockInvoice,
       lutId: null,
       lut: null,
-      igstRate: 18,
-      igstAmount: 900,
-      totalAmount: 5900,
+      igstRate: new Decimal(18),
+      igstAmount: new Decimal(900),
+      totalAmount: new Decimal(5900),
     }
 
     await generateInvoicePDF(invoiceWithoutLUT, mockUser)

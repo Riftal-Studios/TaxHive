@@ -88,7 +88,7 @@ describe('Exchange Rate Service', () => {
       expect(rates).toContainEqual({
         currency: 'USD',
         rate: 83.50,
-        source: 'ExchangeRatesAPI',
+        source: 'exchangerate-api.com',
       })
     })
 
@@ -119,7 +119,7 @@ describe('Exchange Rate Service', () => {
       expect(rates).toContainEqual({
         currency: 'USD',
         rate: 83.50,
-        source: 'ExchangeRatesAPI',
+        source: 'exchangerate-api.com',
       })
     })
   })
@@ -185,7 +185,7 @@ describe('Exchange Rate Service', () => {
       expect(prisma.exchangeRate.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           create: expect.objectContaining({
-            source: 'ExchangeRatesAPI',
+            source: 'exchangerate-api.com',
           }),
         })
       )

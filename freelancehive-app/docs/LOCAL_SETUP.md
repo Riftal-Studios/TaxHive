@@ -1,6 +1,6 @@
 # Local Development Setup (Without Docker)
 
-This guide explains how to run FreelanceHive locally without Docker.
+This guide explains how to run GSTHive locally without Docker.
 
 ## Prerequisites
 
@@ -43,11 +43,11 @@ Download and install from https://www.postgresql.org/download/windows/
 psql -U postgres
 
 # Create database
-CREATE DATABASE freelancehive;
+CREATE DATABASE gsthive;
 
 # Create user (optional)
-CREATE USER freelancehive WITH PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE freelancehive TO freelancehive;
+CREATE USER gsthive WITH PASSWORD 'password';
+GRANT ALL PRIVILEGES ON DATABASE gsthive TO gsthive;
 
 # Exit
 \q
@@ -59,7 +59,7 @@ Create `.env` file in the project root:
 
 ```bash
 # Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/freelancehive?schema=public"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gsthive?schema=public"
 
 # For SQLite (if you prefer for development)
 # DATABASE_URL="file:./dev.db"
@@ -70,7 +70,7 @@ NEXTAUTH_SECRET="your-development-secret-key-here"
 
 # Email (for magic links)
 EMAIL_SERVER="smtp://username:password@smtp.gmail.com:587"
-EMAIL_FROM="noreply@freelancehive.local"
+EMAIL_FROM="noreply@gsthive.local"
 
 # Cron Secret
 CRON_SECRET="your-cron-secret-for-exchange-rates"
@@ -106,7 +106,7 @@ Create a `start-local.sh` script:
 
 ```bash
 #!/bin/bash
-echo "🚀 Starting FreelanceHive locally..."
+echo "🚀 Starting GSTHive locally..."
 
 # Check if PostgreSQL is running
 if ! pg_isready > /dev/null 2>&1; then
@@ -166,7 +166,7 @@ lsof -ti:3000 | xargs kill -9
 ### Database Connection Issues
 ```bash
 # Test PostgreSQL connection
-psql -U postgres -d freelancehive -c "SELECT 1;"
+psql -U postgres -d gsthive -c "SELECT 1;"
 
 # Check PostgreSQL status
 # macOS

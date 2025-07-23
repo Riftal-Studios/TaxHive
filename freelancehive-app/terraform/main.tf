@@ -21,7 +21,7 @@ provider "fly" {
 variable "app_name" {
   description = "Name of the Fly.io application"
   type        = string
-  default     = "freelancehive"
+  default     = "gsthive"
 }
 
 variable "region" {
@@ -55,15 +55,15 @@ variable "cron_secret" {
 }
 
 # Create Fly.io app
-resource "fly_app" "freelancehive" {
+resource "fly_app" "gsthive" {
   name = var.app_name
   org  = "personal"
 }
 
 # PostgreSQL database
-resource "fly_postgres_cluster" "freelancehive_db" {
+resource "fly_postgres_cluster" "gsthive_db" {
   name            = "${var.app_name}-db"
-  app_id          = fly_app.freelancehive.id
+  app_id          = fly_app.gsthive.id
   region          = var.region
   initial_cluster_size = "shared-cpu-1x"
   vm_size         = "shared-cpu-1x"
@@ -73,7 +73,7 @@ resource "fly_postgres_cluster" "freelancehive_db" {
 
 # Redis instance
 resource "fly_machine" "redis" {
-  app    = fly_app.freelancehive.id
+  app    = fly_app.gsthive.id
   region = var.region
   name   = "${var.app_name}-redis"
   image  = "flyio/redis:7"
@@ -100,7 +100,7 @@ resource "fly_machine" "redis" {
 
 # Main application
 resource "fly_machine" "app" {
-  app    = fly_app.freelancehive.id
+  app    = fly_app.gsthive.id
   region = var.region
   name   = "${var.app_name}-app"
   image  = "registry.fly.io/${var.app_name}:latest"
@@ -126,7 +126,7 @@ resource "fly_machine" "app" {
   env = {
     NODE_ENV         = "production"
     PORT             = "3000"
-    DATABASE_URL     = fly_postgres_cluster.freelancehive_db.connection_string
+    DATABASE_URL     = fly_postgres_cluster.gsthive_db.connection_string
     REDIS_URL        = "redis://${fly_machine.redis.privateip}:6379"
     NEXTAUTH_URL     = "https://${var.app_name}.fly.dev"
     NEXTAUTH_SECRET  = var.nextauth_secret
@@ -142,7 +142,7 @@ resource "fly_machine" "app" {
   }
   
   depends_on = [
-    fly_postgres_cluster.freelancehive_db,
+    fly_postgres_cluster.gsthive_db,
     fly_machine.redis
   ]
 }
@@ -153,7 +153,7 @@ output "app_url" {
 }
 
 output "postgres_connection_string" {
-  value     = fly_postgres_cluster.freelancehive_db.connection_string
+  value     = fly_postgres_cluster.gsthive_db.connection_string
   sensitive = true
 }
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up FreelanceHive development environment..."
+echo "🚀 Setting up GSTHive development environment..."
 
 # Check if Docker is installed
 if ! command -v docker &> /dev/null; then

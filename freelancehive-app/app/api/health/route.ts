@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      service: 'freelancehive',
+      service: 'gsthive',
       checks: {
         database: 'ok',
       },
@@ -20,7 +20,7 @@ export async function GET() {
       {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
-        service: 'freelancehive',
+        service: 'gsthive',
         checks: {
           database: 'failed',
         },

@@ -33,16 +33,16 @@ async function testEmail() {
     const info = await transporter.sendMail({
       from: process.env.EMAIL_FROM || 'test@example.com',
       to: testEmail,
-      subject: 'FreelanceHive Email Test',
-      text: 'This is a test email from FreelanceHive.\n\nIf you received this email, your email configuration is working correctly!',
+      subject: 'GSTHive Email Test',
+      text: 'This is a test email from GSTHive.\n\nIf you received this email, your email configuration is working correctly!',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4f46e5;">FreelanceHive Email Test</h2>
-          <p>This is a test email from <strong>FreelanceHive</strong>.</p>
+          <h2 style="color: #4f46e5;">GSTHive Email Test</h2>
+          <p>This is a test email from <strong>GSTHive</strong>.</p>
           <p>If you received this email, your email configuration is working correctly! ✅</p>
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
           <p style="color: #6b7280; font-size: 14px;">
-            This test email was sent from the FreelanceHive application using Amazon SES.
+            This test email was sent from the GSTHive application using Amazon SES.
           </p>
         </div>
       `,
@@ -61,7 +61,7 @@ async function testEmail() {
     console.error('❌ Email test failed:', error.message);
     console.error('\nPlease check:');
     console.error('1. Your Amazon SES account is verified');
-    console.error('2. The sender email (no-reply@freelancehive.app) is verified in SES');
+    console.error('2. The sender email (no-reply@gsthive.com) is verified in SES');
     console.error('3. Your AWS region is correct (currently using us-east-1)');
     console.error('4. You are not in SES sandbox mode (or recipient is verified)');
     process.exit(1);

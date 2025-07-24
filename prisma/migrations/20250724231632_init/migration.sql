@@ -288,3 +288,4 @@ ALTER TABLE "EmailHistory" ADD CONSTRAINT "EmailHistory_userId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "EmailHistory" ADD CONSTRAINT "EmailHistory_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+

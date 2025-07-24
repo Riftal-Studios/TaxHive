@@ -81,7 +81,6 @@ jobs:
         run: |
           mkdir -p deployment
           cp docker/docker-compose.production.yml deployment/docker-compose.yml
-          cp deploy.sh deployment/
           
           # Create .env file from secrets
           cat > deployment/.env.production << EOF
@@ -148,63 +147,6 @@ jobs:
           ' deployment/docker-compose.yml > deployment/docker-compose.yml.tmp
           mv deployment/docker-compose.yml.tmp deployment/docker-compose.yml
           
-          # Create deployment script
-          cat > deployment/remote-deploy.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          
-          # Colors
-          GREEN='\033[0;32m'
-          RED='\033[0;31m'
-          NC='\033[0m'
-          
-          echo -e "${GREEN}Starting deployment...${NC}"
-          
-          # Login to GitHub Container Registry
-          echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
-          
-          # Export environment variables from .env.production
-          export $(grep -v '^#' .env.production | xargs)
-          
-          # Pull latest images
-          docker-compose pull
-          
-          # Deploy based on type
-          case "$DEPLOY_TYPE" in
-            "rebuild")
-              echo -e "${GREEN}Rebuilding all services...${NC}"
-              docker-compose down
-              docker-compose up -d --force-recreate
-              ;;
-            "migrate-only")
-              echo -e "${GREEN}Running migrations only...${NC}"
-              docker-compose run --rm app npx prisma migrate deploy
-              ;;
-            *)
-              echo -e "${GREEN}Standard deployment...${NC}"
-              docker-compose up -d
-              sleep 10
-              docker-compose exec -T app npx prisma migrate deploy
-              ;;
-          esac
-          
-          # Health check
-          sleep 5
-          if docker-compose exec -T app wget -qO- http://localhost:3000/api/health; then
-            echo -e "${GREEN}Health check passed${NC}"
-          else
-            echo -e "${RED}Health check failed${NC}"
-            docker-compose logs app
-            exit 1
-          fi
-          
-          # Cleanup old images
-          docker image prune -f
-          
-          echo -e "${GREEN}Deployment completed successfully!${NC}"
-          EOF
-          
-          chmod +x deployment/remote-deploy.sh
           tar -czf deployment.tar.gz deployment/
 
       - name: Copy deployment package to VPS
@@ -243,8 +185,50 @@ jobs:
             export DEPLOY_TYPE='${{ github.event.inputs.deploy_type || 'deploy' }}'
             export COMPOSE_PROJECT_NAME='gsthive-prod'
             
-            # Run deployment
-            ./remote-deploy.sh
+            # Login to GitHub Container Registry
+            echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+            
+            # Export environment variables from .env.production
+            set -a
+            source .env.production
+            set +a
+            
+            # Pull latest images
+            docker-compose pull
+            
+            # Deploy based on type
+            case "$DEPLOY_TYPE" in
+              "rebuild")
+                echo "Rebuilding all services..."
+                docker-compose down
+                docker-compose up -d --force-recreate
+                ;;
+              "migrate-only")
+                echo "Running migrations only..."
+                docker-compose run --rm app npx prisma migrate deploy
+                ;;
+              *)
+                echo "Standard deployment..."
+                docker-compose up -d
+                sleep 10
+                docker-compose exec -T app npx prisma migrate deploy
+                ;;
+            esac
+            
+            # Health check
+            sleep 5
+            if docker-compose exec -T app wget -qO- http://localhost:3000/api/health; then
+              echo "Health check passed"
+            else
+              echo "Health check failed"
+              docker-compose logs app
+              exit 1
+            fi
+            
+            # Cleanup old images
+            docker image prune -f
+            
+            echo "Deployment completed successfully!"
             
             # Cleanup
             rm -f /tmp/deployment.tar.gz

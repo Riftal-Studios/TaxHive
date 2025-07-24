@@ -1,14 +1,31 @@
 # GitHub Environments Setup Guide
 
-This guide explains how to set up GitHub Environments with environment-specific secrets and variables for better security and deployment management.
+This guide explains how to set up GitHub Environments for automated deployments.
+
+## How Deployment Works
+
+```
+Push to GitHub → GitHub Actions → Build Docker Image → Deploy to VPS → Cloudflare Tunnel → Live Site
+```
+
+**Fully Automated:**
+- Push to `main` → Deploys to production (gsthive.com)
+- Push to `staging` → Deploys to staging (staging.gsthive.com)
+- No manual steps required!
 
 ## Overview
 
-Using GitHub Environments provides:
+GitHub Environments provide:
 - **Environment-specific secrets** - Different values for staging vs production
 - **Protection rules** - Require reviews, restrict deployments
 - **Deployment history** - Track what was deployed when
 - **Environment URLs** - Quick access to each environment
+
+## Prerequisites
+
+- GitHub repository for your project
+- GitHub Actions enabled
+- Deployment workflows in `.github/workflows/`
 
 ## Setting Up Environments
 
@@ -22,7 +39,9 @@ Create these environments:
 - **production** - For live site (gsthive.com)
 - **staging** - For testing (staging.gsthive.com)
 
-### Step 2: Configure Production Environment
+### Step 2: Configure Protection Rules
+
+#### Production Environment
 
 1. Click on **production** environment
 2. Set **Environment URL**: `https://gsthive.com`
@@ -30,129 +49,106 @@ Create these environments:
    - ✅ Required reviewers (add yourself or team members)
    - ✅ Restrict deployments to `main` branch only
    - ✅ Wait timer: 5 minutes (optional)
-4. Add secrets and variables (see below)
 
-### Step 3: Configure Staging Environment
+#### Staging Environment
 
 1. Click on **staging** environment
 2. Set **Environment URL**: `https://staging.gsthive.com`
 3. Add **Protection rules** (optional):
    - Restrict deployments to `staging`, `develop` branches
-4. Add secrets and variables (see below)
 
-## Environment-Specific Configuration
+## Configuring Secrets and Variables
 
-### 🔐 Production Environment Secrets
+For a complete list of all environment variables with documentation, see `.env.example` in the root directory.
 
-Add these secrets to the **production** environment:
+### Understanding Secrets vs Variables
 
-| Secret Name | Description | Example/How to Get |
-|------------|-------------|-------------------|
-| **VPS Connection** |
-| `VPS_HOST` | VPS IP/hostname (can be same for staging) | `123.456.78.90` |
-| `VPS_USER` | SSH username (can be same for staging) | `deploy` |
-| `VPS_PORT` | SSH port (can be same for staging) | `22` |
-| `VPS_SSH_KEY` | Private SSH key (can be same for staging) | Your server SSH key |
-| **Database & Cache** |
-| `POSTGRES_PASSWORD` | Production DB password | `openssl rand -base64 32` |
-| `REDIS_PASSWORD` | Production Redis password | `openssl rand -base64 32` |
-| **Authentication** |
-| `NEXTAUTH_SECRET` | Production auth secret | `openssl rand -base64 64` |
-| `CRON_SECRET` | Production cron secret | `openssl rand -hex 32` |
-| **Email** |
-| `EMAIL_SERVER` | SMTP connection string | `smtp://user:pass@smtp.gmail.com:587` |
-| `SMTP_USER` | SMTP username | `noreply@gsthive.com` |
-| `SMTP_PASSWORD` | SMTP password | Your email password |
-| **API Keys** |
-| `EXCHANGE_RATE_API_KEY` | Exchange rate API | From exchangerate-api.com |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Production tunnel | From Cloudflare Zero Trust |
-| **AWS (Optional)** |
-| `AWS_ACCESS_KEY_ID` | AWS access key | From AWS IAM |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret | From AWS IAM |
+**Secrets** (sensitive data):
+- Passwords, API keys, tokens
+- Encrypted and masked in logs
+- Use: `${{ secrets.SECRET_NAME }}`
 
-### 📝 Production Environment Variables
+**Variables** (non-sensitive configuration):
+- Hostnames, ports, usernames, URLs
+- Visible in logs
+- Use: `${{ vars.VARIABLE_NAME }}`
 
-| Variable Name | Value |
-|--------------|-------|
-| `POSTGRES_USER` | `gsthive` |
-| `POSTGRES_DB` | `gsthive` |
-| `NEXTAUTH_URL` | `https://gsthive.com` |
-| `EMAIL_FROM` | `GST Hive <noreply@gsthive.com>` |
-| `SMTP_FROM` | `noreply@gsthive.com` |
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `AWS_REGION` | `ap-south-1` |
-| `AWS_S3_BUCKET` | `gsthive-production` |
+### Production Environment Configuration
 
-### 🔐 Staging Environment Secrets
+#### Secrets to Add:
+```yaml
+# Authentication & Security
+VPS_SSH_KEY          # Your server's private SSH key
+POSTGRES_PASSWORD    # Generate: openssl rand -base64 32
+REDIS_PASSWORD       # Generate: openssl rand -base64 32
+NEXTAUTH_SECRET      # Generate: openssl rand -base64 64
+CRON_SECRET          # Generate: openssl rand -hex 32
 
-Add these secrets to the **staging** environment:
+# Email (Amazon SES)
+EMAIL_SERVER         # smtp://USER:PASS@email-smtp.region.amazonaws.com:587
+AWS_SES_ACCESS_KEY_ID
+AWS_SES_SECRET_ACCESS_KEY
 
-| Secret Name | Description | Different from Production? |
-|------------|-------------|---------------------------|
-| `VPS_HOST` | VPS IP (same server OK!) | No - can use same VPS |
-| `VPS_USER` | SSH username | No - same user |
-| `VPS_PORT` | SSH port | No - same port |
-| `VPS_SSH_KEY` | Private SSH key | No - same key |
-| `POSTGRES_PASSWORD` | Staging DB password | Yes - different password |
-| `REDIS_PASSWORD` | Staging Redis password | Yes - different password |
-| `NEXTAUTH_SECRET` | Staging auth secret | Yes - different secret |
-| `CRON_SECRET` | Staging cron secret | Yes - different secret |
-| `EMAIL_SERVER` | SMTP connection | Can be same |
-| `SMTP_USER` | SMTP username | Can be same |
-| `SMTP_PASSWORD` | SMTP password | Can be same |
-| `EXCHANGE_RATE_API_KEY` | API key | Can be same |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Staging tunnel | Yes - different tunnel |
-| `AWS_ACCESS_KEY_ID` | AWS key | Can be same |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret | Can be same |
+# API Keys
+EXCHANGE_RATE_API_KEY
+CLOUDFLARE_TUNNEL_TOKEN
 
-### 📝 Staging Environment Variables
+# AWS (Optional)
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
 
-| Variable Name | Value |
-|--------------|-------|
-| `POSTGRES_USER` | `gsthive_staging` |
-| `POSTGRES_DB` | `gsthive_staging` |
-| `NEXTAUTH_URL` | `https://staging.gsthive.com` |
-| `EMAIL_FROM` | `GST Hive Staging <staging@gsthive.com>` |
-| `SMTP_FROM` | `staging@gsthive.com` |
-| `SMTP_HOST` | `smtp.gmail.com` |
-| `SMTP_PORT` | `587` |
-| `AWS_REGION` | `ap-south-1` |
-| `AWS_S3_BUCKET` | `gsthive-staging` |
+#### Variables to Add:
+```yaml
+# VPS Connection
+VPS_HOST: your.server.ip
+VPS_USER: deploy
+VPS_PORT: 22
 
-## Setting Protection Rules
+# Database
+POSTGRES_USER: gsthive
+POSTGRES_DB: gsthive
 
-### Production Protection Rules
+# Application
+NEXTAUTH_URL: https://gsthive.com
+EMAIL_PROVIDER: ses
+EMAIL_FROM: GST Hive <noreply@gsthive.com>
+AWS_SES_REGION: ap-south-1
 
-1. In production environment settings, click **Protection rules**
-2. Enable these options:
+# AWS (Optional)
+AWS_REGION: ap-south-1
+AWS_S3_BUCKET: gsthive-production
+```
 
-**Required reviewers**:
-- Add yourself and/or team members
-- Prevents accidental deployments
+### Staging Environment Configuration
 
-**Deployment branches**:
-- Type: Selected branches
-- Add pattern: `main`
-- Only main branch can deploy to production
+Use the same structure as production but with:
+- Different passwords and secrets (always separate)
+- Different database names (e.g., `gsthive_staging`)
+- Different URLs (e.g., `https://staging.gsthive.com`)
+- Different S3 buckets if using file storage
 
-**Environment secrets**:
-- ✅ Allow administrators to bypass
+## Quick Setup Commands
 
-**Wait timer** (optional):
-- Set to 5-10 minutes
-- Gives time to cancel if needed
+Generate all required secrets at once:
 
-### Staging Protection Rules
+```bash
+echo "=== Production Secrets ==="
+echo "POSTGRES_PASSWORD=$(openssl rand -base64 32)"
+echo "REDIS_PASSWORD=$(openssl rand -base64 32)"
+echo "NEXTAUTH_SECRET=$(openssl rand -base64 64)"
+echo "CRON_SECRET=$(openssl rand -hex 32)"
 
-**Deployment branches**:
-- Type: Selected branches
-- Add patterns: `staging`, `develop`
-- Only these branches can deploy to staging
+echo -e "\n=== Staging Secrets ==="
+echo "POSTGRES_PASSWORD=$(openssl rand -base64 32)"
+echo "REDIS_PASSWORD=$(openssl rand -base64 32)"  
+echo "NEXTAUTH_SECRET=$(openssl rand -base64 64)"
+echo "CRON_SECRET=$(openssl rand -hex 32)"
+```
 
 ## Using Environments in Workflows
 
-The workflows are already configured to use environments:
+The workflows automatically use the correct environment:
 
 ```yaml
 jobs:
@@ -164,105 +160,76 @@ jobs:
 ```
 
 This ensures:
-- Secrets are loaded from the correct environment
+- Correct secrets and variables are loaded
 - Protection rules are enforced
-- Deployment history is tracked
-- Environment URL is displayed
+- Deployment is tracked in GitHub
 
 ## Testing Your Setup
 
-### 1. Test Staging Deployment
+### 1. Test Environment Configuration
+
+Run the environment test workflow:
 
 ```bash
-# Create staging branch
+# Go to Actions → Test Environment Secrets → Run workflow
+# Select the environment to test
+```
+
+### 2. Test Deployment
+
+```bash
+# Staging deployment
 git checkout -b staging
 git push origin staging
 
-# This triggers staging deployment
-```
-
-### 2. Test Production Deployment
-
-```bash
-# Merge to main
+# Production deployment  
 git checkout main
 git merge staging
 git push origin main
-
-# This triggers production deployment
-# Will require approval if protection rules are set
 ```
 
-### 3. Check Deployment History
+## Viewing Deployment History
 
 1. Go to repository home
 2. Click **Environments** in sidebar
 3. Click on environment name
-4. View deployment history
+4. View deployment history and status
 
-## Environment-Specific Features
+## Best Practices
 
-### Different Cloudflare Tunnels
-
-Each environment uses its own tunnel:
-- **Production**: `gsthive.com`
-- **Staging**: `staging.gsthive.com`
-
-Create separate tunnels in Cloudflare:
-1. Production tunnel → production token
-2. Staging tunnel → staging token
-
-### Different Databases
-
-Each environment has isolated data:
-- **Production**: `gsthive` database
-- **Staging**: `gsthive_staging` database
-
-### Different S3 Buckets
-
-Keep files separate:
-- **Production**: `gsthive-production`
-- **Staging**: `gsthive-staging`
-
-## Security Best Practices
-
-1. **Different passwords** for each environment
-2. **Different servers** for staging and production
-3. **Restrict production** deployments to main branch
-4. **Require reviews** for production deployments
-5. **Use different API keys** where possible
-6. **Monitor deployments** regularly
+1. **Never share secrets** between production and staging
+2. **Use strong passwords** - Always generate randomly
+3. **Rotate secrets regularly** - Especially after team changes
+4. **Test in staging first** - Always deploy to staging before production
+5. **Enable protection rules** - Prevent accidental deployments
 
 ## Troubleshooting
 
-### Deployment waiting for approval
+### Deployment Waiting for Approval
+
 - Check environment protection rules
 - Ensure you're an approved reviewer
-- Check branch restrictions
+- Verify branch restrictions match your branch
 
-### Secrets not available
+### Secrets Not Available
+
 - Verify secrets are in correct environment
-- Check workflow references correct environment
-- Ensure environment name matches exactly
+- Check workflow specifies `environment:` field
+- Ensure exact name matching (case-sensitive)
 
-### Wrong values being used
-- Check if using repository secrets instead of environment secrets
-- Verify workflow has `environment:` specified
-- Clear GitHub Actions cache
+### Wrong Values Being Used
+
+- Check not using repository secrets (use environment secrets)
+- Verify correct environment name in workflow
+- Clear GitHub Actions cache if needed
 
 ## Migration from Repository Secrets
 
-If you have existing repository secrets:
+If you have existing repository-level secrets:
 
-1. Copy values to appropriate environment
-2. Delete repository-level secrets
-3. Workflows automatically use environment secrets
+1. Copy each secret to appropriate environment
+2. Update workflows to specify environment
+3. Delete repository-level secrets
+4. Test deployments
 
-## Benefits of This Setup
-
-1. **Isolation**: Staging mistakes don't affect production
-2. **Security**: Production secrets stay in production
-3. **Flexibility**: Different configs per environment
-4. **Auditability**: Track who deployed what when
-5. **Safety**: Protection rules prevent accidents
-6. **Clarity**: Clear which environment uses which values
+The environment-specific approach is more secure and maintainable.

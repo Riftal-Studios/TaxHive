@@ -1,7 +1,7 @@
 # Use Node.js 20 Alpine as base
 FROM node:20-alpine AS base
 
-# Install dependencies for Puppeteer
+# Install dependencies for Puppeteer and Prisma
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -11,7 +11,9 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     nodejs \
-    yarn
+    yarn \
+    openssl \
+    openssl-dev
 
 # Tell Puppeteer to use installed chromium instead of downloading Chrome
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
@@ -38,6 +40,28 @@ RUN npx prisma generate
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
+
+# Development image
+FROM base AS development
+WORKDIR /app
+
+# Copy all files
+COPY . .
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Generate Prisma Client
+RUN npx prisma generate
+
+# Set development environment
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+EXPOSE 3000
+
+# Start development server
+CMD ["npm", "run", "dev"]
 
 # Production image, copy all the files and run next
 FROM base AS runner

@@ -45,7 +45,7 @@ check_prerequisites() {
     # Check environment file
     if [ ! -f "$ENV_FILE" ]; then
         print_error "Environment file $ENV_FILE not found"
-        print_info "Copy .env.production.template to .env.production and fill in values"
+        print_info "Copy .env.example to .env.production and fill in production values"
         exit 1
     fi
     

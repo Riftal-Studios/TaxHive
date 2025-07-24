@@ -10,7 +10,8 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    openssl
+    openssl \
+    openssl-dev
 
 # Tell Puppeteer to use installed chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \

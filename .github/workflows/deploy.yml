@@ -97,14 +97,13 @@ jobs:
           NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
           NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
           
-          # Email Configuration
+          # Email Configuration - Amazon SES
+          EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
           EMAIL_SERVER=${{ secrets.EMAIL_SERVER }}
           EMAIL_FROM=${{ vars.EMAIL_FROM }}
-          SMTP_HOST=${{ vars.SMTP_HOST }}
-          SMTP_PORT=${{ vars.SMTP_PORT }}
-          SMTP_USER=${{ secrets.SMTP_USER }}
-          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
-          SMTP_FROM=${{ vars.SMTP_FROM }}
+          AWS_SES_ACCESS_KEY_ID=${{ secrets.AWS_SES_ACCESS_KEY_ID }}
+          AWS_SES_SECRET_ACCESS_KEY=${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
+          AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
           
           # AWS S3 (Optional)
           AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -183,24 +182,24 @@ jobs:
       - name: Copy deployment package to VPS
         uses: appleboy/scp-action@v0.1.5
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ vars.VPS_PORT }}
           source: deployment.tar.gz
           target: /tmp/
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ vars.VPS_PORT }}
           script: |
             # Extract deployment package to production directory
-            mkdir -p /home/${{ secrets.VPS_USER }}/gsthive-production
-            cd /home/${{ secrets.VPS_USER }}/gsthive-production
+            mkdir -p /home/${{ vars.VPS_USER }}/gsthive-production
+            cd /home/${{ vars.VPS_USER }}/gsthive-production
             
             # Clean up old deployment files
             rm -rf deployment
@@ -250,13 +249,13 @@ jobs:
       - name: Clean up VPS
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ vars.VPS_PORT }}
           script: |
             # Remove deployment files
-            rm -rf /home/${{ secrets.VPS_USER }}/deployment
+            rm -rf /home/${{ vars.VPS_USER }}/deployment
             
             # Clean up Docker
             docker system prune -f

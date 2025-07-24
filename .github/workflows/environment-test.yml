@@ -33,10 +33,10 @@ jobs:
             fi
           }
           
-          echo "Checking VPS secrets..."
-          check_secret "VPS_HOST" "${{ secrets.VPS_HOST }}"
-          check_secret "VPS_USER" "${{ secrets.VPS_USER }}"
-          check_secret "VPS_PORT" "${{ secrets.VPS_PORT }}"
+          echo "Checking VPS configuration..."
+          echo "VPS_HOST: ${{ vars.VPS_HOST }}"
+          echo "VPS_USER: ${{ vars.VPS_USER }}"
+          echo "VPS_PORT: ${{ vars.VPS_PORT }}"
           check_secret "VPS_SSH_KEY" "${{ secrets.VPS_SSH_KEY }}"
           
           echo -e "\nChecking database secrets..."
@@ -71,10 +71,10 @@ jobs:
         continue-on-error: true
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ vars.VPS_PORT }}
           script: |
             echo "✅ SSH connection successful!"
             echo "Server info:"

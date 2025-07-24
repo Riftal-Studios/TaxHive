@@ -56,14 +56,13 @@ services:
       NEXTAUTH_URL: https://gsthive.com
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       
-      # Email Configuration
+      # Email Configuration - Amazon SES
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
       EMAIL_SERVER: ${EMAIL_SERVER}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM: ${SMTP_FROM}
+      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
+      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
+      AWS_SES_REGION: ${AWS_SES_REGION:-ap-south-1}
       
       # AWS S3 for file storage
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}

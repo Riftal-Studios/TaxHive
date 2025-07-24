@@ -43,9 +43,27 @@ variable "nextauth_secret" {
 }
 
 variable "email_server" {
-  description = "Email server configuration"
+  description = "Email server configuration (SES SMTP)"
   type        = string
   sensitive   = true
+}
+
+variable "aws_ses_access_key_id" {
+  description = "AWS SES Access Key ID"
+  type        = string
+  sensitive   = true
+}
+
+variable "aws_ses_secret_access_key" {
+  description = "AWS SES Secret Access Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "aws_ses_region" {
+  description = "AWS SES Region"
+  type        = string
+  default     = "ap-south-1"
 }
 
 variable "cron_secret" {
@@ -128,11 +146,15 @@ resource "fly_machine" "app" {
     PORT             = "3000"
     DATABASE_URL     = fly_postgres_cluster.gsthive_db.connection_string
     REDIS_URL        = "redis://${fly_machine.redis.privateip}:6379"
-    NEXTAUTH_URL     = "https://${var.app_name}.fly.dev"
-    NEXTAUTH_SECRET  = var.nextauth_secret
-    EMAIL_SERVER     = var.email_server
-    EMAIL_FROM       = "noreply@${var.app_name}.fly.dev"
-    CRON_SECRET      = var.cron_secret
+    NEXTAUTH_URL              = "https://${var.app_name}.fly.dev"
+    NEXTAUTH_SECRET           = var.nextauth_secret
+    EMAIL_PROVIDER            = "ses"
+    EMAIL_SERVER              = var.email_server
+    EMAIL_FROM                = "noreply@${var.app_name}.fly.dev"
+    AWS_SES_ACCESS_KEY_ID     = var.aws_ses_access_key_id
+    AWS_SES_SECRET_ACCESS_KEY = var.aws_ses_secret_access_key
+    AWS_SES_REGION            = var.aws_ses_region
+    CRON_SECRET               = var.cron_secret
   }
   
   resources = {

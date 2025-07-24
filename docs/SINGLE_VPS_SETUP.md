@@ -2,6 +2,24 @@
 
 This guide explains how to run both staging and production environments on the same VPS using Docker containers and Cloudflare Tunnels for complete isolation.
 
+## Quick Start
+
+For automated VPS setup, use the provided script:
+
+```bash
+# Download and run the setup script
+wget https://raw.githubusercontent.com/yourusername/gsthive/main/scripts/deploy/VPS_SETUP.sh
+chmod +x VPS_SETUP.sh
+./VPS_SETUP.sh
+```
+
+This script will:
+- Install Docker and Docker Compose
+- Set up the deploy user
+- Configure firewall and security
+- Create directory structure
+- Generate SSH keys for GitHub Actions
+
 ## Why This Works
 
 Even though both environments run on the same VPS:

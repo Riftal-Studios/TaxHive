@@ -74,22 +74,22 @@ jobs:
       - name: Deploy rollback
         uses: appleboy/scp-action@v0.1.5
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ vars.VPS_PORT }}
           source: rollback.tar.gz
           target: /tmp/
 
       - name: Execute rollback
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ vars.VPS_PORT }}
           script: |
-            cd /home/${{ secrets.VPS_USER }}
+            cd /home/${{ vars.VPS_USER }}
             tar -xzf /tmp/rollback.tar.gz
             cd rollback
             

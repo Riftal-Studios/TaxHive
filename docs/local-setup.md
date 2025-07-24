@@ -55,29 +55,12 @@ GRANT ALL PRIVILEGES ON DATABASE gsthive TO gsthive;
 
 ### 4. Set Up Environment Variables
 
-Create `.env` file in the project root:
-
 ```bash
-# Database
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gsthive?schema=public"
-
-# For SQLite (if you prefer for development)
-# DATABASE_URL="file:./dev.db"
-
-# NextAuth
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="your-development-secret-key-here"
-
-# Email (for magic links)
-EMAIL_SERVER="smtp://username:password@smtp.gmail.com:587"
-EMAIL_FROM="noreply@gsthive.local"
-
-# Cron Secret
-CRON_SECRET="your-cron-secret-for-exchange-rates"
-
-# Redis (optional)
-REDIS_URL="redis://localhost:6379"
+# Copy the example environment file
+cp .env.example .env.local
 ```
+
+Edit `.env.local` and update the database URL and other settings. All variables are documented with examples in the file.
 
 ### 5. Run Database Migrations
 

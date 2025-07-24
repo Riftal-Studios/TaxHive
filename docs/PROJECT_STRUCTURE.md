@@ -27,14 +27,15 @@ gsthive/
 │   ├── docker-compose.multi-env.yml
 │   └── cloudflare-tunnel-config.yml
 ├── docs/                # Documentation
-│   ├── CLOUDFLARE_SETUP.md
-│   ├── DEPLOYMENT_SUMMARY.md
-│   ├── ENVIRONMENT_SECRETS_SUMMARY.md
-│   ├── GITHUB_ENVIRONMENTS_SETUP.md
-│   ├── SINGLE_VPS_SETUP.md
-│   ├── email-setup.md
-│   ├── local-setup.md
-│   └── queue-system.md
+│   ├── CLOUDFLARE_SETUP.md            # Single environment setup
+│   ├── CLOUDFLARE_MULTI_ENV_SETUP.md  # Production + Staging setup
+│   ├── DEPLOYMENT_SUMMARY.md          # Quick deployment reference
+│   ├── (env vars documented in .env.example)
+│   ├── GITHUB_ENVIRONMENTS_SETUP.md   # GitHub environments & secrets
+│   ├── SINGLE_VPS_SETUP.md           # Multi-env on one VPS
+│   ├── email-setup.md                 # Email configuration
+│   ├── local-setup.md                 # Local development
+│   └── queue-system.md                # Queue/jobs documentation
 ├── lib/                 # Shared libraries
 │   ├── auth.ts         # Authentication config
 │   ├── email/          # Email service
@@ -76,8 +77,7 @@ Only essential configuration files remain at the root:
 - `postcss.config.js` - PostCSS config
 
 ### Environment
-- `.env.example` - Example environment variables
-- `.env.production.template` - Production env template
+- `.env.example` - Example environment variables with documentation
 - `.gitignore` - Git ignore rules
 
 ### Testing

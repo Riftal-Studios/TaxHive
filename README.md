@@ -22,13 +22,7 @@ A modern GST-compliant invoice management system for Indian businesses exporting
    cp .env.example .env.local
    ```
    
-   Edit `.env.local` and set:
-   - `DATABASE_URL`: Your PostgreSQL connection string
-   - `NEXTAUTH_URL`: http://localhost:3000 (for development)
-   - `NEXTAUTH_SECRET`: Generate with `openssl rand -base64 32`
-   - `EMAIL_FROM`: Your email sender address
-   - `EMAIL_SERVER`: SMTP server details
-   - `REDIS_URL`: Redis connection string (default: redis://localhost:6379)
+   Edit `.env.local` with your configuration. All variables are documented in the file with examples.
 
 3. **Set up the database:**
    ```bash
@@ -46,11 +40,20 @@ A modern GST-compliant invoice management system for Indian businesses exporting
    ```
 
 5. **Start the development server:**
+
+   **Option A: Traditional local development**
    ```bash
    npm run dev
    ```
+   Access at: http://localhost:3000
 
-   The application will be available at http://localhost:3000
+   **Option B: With Cloudflare Tunnel (Recommended)**
+   ```bash
+   ./start-local-tunnel.sh
+   ```
+   Access at: https://dev.gsthive.com
+   
+   See [Local Tunnel Setup](docs/LOCAL_TUNNEL_SETUP.md) for details.
 
 ### Additional Services
 
@@ -119,6 +122,14 @@ gsthive-app/
 - ✅ PDF invoice generation
 - ✅ Multi-currency support with RBI exchange rates
 - ✅ GST compliance for exports (0% IGST)
+
+## Documentation
+
+Additional documentation is available in the `/docs` directory:
+- **[GITHUB_ENVIRONMENTS_SETUP.md](docs/GITHUB_ENVIRONMENTS_SETUP.md)** - Automated deployment setup
+- **[SINGLE_VPS_SETUP.md](docs/SINGLE_VPS_SETUP.md)** - Multi-environment on one server
+- **[LOCAL_SETUP.md](docs/local-setup.md)** - Local development without Docker
+- **[queue-system.md](docs/queue-system.md)** - Background job processing
 
 ## Tech Stack
 

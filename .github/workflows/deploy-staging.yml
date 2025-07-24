@@ -226,6 +226,10 @@ jobs:
                 ;;
             esac
             
+            # Verify all containers are running
+            echo "Checking running containers..."
+            docker-compose ps
+            
             # Health check - using the actual staging URL through Cloudflare
             sleep 10
             if curl -f -s ${{ vars.NEXTAUTH_URL }}/api/health > /dev/null; then

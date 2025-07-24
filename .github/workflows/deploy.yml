@@ -226,6 +226,14 @@ jobs:
                 ;;
             esac
             
+            # Verify all containers are running
+            echo "Checking running containers..."
+            docker-compose ps
+            
+            # Check cloudflared tunnel status
+            echo "Checking Cloudflare tunnel logs..."
+            docker-compose logs cloudflared | tail -20
+            
             # Health check - using the actual production URL through Cloudflare
             sleep 10
             if curl -f -s ${{ vars.NEXTAUTH_URL }}/api/health > /dev/null; then

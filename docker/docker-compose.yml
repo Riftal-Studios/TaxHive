@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Using Supabase for PostgreSQL - no local database container needed
 

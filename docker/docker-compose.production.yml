@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Redis for queue/caching - Internal only  
   redis:
@@ -154,6 +152,9 @@ services:
     command: tunnel run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    dns:
+      - 1.1.1.1
+      - 1.0.0.1
     networks:
       - gsthive-internal
     depends_on:

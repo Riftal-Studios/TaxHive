@@ -19,7 +19,7 @@ async function fetchExchangeRates() {
   try {
     console.log('Enqueuing exchange rate fetch job...')
     
-    const job = await queueService.enqueueJob('EXCHANGE_RATE_FETCH', {
+    const job = await queueService.enqueue('EXCHANGE_RATE_FETCH', {
       date: new Date(),
       currencies: ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'AED'],
       source: 'RBI',

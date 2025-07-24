@@ -364,7 +364,7 @@ export const invoiceRouter = createTRPCRouter({
 
       try {
         // Enqueue PDF generation job
-        const job = await getQueue().enqueueJob('PDF_GENERATION', {
+        const job = await getQueue().enqueue('PDF_GENERATION', {
           invoiceId: input.id,
           userId: ctx.session.user.id,
         })
@@ -508,7 +508,7 @@ export const invoiceRouter = createTRPCRouter({
       }
 
       // Queue email notification
-      const job = await getQueue().enqueueJob('EMAIL_NOTIFICATION', {
+      const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
         type: 'invoice',
         to: input.to || invoice.client.email,
         cc: input.cc,
@@ -561,7 +561,7 @@ export const invoiceRouter = createTRPCRouter({
       }
 
       // Queue payment reminder email
-      const job = await getQueue().enqueueJob('EMAIL_NOTIFICATION', {
+      const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
         type: 'payment-reminder',
         to: input.to || invoice.client.email,
         cc: input.cc,

@@ -258,15 +258,26 @@ jobs:
             const emoji = status === 'success' ? '✅' : '❌';
             const message = `${emoji} Deployment to production ${status}`;
             
-            // Create deployment status
-            await github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: context.payload.deployment?.id || 1,
-              state: status === 'success' ? 'success' : 'failure',
-              environment: 'production',
-              description: message
-            });
+            // Only create deployment status if we have a deployment ID
+            if (context.payload.deployment?.id) {
+              try {
+                await github.rest.repos.createDeploymentStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: context.payload.deployment.id,
+                  state: status === 'success' ? 'success' : 'failure',
+                  environment: 'production',
+                  description: message
+                });
+              } catch (error) {
+                console.log('Could not create deployment status:', error.message);
+              }
+            } else {
+              console.log('No deployment ID found, skipping status update');
+            }
+            
+            // Always log the result
+            console.log(message);
 
   cleanup:
     needs: deploy

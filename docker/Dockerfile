@@ -39,6 +39,9 @@ RUN npx prisma generate
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
+# Provide dummy database URLs for build time (not used at runtime)
+ENV DATABASE_DB_URL="postgresql://dummy:dummy@dummy:5432/dummy"
+ENV DATABASE_DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy"
 RUN npm run build
 
 # Development image

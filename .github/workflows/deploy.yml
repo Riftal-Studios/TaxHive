@@ -98,11 +98,20 @@ jobs:
             # Pull the latest image
             docker pull ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
             
-            # Get the docker network for gsthive-production
-            NETWORK_NAME="gsthive-production_default"
+            # Ensure the production containers are running first
+            cd /home/${{ vars.VPS_USER }}/gsthive-production
             
-            # Create network if it doesn't exist
-            docker network create $NETWORK_NAME 2>/dev/null || true
+            # Make sure services are up (especially postgres)
+            docker-compose up -d postgres redis
+            sleep 5  # Wait for postgres to be ready
+            
+            # Get the actual network name
+            NETWORK_NAME=$(docker network ls | grep gsthive-prod | awk '{print $2}')
+            echo "Using network: $NETWORK_NAME"
+            
+            # List running containers for debugging
+            echo "Running containers:"
+            docker ps --format "table {{.Names}}\t{{.Networks}}"
             
             # Run migrations in a temporary container connected to the production network
             echo "Running database migrations..."
@@ -122,8 +131,9 @@ jobs:
               docker run --rm \
                 --network $NETWORK_NAME \
                 -e DATABASE_URL="postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@gsthive-postgres:5432/${{ vars.POSTGRES_DB }}?schema=public" \
+                --entrypoint /bin/sh \
                 ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest \
-                bash -c "
+                -c "
                   # Try to resolve each migration that might have failed
                   npx prisma migrate resolve --rolled-back 20250716172554_init 2>/dev/null || true
                   npx prisma migrate resolve --rolled-back 20250723033426_add_onboarding_fields 2>/dev/null || true

@@ -148,7 +148,7 @@ jobs:
           target: /tmp/
 
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}
@@ -274,7 +274,7 @@ jobs:
     
     steps:
       - name: Clean up VPS
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}

@@ -94,6 +94,14 @@ jobs:
           DATABASE_DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
         run: |
           echo "Running database migrations on Supabase..."
+          
+          # Check if we have any failed migrations and resolve them
+          if npx prisma migrate status 2>&1 | grep -q "failed"; then
+            echo "Found failed migrations, attempting to resolve..."
+            npx prisma migrate resolve --rolled-back 20250716172554_init || true
+          fi
+          
+          # Now apply migrations
           npx prisma migrate deploy
 
   deploy:

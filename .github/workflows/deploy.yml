@@ -207,17 +207,22 @@ jobs:
                 docker-compose up -d
                 sleep 10
                 
-                # Check for failed migrations and resolve if needed
-                echo "Checking migration status..."
-                if docker-compose exec -T app npx prisma migrate status | grep -q "failed"; then
-                  echo "Found failed migrations, attempting to resolve..."
-                  # Mark failed migrations as rolled back
-                  docker-compose exec -T app npx prisma migrate resolve --rolled-back 20250716172554_init || true
-                  # Try to apply migrations again
-                  docker-compose exec -T app npx prisma migrate deploy
-                else
-                  # Normal migration
-                  docker-compose exec -T app npx prisma migrate deploy
+                # Try to run migrations, if it fails due to P3009, resolve and retry
+                echo "Running migrations..."
+                if ! docker-compose exec -T app npx prisma migrate deploy 2>&1 | tee /tmp/migrate.log; then
+                  if grep -q "P3009" /tmp/migrate.log; then
+                    echo "Found failed migrations, attempting to resolve..."
+                    # Get the failed migration name from the error message
+                    FAILED_MIGRATION=$(grep -o "The \`[^']*\` migration" /tmp/migrate.log | sed "s/The \\\`//;s/\\\` migration//")
+                    echo "Resolving failed migration: $FAILED_MIGRATION"
+                    docker-compose exec -T app npx prisma migrate resolve --rolled-back "$FAILED_MIGRATION" || true
+                    # Try migrations again
+                    echo "Retrying migrations after resolution..."
+                    docker-compose exec -T app npx prisma migrate deploy
+                  else
+                    echo "Migration failed for unknown reason"
+                    exit 1
+                  fi
                 fi
                 ;;
             esac

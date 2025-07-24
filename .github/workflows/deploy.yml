@@ -123,11 +123,30 @@ jobs:
           
           # Docker Registry
           DOCKER_REGISTRY=${{ env.REGISTRY }}
-          DOCKER_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          DOCKER_IMAGE_PROD=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           EOF
           
-          # Update docker-compose to use registry image
-          sed -i 's|build:|image: ${DOCKER_IMAGE}\n    # build:|g' deployment/docker-compose.yml
+          # Replace build sections with image references
+          # This handles the specific structure of docker-compose.production.yml
+          awk '
+            /^  app:/ { in_app=1 }
+            /^  queue-worker:/ { in_queue_worker=1 }
+            /^  cron:/ { in_cron=1 }
+            /^  [a-z-]+:/ && !/^  (app|queue-worker|cron):/ { in_app=0; in_queue_worker=0; in_cron=0 }
+            
+            /^    build:/ {
+              if (in_app || in_queue_worker || in_cron) {
+                print "    image: ${DOCKER_IMAGE_PROD}"
+                # Skip the build section
+                while (getline && /^      /) {}
+                # Print the current line if it is not part of build section
+                if (!/^      /) print
+                next
+              }
+            }
+            { print }
+          ' deployment/docker-compose.yml > deployment/docker-compose.yml.tmp
+          mv deployment/docker-compose.yml.tmp deployment/docker-compose.yml
           
           # Create deployment script
           cat > deployment/remote-deploy.sh << 'EOF'
@@ -143,6 +162,9 @@ jobs:
           
           # Login to GitHub Container Registry
           echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+          
+          # Export environment variables from .env.production
+          export $(grep -v '^#' .env.production | xargs)
           
           # Pull latest images
           docker-compose pull
@@ -168,7 +190,13 @@ jobs:
           
           # Health check
           sleep 5
-          docker-compose exec -T app wget -qO- http://localhost:3000/api/health || exit 1
+          if docker-compose exec -T app wget -qO- http://localhost:3000/api/health; then
+            echo -e "${GREEN}Health check passed${NC}"
+          else
+            echo -e "${RED}Health check failed${NC}"
+            docker-compose logs app
+            exit 1
+          fi
           
           # Cleanup old images
           docker image prune -f

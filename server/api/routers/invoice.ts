@@ -602,7 +602,7 @@ export const invoiceRouter = createTRPCRouter({
       jobId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const job = await queueService.getJob(input.jobId)
+      const job = await getQueue().getJob(input.jobId)
       
       if (!job) {
         throw new TRPCError({

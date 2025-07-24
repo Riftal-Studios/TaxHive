@@ -10,17 +10,12 @@ import {
   validateHSNCode 
 } from '@/lib/invoice-utils'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
-import { BullMQService } from '@/lib/queue/bullmq.service'
 import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
+import { getQueueService } from '@/lib/queue'
 
-// Initialize queue service (in production, this would be injected via dependency injection)
-const queueService = new BullMQService({
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-  },
-})
+// Get queue service lazily to avoid connection during build
+const getQueue = () => getQueueService()
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
@@ -369,7 +364,7 @@ export const invoiceRouter = createTRPCRouter({
 
       try {
         // Enqueue PDF generation job
-        const job = await queueService.enqueueJob('PDF_GENERATION', {
+        const job = await getQueue().enqueueJob('PDF_GENERATION', {
           invoiceId: input.id,
           userId: ctx.session.user.id,
         })
@@ -393,7 +388,7 @@ export const invoiceRouter = createTRPCRouter({
     .input(z.object({ jobId: z.string() }))
     .query(async ({ input }) => {
       try {
-        const job = await queueService.getJob(input.jobId)
+        const job = await getQueue().getJob(input.jobId)
 
         if (!job) {
           throw new TRPCError({
@@ -513,7 +508,7 @@ export const invoiceRouter = createTRPCRouter({
       }
 
       // Queue email notification
-      const job = await queueService.enqueueJob('EMAIL_NOTIFICATION', {
+      const job = await getQueue().enqueueJob('EMAIL_NOTIFICATION', {
         type: 'invoice',
         to: input.to || invoice.client.email,
         cc: input.cc,
@@ -566,7 +561,7 @@ export const invoiceRouter = createTRPCRouter({
       }
 
       // Queue payment reminder email
-      const job = await queueService.enqueueJob('EMAIL_NOTIFICATION', {
+      const job = await getQueue().enqueueJob('EMAIL_NOTIFICATION', {
         type: 'payment-reminder',
         to: input.to || invoice.client.email,
         cc: input.cc,

@@ -98,26 +98,44 @@ jobs:
             # Pull the latest image
             docker pull ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):staging-latest
             
-            # Ensure the staging containers are running first
-            cd /home/${{ vars.VPS_USER }}/gsthive-staging
-            
-            # Make sure services are up (especially postgres)
-            docker-compose up -d postgres redis
-            sleep 5  # Wait for postgres to be ready
-            
-            # Get the actual network name
-            NETWORK_NAME=$(docker network ls | grep gsthive-staging | awk '{print $2}')
-            echo "Using network: $NETWORK_NAME"
-            
             # List running containers for debugging
-            echo "Running containers:"
+            echo "Current containers:"
             docker ps --format "table {{.Names}}\t{{.Networks}}"
+            
+            # For staging, we need to check if containers exist with staging suffix
+            POSTGRES_CONTAINER="gsthive-postgres-staging"
+            
+            # Get the network that postgres is using
+            NETWORK_NAME=$(docker inspect $POSTGRES_CONTAINER --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || echo "")
+            
+            if [ -z "$NETWORK_NAME" ]; then
+              echo "PostgreSQL staging container not found. Checking if services need to be started..."
+              cd /home/${{ vars.VPS_USER }}/gsthive-staging
+              
+              # Check if docker-compose.yml exists
+              if [ -f docker-compose.yml ]; then
+                # Set compose project name for staging
+                export COMPOSE_PROJECT_NAME=gsthive-staging
+                
+                # Just ensure postgres is running, don't recreate
+                docker-compose up -d postgres redis --no-recreate
+                sleep 5
+                
+                # Get network again
+                NETWORK_NAME=$(docker inspect $POSTGRES_CONTAINER --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+              else
+                echo "No docker-compose.yml found in staging directory"
+                exit 1
+              fi
+            fi
+            
+            echo "Using network: $NETWORK_NAME"
             
             # Run migrations in a temporary container connected to the staging network
             echo "Running database migrations..."
             docker run --rm \
               --network $NETWORK_NAME \
-              -e DATABASE_URL="postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@gsthive-postgres:5432/${{ vars.POSTGRES_DB }}?schema=public" \
+              -e DATABASE_URL="postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@gsthive-postgres-staging:5432/${{ vars.POSTGRES_DB }}?schema=public" \
               ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):staging-latest \
               npx prisma migrate deploy
 

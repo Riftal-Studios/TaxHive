@@ -98,20 +98,32 @@ jobs:
             # Pull the latest image
             docker pull ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
             
-            # Ensure the production containers are running first
-            cd /home/${{ vars.VPS_USER }}/gsthive-production
-            
-            # Make sure services are up (especially postgres)
-            docker-compose up -d postgres redis
-            sleep 5  # Wait for postgres to be ready
-            
-            # Get the actual network name
-            NETWORK_NAME=$(docker network ls | grep gsthive-prod | awk '{print $2}')
-            echo "Using network: $NETWORK_NAME"
-            
             # List running containers for debugging
-            echo "Running containers:"
+            echo "Current containers:"
             docker ps --format "table {{.Names}}\t{{.Networks}}"
+            
+            # Get the network that gsthive-postgres is using
+            NETWORK_NAME=$(docker inspect gsthive-postgres --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || echo "")
+            
+            if [ -z "$NETWORK_NAME" ]; then
+              echo "PostgreSQL container not found. Checking if services need to be started..."
+              cd /home/${{ vars.VPS_USER }}/gsthive-production
+              
+              # Check if docker-compose.yml exists
+              if [ -f docker-compose.yml ]; then
+                # Just ensure postgres is running, don't recreate
+                docker-compose up -d postgres redis --no-recreate
+                sleep 5
+                
+                # Get network again
+                NETWORK_NAME=$(docker inspect gsthive-postgres --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+              else
+                echo "No docker-compose.yml found in production directory"
+                exit 1
+              fi
+            fi
+            
+            echo "Using network: $NETWORK_NAME"
             
             # Run migrations in a temporary container connected to the production network
             echo "Running database migrations..."

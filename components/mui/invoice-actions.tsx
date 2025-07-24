@@ -5,7 +5,6 @@ import {
   Button,
   ButtonGroup,
   CircularProgress,
-  Box,
 } from '@mui/material'
 import {
   PictureAsPdf as PdfIcon,

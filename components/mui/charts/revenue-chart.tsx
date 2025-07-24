@@ -8,7 +8,6 @@ import {
   Box,
   Skeleton,
   useTheme,
-  alpha,
 } from '@mui/material'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { format } from 'date-fns'

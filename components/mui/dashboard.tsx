@@ -136,12 +136,6 @@ export function MUIDashboard() {
   const { data: paymentStatus, isLoading: statusLoading } = api.dashboard.getPaymentStatusBreakdown.useQuery()
   const { data: revenueByMonth, isLoading: revenueLoading } = api.dashboard.getRevenueByMonth.useQuery({ months: 6 })
 
-  // Calculate trends (mock data for now - in real app, compare with previous period)
-  const calculateTrend = (current: number, previous: number): { value: number; isPositive: boolean } => {
-    if (previous === 0) return { value: 0, isPositive: true }
-    const percentChange = ((current - previous) / previous) * 100
-    return { value: Math.round(Math.abs(percentChange)), isPositive: percentChange >= 0 }
-  }
 
   return (
     <Box>

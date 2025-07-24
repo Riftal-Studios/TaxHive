@@ -88,7 +88,7 @@ export function MUIExchangeRates() {
             No exchange rates available
           </Typography>
           <Typography variant="body2" color="text.secondary" mb={3}>
-            Click "Update Now" to fetch the latest rates
+            Click &quot;Update Now&quot; to fetch the latest rates
           </Typography>
           <Button
             variant="contained"

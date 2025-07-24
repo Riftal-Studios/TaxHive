@@ -41,7 +41,6 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename
     const timestamp = Date.now()
-    const extension = file.name.split('.').pop()
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const fileName = `${timestamp}_${safeName}`
     const filePath = join(uploadDir, fileName)

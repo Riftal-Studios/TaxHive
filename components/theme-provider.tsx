@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { ThemeProvider as MUIThemeProvider, createTheme } from '@mui/material/styles'
+import { ThemeProvider as MUIThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { SnackbarProvider } from 'notistack'
 import { theme as lightTheme, darkTheme } from '@/lib/theme'

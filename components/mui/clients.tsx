@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   Typography,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -18,8 +17,6 @@ import {
 } from '@mui/material'
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
 } from '@mui/icons-material'
 import { api } from '@/lib/trpc/client'
 import { ClientsTable } from './clients-table'

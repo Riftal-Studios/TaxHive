@@ -106,9 +106,12 @@ interface LegendPayload {
   }
 }
 
-const CustomLegend = (props: any) => {
+interface CustomLegendProps {
+  payload?: LegendPayload[]
+}
+
+const CustomLegend = (props: CustomLegendProps) => {
   const { payload } = props
-  const theme = useTheme()
   
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>

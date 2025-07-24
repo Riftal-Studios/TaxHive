@@ -62,7 +62,7 @@ interface TooltipProps {
   label?: string
 }
 
-const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
+const CustomTooltip = React.memo(function CustomTooltip({ active, payload, label }: TooltipProps) {
   if (active && payload && payload.length && payload[0]) {
     const formattedMonth = label ? formatMonth(label) : ''
     const revenue = payload[0].value || 0

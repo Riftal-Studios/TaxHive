@@ -24,14 +24,9 @@ import {
   Tabs,
   Tab,
   Divider,
-  IconButton,
-  Collapse,
-  Stack,
 } from '@mui/material'
+import { Stack } from '@mui/material'
 import {
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  CloudUpload as CloudUploadIcon,
   Info as InfoIcon,
   AccountBalance as BankIcon,
   Receipt as ReceiptIcon,
@@ -53,27 +48,6 @@ interface PaymentModalProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
-}
-
-interface TabPanelProps {
-  children?: React.ReactNode
-  index: number
-  value: number
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`payment-tabpanel-${index}`}
-      aria-labelledby={`payment-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  )
 }
 
 const paymentMethods = [
@@ -230,9 +204,6 @@ export function EnhancedPaymentModal({
   const effectiveRate = creditedAmount && amountReceivedBeforeFees && currency !== 'INR' 
     ? (parseFloat(creditedAmount) / parseFloat(amountReceivedBeforeFees)).toFixed(4)
     : null
-
-  // Calculate total fees
-  const totalFees = (parseFloat(platformFeesInCurrency || '0')).toFixed(2)
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
 import {
   AppBar,
   Box,
@@ -22,21 +21,18 @@ import {
   MenuItem,
   Divider,
   ListSubheader,
-  Chip,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Description as InvoiceIcon,
   People as ClientsIcon,
-  Business as BusinessIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
   Receipt as LUTIcon,
   Payment as PaymentIcon,
-  Email as EmailIcon,
   Work as WorkIcon,
 } from '@mui/icons-material'
 import { signOut } from 'next-auth/react'

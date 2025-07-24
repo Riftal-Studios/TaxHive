@@ -1,0 +1,120 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Docker image tag to rollback to'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: https://gsthive.com
+    
+    steps:
+      - name: Validate rollback version
+        run: |
+          # Check if the image exists
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.version }} || exit 1
+
+      - name: Create rollback script
+        run: |
+          mkdir -p rollback
+          
+          cat > rollback/rollback.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          GREEN='\033[0;32m'
+          RED='\033[0;31m'
+          YELLOW='\033[1;33m'
+          NC='\033[0m'
+          
+          echo -e "${YELLOW}Starting rollback to version: $ROLLBACK_VERSION${NC}"
+          echo -e "${YELLOW}Reason: $ROLLBACK_REASON${NC}"
+          
+          # Login to registry
+          echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+          
+          # Update docker-compose to use specific version
+          export DOCKER_IMAGE="${REGISTRY}/${IMAGE_NAME}:${ROLLBACK_VERSION}"
+          
+          # Pull the specific version
+          docker pull $DOCKER_IMAGE
+          
+          # Stop current deployment
+          docker-compose down
+          
+          # Start with rollback version
+          docker-compose up -d
+          
+          # Wait for health
+          sleep 10
+          docker-compose exec -T app wget -qO- http://localhost:3000/api/health || exit 1
+          
+          echo -e "${GREEN}Rollback completed successfully!${NC}"
+          EOF
+          
+          chmod +x rollback/rollback.sh
+          tar -czf rollback.tar.gz rollback/
+
+      - name: Deploy rollback
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: rollback.tar.gz
+          target: /tmp/
+
+      - name: Execute rollback
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd /home/${{ secrets.VPS_USER }}
+            tar -xzf /tmp/rollback.tar.gz
+            cd rollback
+            
+            export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
+            export GITHUB_USER='${{ github.actor }}'
+            export REGISTRY='${{ env.REGISTRY }}'
+            export IMAGE_NAME='${{ env.IMAGE_NAME }}'
+            export ROLLBACK_VERSION='${{ github.event.inputs.version }}'
+            export ROLLBACK_REASON='${{ github.event.inputs.reason }}'
+            
+            ./rollback.sh
+            
+            # Cleanup
+            cd ..
+            rm -rf rollback
+            rm -f /tmp/rollback.tar.gz
+
+      - name: Create rollback record
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔄 Rollback to ${context.payload.inputs.version}`,
+              body: `## Rollback Details\n\n- **Version**: ${context.payload.inputs.version}\n- **Reason**: ${context.payload.inputs.reason}\n- **Triggered by**: @${context.actor}\n- **Time**: ${new Date().toISOString()}`,
+              labels: ['rollback', 'production']
+            });

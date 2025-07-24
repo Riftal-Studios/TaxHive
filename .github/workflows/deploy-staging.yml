@@ -1,0 +1,243 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+      - develop
+  workflow_dispatch:
+    inputs:
+      deploy_type:
+        description: 'Deployment type'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - rebuild
+          - migrate-only
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-staging
+            type=sha,prefix=staging-
+            type=raw,value=staging-latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDTIME=${{ github.event.head_commit.timestamp }}
+            VERSION=${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: 
+      name: staging
+      url: https://staging.gsthive.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deployment
+          cp docker-compose.production.yml deployment/docker-compose.yml
+          cp deploy.sh deployment/
+          
+          # Create .env file from staging secrets
+          cat > deployment/.env.production << EOF
+          # Database
+          POSTGRES_USER=${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ vars.POSTGRES_DB }}
+          
+          # Redis
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          
+          # NextAuth
+          NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
+          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+          
+          # Email Configuration
+          EMAIL_SERVER=${{ secrets.EMAIL_SERVER }}
+          EMAIL_FROM=${{ vars.EMAIL_FROM }}
+          SMTP_HOST=${{ vars.SMTP_HOST }}
+          SMTP_PORT=${{ vars.SMTP_PORT }}
+          SMTP_USER=${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM=${{ vars.SMTP_FROM }}
+          
+          # AWS S3 (Optional)
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION=${{ vars.AWS_REGION }}
+          AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+          
+          # API Keys
+          RBI_API_KEY=${{ secrets.RBI_API_KEY }}
+          EXCHANGE_RATE_API_KEY=${{ secrets.EXCHANGE_RATE_API_KEY }}
+          
+          # Cron Secret
+          CRON_SECRET=${{ secrets.CRON_SECRET }}
+          
+          # Cloudflare Tunnel
+          CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          
+          # Docker Registry
+          DOCKER_REGISTRY=${{ env.REGISTRY }}
+          DOCKER_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging-latest
+          EOF
+          
+          # Update docker-compose to use registry image
+          sed -i 's|build:|image: ${DOCKER_IMAGE}\n    # build:|g' deployment/docker-compose.yml
+          
+          # Create deployment script
+          cat > deployment/remote-deploy.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          # Colors
+          GREEN='\033[0;32m'
+          RED='\033[0;31m'
+          NC='\033[0m'
+          
+          echo -e "${GREEN}Starting staging deployment...${NC}"
+          
+          # Login to GitHub Container Registry
+          echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+          
+          # Pull latest images
+          docker-compose pull
+          
+          # Deploy based on type
+          case "$DEPLOY_TYPE" in
+            "rebuild")
+              echo -e "${GREEN}Rebuilding all services...${NC}"
+              docker-compose down
+              docker-compose up -d --force-recreate
+              ;;
+            "migrate-only")
+              echo -e "${GREEN}Running migrations only...${NC}"
+              docker-compose run --rm app npx prisma migrate deploy
+              ;;
+            *)
+              echo -e "${GREEN}Standard deployment...${NC}"
+              docker-compose up -d
+              sleep 10
+              docker-compose exec -T app npx prisma migrate deploy
+              ;;
+          esac
+          
+          # Health check
+          sleep 5
+          docker-compose exec -T app wget -qO- http://localhost:3000/api/health || exit 1
+          
+          # Cleanup old images
+          docker image prune -f
+          
+          echo -e "${GREEN}Staging deployment completed successfully!${NC}"
+          EOF
+          
+          chmod +x deployment/remote-deploy.sh
+          tar -czf deployment.tar.gz deployment/
+
+      - name: Copy deployment package to Staging VPS
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: deployment.tar.gz
+          target: /tmp/
+
+      - name: Deploy to Staging VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            # Extract deployment package to staging directory
+            mkdir -p /home/${{ secrets.VPS_USER }}/gsthive-staging
+            cd /home/${{ secrets.VPS_USER }}/gsthive-staging
+            
+            # Clean up old deployment files
+            rm -rf deployment
+            
+            # Extract new deployment
+            tar -xzf /tmp/deployment.tar.gz
+            mv deployment/* .
+            rmdir deployment
+            
+            # Set environment variables for deployment
+            export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
+            export GITHUB_USER='${{ github.actor }}'
+            export DEPLOY_TYPE='${{ github.event.inputs.deploy_type || 'deploy' }}'
+            export COMPOSE_PROJECT_NAME='gsthive-staging'
+            
+            # Run deployment
+            ./remote-deploy.sh
+            
+            # Cleanup
+            rm -f /tmp/deployment.tar.gz
+
+      - name: Notify deployment status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+            const message = `${emoji} Staging deployment ${status}`;
+            
+            // Create deployment status
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: context.payload.deployment?.id || 1,
+              state: status === 'success' ? 'success' : 'failure',
+              environment: 'staging',
+              environment_url: 'https://staging.gsthive.com',
+              description: message
+            });

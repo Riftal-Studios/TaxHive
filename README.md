@@ -1,6 +1,6 @@
-# GSTHive
+# GST Hive 🐝
 
-GST-compliant invoice management system for Indian businesses exporting services.
+A modern GST-compliant invoice management system for Indian businesses exporting services. Built with Next.js, TypeScript, and PostgreSQL.
 
 ## Getting Started
 

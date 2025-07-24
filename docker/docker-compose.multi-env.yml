@@ -1,0 +1,182 @@
+version: '3.8'
+
+# This docker-compose file shows how to run both staging and production
+# on the same VPS using different containers and Cloudflare tunnels
+
+services:
+  # ========== PRODUCTION SERVICES ==========
+  
+  # Production PostgreSQL
+  postgres-prod:
+    image: postgres:16-alpine
+    container_name: gsthive-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PROD_POSTGRES_USER:-gsthive}
+      POSTGRES_PASSWORD: ${PROD_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PROD_POSTGRES_DB:-gsthive}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - gsthive-prod-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PROD_POSTGRES_USER:-gsthive}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Production Redis
+  redis-prod:
+    image: redis:7-alpine
+    container_name: gsthive-redis-prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${PROD_REDIS_PASSWORD}
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - gsthive-prod-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${PROD_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Production App
+  app-prod:
+    image: ${DOCKER_IMAGE_PROD}
+    container_name: gsthive-app-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${PROD_POSTGRES_USER:-gsthive}:${PROD_POSTGRES_PASSWORD}@postgres-prod:5432/${PROD_POSTGRES_DB:-gsthive}
+      REDIS_URL: redis://:${PROD_REDIS_PASSWORD}@redis-prod:6379
+      NEXTAUTH_URL: https://gsthive.com
+      NEXTAUTH_SECRET: ${PROD_NEXTAUTH_SECRET}
+      # ... other production env vars
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+      redis-prod:
+        condition: service_healthy
+    volumes:
+      - app_prod_uploads:/app/uploads
+      - app_prod_public:/app/public/invoices
+    networks:
+      - gsthive-prod-network
+
+  # Production Cloudflare Tunnel
+  cloudflared-prod:
+    image: cloudflare/cloudflared:latest
+    container_name: gsthive-tunnel-prod
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${PROD_CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - gsthive-prod-network
+    depends_on:
+      - app-prod
+
+  # ========== STAGING SERVICES ==========
+  
+  # Staging PostgreSQL
+  postgres-staging:
+    image: postgres:16-alpine
+    container_name: gsthive-postgres-staging
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${STAGING_POSTGRES_USER:-gsthive_staging}
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${STAGING_POSTGRES_DB:-gsthive_staging}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - gsthive-staging-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${STAGING_POSTGRES_USER:-gsthive_staging}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Staging Redis
+  redis-staging:
+    image: redis:7-alpine
+    container_name: gsthive-redis-staging
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${STAGING_REDIS_PASSWORD}
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - gsthive-staging-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${STAGING_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Staging App
+  app-staging:
+    image: ${DOCKER_IMAGE_STAGING}
+    container_name: gsthive-app-staging
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${STAGING_POSTGRES_USER:-gsthive_staging}:${STAGING_POSTGRES_PASSWORD}@postgres-staging:5432/${STAGING_POSTGRES_DB:-gsthive_staging}
+      REDIS_URL: redis://:${STAGING_REDIS_PASSWORD}@redis-staging:6379
+      NEXTAUTH_URL: https://staging.gsthive.com
+      NEXTAUTH_SECRET: ${STAGING_NEXTAUTH_SECRET}
+      # ... other staging env vars
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+      redis-staging:
+        condition: service_healthy
+    volumes:
+      - app_staging_uploads:/app/uploads
+      - app_staging_public:/app/public/invoices
+    networks:
+      - gsthive-staging-network
+
+  # Staging Cloudflare Tunnel
+  cloudflared-staging:
+    image: cloudflare/cloudflared:latest
+    container_name: gsthive-tunnel-staging
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${STAGING_CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - gsthive-staging-network
+    depends_on:
+      - app-staging
+
+networks:
+  # Separate internal networks for complete isolation
+  gsthive-prod-network:
+    driver: bridge
+    internal: true
+    name: gsthive-prod-net
+    
+  gsthive-staging-network:
+    driver: bridge
+    internal: true
+    name: gsthive-staging-net
+
+volumes:
+  # Production volumes
+  postgres_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+  app_prod_uploads:
+    driver: local
+  app_prod_public:
+    driver: local
+    
+  # Staging volumes
+  postgres_staging_data:
+    driver: local
+  redis_staging_data:
+    driver: local
+  app_staging_uploads:
+    driver: local
+  app_staging_public:
+    driver: local

@@ -1,107 +1,54 @@
-# MacOS
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+*.pem
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
-.history/
-
-# IDE - IntelliJ
-.idea/
-*.iml
-*.iws
-*.ipr
-out/
-.idea_modules/
-
-# IDE - Sublime
-*.tmlanguage.cache
-*.tmPreferences.cache
-*.stTheme.cache
-*.sublime-workspace
-*.sublime-project
-
-# Node
-node_modules/
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
-.pnpm-debug.log*
-.npm
-.yarn-integrity
 
-# Environment files
+# local env files
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
+.env*.local
+.env.production
+!.env.example
+!.env.development
+!.env.production.template
 
-# Build artifacts
-dist/
-build/
-*.log
-logs/
-*.pid
-*.seed
-*.pid.lock
+# vercel
+.vercel
 
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.temp
-.cache/
+# typescript
+*.tsbuildinfo
+next-env.d.ts
 
-# OS generated files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
+# prisma
+prisma/*.db
+prisma/*.db-journal
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
-# Coverage
-coverage/
-*.lcov
-.nyc_output
-
-# Misc
-*.swp
-*.swo
-*~
-.project
-.classpath
-.c9/
-*.launch
-.settings/
+# uploads
+/uploads/

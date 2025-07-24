@@ -82,52 +82,10 @@ jobs:
           mkdir -p deployment
           cp docker/docker-compose.production.yml deployment/docker-compose.yml
           
-          # Create .env file from secrets
-          cat > deployment/.env.production << EOF
-          # Database
-          POSTGRES_USER=${{ vars.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=${{ vars.POSTGRES_DB }}
-          
-          # Redis
-          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-          
-          # NextAuth
-          NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
-          NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
-          
-          # Email Configuration - Amazon SES
-          EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
-          EMAIL_SERVER=${{ secrets.EMAIL_SERVER }}
-          EMAIL_FROM=${{ vars.EMAIL_FROM }}
-          AWS_SES_ACCESS_KEY_ID=${{ secrets.AWS_SES_ACCESS_KEY_ID }}
-          AWS_SES_SECRET_ACCESS_KEY=${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
-          AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
-          
-          # AWS S3 (Optional)
-          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION=${{ vars.AWS_REGION }}
-          AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
-          
-          # API Keys
-          RBI_API_KEY=${{ secrets.RBI_API_KEY }}
-          EXCHANGE_RATE_API_KEY=${{ secrets.EXCHANGE_RATE_API_KEY }}
-          
-          # Cron Secret
-          CRON_SECRET=${{ secrets.CRON_SECRET }}
-          
-          # Cloudflare Tunnel
-          CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-          
-          # Docker Registry
-          DOCKER_REGISTRY=${{ env.REGISTRY }}
-          DOCKER_IMAGE_PROD=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          EOF
-          
           # Replace build sections with image references
-          # This handles the specific structure of docker-compose.production.yml
-          awk '
+          # Use environment variable to pass the image name to awk
+          export DOCKER_IMAGE_PROD="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          awk -v image="$DOCKER_IMAGE_PROD" '
             /^  app:/ { in_app=1 }
             /^  queue-worker:/ { in_queue_worker=1 }
             /^  cron:/ { in_cron=1 }
@@ -135,7 +93,7 @@ jobs:
             
             /^    build:/ {
               if (in_app || in_queue_worker || in_cron) {
-                print "    image: ${DOCKER_IMAGE_PROD}"
+                print "    image: " image
                 # Skip the build section
                 while (getline && /^      /) {}
                 # Print the current line if it is not part of build section
@@ -188,10 +146,31 @@ jobs:
             # Login to GitHub Container Registry
             echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
             
-            # Export environment variables from .env.production
-            set -a
-            source .env.production
-            set +a
+            # Set all environment variables directly from GitHub secrets
+            export POSTGRES_USER='${{ vars.POSTGRES_USER }}'
+            export POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
+            export POSTGRES_DB='${{ vars.POSTGRES_DB }}'
+            export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+            export REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
+            export REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
+            export NEXTAUTH_URL='${{ vars.NEXTAUTH_URL }}'
+            export NEXTAUTH_SECRET='${{ secrets.NEXTAUTH_SECRET }}'
+            export EMAIL_PROVIDER='${{ vars.EMAIL_PROVIDER }}'
+            export EMAIL_SERVER='${{ secrets.EMAIL_SERVER }}'
+            export EMAIL_FROM='${{ vars.EMAIL_FROM }}'
+            export AWS_SES_ACCESS_KEY_ID='${{ secrets.AWS_SES_ACCESS_KEY_ID }}'
+            export AWS_SES_SECRET_ACCESS_KEY='${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}'
+            export AWS_SES_REGION='${{ vars.AWS_SES_REGION }}'
+            export AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}'
+            export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+            export AWS_REGION='${{ vars.AWS_REGION }}'
+            export AWS_S3_BUCKET='${{ vars.AWS_S3_BUCKET }}'
+            export RBI_API_KEY='${{ secrets.RBI_API_KEY }}'
+            export EXCHANGE_RATE_API_KEY='${{ secrets.EXCHANGE_RATE_API_KEY }}'
+            export CRON_SECRET='${{ secrets.CRON_SECRET }}'
+            export CLOUDFLARE_TUNNEL_TOKEN='${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}'
+            export DOCKER_REGISTRY='${{ env.REGISTRY }}'
+            export DOCKER_IMAGE_PROD='${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest'
             
             # Pull latest images
             docker-compose pull

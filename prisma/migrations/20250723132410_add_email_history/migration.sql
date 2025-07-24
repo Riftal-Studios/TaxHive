@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "EmailHistory" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "invoiceId" TEXT,
     "type" TEXT NOT NULL,
@@ -11,10 +11,11 @@ CREATE TABLE "EmailHistory" (
     "template" TEXT NOT NULL,
     "messageId" TEXT NOT NULL,
     "status" TEXT NOT NULL,
-    "sentAt" DATETIME NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "sentAt" TIMESTAMP NOT NULL,
+    "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "EmailHistory_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT "EmailHistory_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    CONSTRAINT "EmailHistory_invoiceId_fkey" FOREIGN KEY ("invoiceId") REFERENCES "Invoice" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    PRIMARY KEY ("id")
 );
 
 -- CreateIndex

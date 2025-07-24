@@ -1,27 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database - Internal only
-  postgres:
-    image: postgres:16-alpine
-    container_name: gsthive-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-gsthive}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-gsthive}
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - gsthive-internal
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gsthive}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    # NO PORTS EXPOSED
-
   # Redis for queue/caching - Internal only  
   redis:
     image: redis:7-alpine
@@ -49,11 +28,16 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-gsthive}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}
+      DATABASE_DB_URL: ${DATABASE_DB_URL}
+      DATABASE_DIRECT_URL: ${DATABASE_DIRECT_URL}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       
+      # Supabase
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_API_KEY: ${SUPABASE_API_KEY}
+      
       # NextAuth Configuration
-      NEXTAUTH_URL: https://gsthive.com
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       
       # Email Configuration - Amazon SES
@@ -70,37 +54,23 @@ services:
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       
-      # API Keys
+      # Exchange Rate APIs
       RBI_API_KEY: ${RBI_API_KEY}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       
-      # Cron Secret
+      # Cron
       CRON_SECRET: ${CRON_SECRET}
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - app_uploads:/app/uploads
-      - app_public:/app/public/invoices
+      - uploads:/app/uploads
+      - invoices:/app/public/invoices
     networks:
       - gsthive-internal
-    # NO PORTS EXPOSED - Only accessible via cloudflared
+    # NO PORTS EXPOSED
 
-  # Cloudflare Tunnel - The only way in
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: gsthive-tunnel
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
-    networks:
-      - gsthive-internal
-    depends_on:
-      - app
-    # This is the only service that communicates with the outside world
-
-  # Queue Worker (using BullMQ)
+  # Queue Worker - Internal only
   queue-worker:
     build:
       context: .
@@ -111,16 +81,21 @@ services:
     command: npm run queue:worker
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-gsthive}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}
+      DATABASE_DB_URL: ${DATABASE_DB_URL}
+      DATABASE_DIRECT_URL: ${DATABASE_DIRECT_URL}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       
+      # Supabase
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_API_KEY: ${SUPABASE_API_KEY}
+      
       # Email Configuration
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
       EMAIL_SERVER: ${EMAIL_SERVER}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
+      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
+      AWS_SES_REGION: ${AWS_SES_REGION:-ap-south-1}
       
       # AWS S3
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -128,20 +103,19 @@ services:
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
       
-      # API Keys
+      # Exchange Rate APIs
       RBI_API_KEY: ${RBI_API_KEY}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - app_uploads:/app/uploads
+      - uploads:/app/uploads
+      - invoices:/app/public/invoices
     networks:
       - gsthive-internal
 
-  # Cron Jobs
+  # Cron Jobs - Internal only
   cron:
     build:
       context: .
@@ -152,35 +126,45 @@ services:
     command: npm run cron:start
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-gsthive}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}
+      DATABASE_DB_URL: ${DATABASE_DB_URL}
+      DATABASE_DIRECT_URL: ${DATABASE_DIRECT_URL}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       
-      # API Keys for exchange rates
+      # Supabase
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_API_KEY: ${SUPABASE_API_KEY}
+      
+      # Exchange Rate APIs
       RBI_API_KEY: ${RBI_API_KEY}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       
-      # Internal API endpoint
-      API_URL: http://app:3000
+      # Cron Secret
       CRON_SECRET: ${CRON_SECRET}
     depends_on:
-      - app
-      - postgres
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - gsthive-internal
 
+  # Cloudflare Tunnel for secure external access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gsthive-tunnel
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - gsthive-internal
+    depends_on:
+      - app
+
 networks:
   gsthive-internal:
-    driver: bridge
-    internal: true  # This makes the network internal only
     name: gsthive-network
+    driver: bridge
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
-    driver: local
-  app_uploads:
-    driver: local
-  app_public:
-    driver: local
+  uploads:
+  invoices:

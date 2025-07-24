@@ -80,85 +80,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run database migrations on VPS
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          host: ${{ vars.VPS_HOST }}
-          username: ${{ vars.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ vars.VPS_PORT }}
-          script: |
-            # Set environment variables
-            export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
-            export GITHUB_USER='${{ github.actor }}'
-            
-            # Login to GitHub Container Registry
-            echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
-            
-            # Pull the latest image
-            docker pull ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest
-            
-            # List running containers for debugging
-            echo "Current containers:"
-            docker ps --format "table {{.Names}}\t{{.Networks}}"
-            
-            # Get the network that gsthive-postgres is using
-            NETWORK_NAME=$(docker inspect gsthive-postgres --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null || echo "")
-            
-            if [ -z "$NETWORK_NAME" ]; then
-              echo "PostgreSQL container not found. Checking if services need to be started..."
-              cd /home/${{ vars.VPS_USER }}/gsthive-production
-              
-              # Check if docker-compose.yml exists
-              if [ -f docker-compose.yml ]; then
-                # Just ensure postgres is running, don't recreate
-                docker-compose up -d postgres redis --no-recreate
-                sleep 5
-                
-                # Get network again
-                NETWORK_NAME=$(docker inspect gsthive-postgres --format='{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
-              else
-                echo "No docker-compose.yml found in production directory"
-                exit 1
-              fi
-            fi
-            
-            echo "Using network: $NETWORK_NAME"
-            
-            # Run migrations in a temporary container connected to the production network
-            echo "Running database migrations..."
-            docker run --rm \
-              --network $NETWORK_NAME \
-              -e DATABASE_URL="postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@gsthive-postgres:5432/${{ vars.POSTGRES_DB }}?schema=public" \
-              ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest \
-              npx prisma migrate deploy
-            
-            # Check if it failed
-            MIGRATION_EXIT_CODE=$?
-            if [ $MIGRATION_EXIT_CODE -ne 0 ]; then
-              echo "Migrations failed with exit code $MIGRATION_EXIT_CODE"
-              
-              # Try to check the error and resolve if it's a failed migration
-              echo "Attempting to resolve failed migrations..."
-              docker run --rm \
-                --network $NETWORK_NAME \
-                -e DATABASE_URL="postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@gsthive-postgres:5432/${{ vars.POSTGRES_DB }}?schema=public" \
-                --entrypoint /bin/sh \
-                ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest \
-                -c "
-                  # Try to resolve each migration that might have failed
-                  npx prisma migrate resolve --rolled-back 20250716172554_init 2>/dev/null || true
-                  npx prisma migrate resolve --rolled-back 20250723033426_add_onboarding_fields 2>/dev/null || true
-                  npx prisma migrate resolve --rolled-back 20250723132410_add_email_history 2>/dev/null || true
-                  npx prisma migrate resolve --rolled-back 20250723135037_add_payment_status_to_invoices 2>/dev/null || true
-                  npx prisma migrate resolve --rolled-back 20250723164234_gsthive 2>/dev/null || true
-                  npx prisma migrate resolve --rolled-back 20250723171450_ree 2>/dev/null || true
-                  
-                  # Now try to run migrations again
-                  echo 'Retrying migrations after resolution...'
-                  npx prisma migrate deploy
-                "
-            fi
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database migrations
+        env:
+          DATABASE_DB_URL: ${{ secrets.DATABASE_DB_URL }}
+          DATABASE_DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
+        run: |
+          echo "Running database migrations on Supabase..."
+          npx prisma migrate deploy
 
   deploy:
     needs: migrate
@@ -241,10 +177,10 @@ jobs:
             echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
             
             # Set all environment variables directly from GitHub secrets
-            export POSTGRES_USER='${{ vars.POSTGRES_USER }}'
-            export POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
-            export POSTGRES_DB='${{ vars.POSTGRES_DB }}'
-            export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+            export DATABASE_DB_URL='${{ secrets.DATABASE_DB_URL }}'
+            export DATABASE_DIRECT_URL='${{ secrets.DATABASE_DIRECT_URL }}'
+            export SUPABASE_URL='${{ secrets.SUPABASE_URL }}'
+            export SUPABASE_API_KEY='${{ secrets.SUPABASE_API_KEY }}'
             export REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
             export REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
             export NEXTAUTH_URL='${{ vars.NEXTAUTH_URL }}'

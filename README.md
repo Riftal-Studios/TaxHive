@@ -7,7 +7,7 @@ A modern GST-compliant invoice management system for Indian businesses exporting
 ### Prerequisites
 
 - Node.js 18+ 
-- PostgreSQL 14+
+- Supabase account (for managed PostgreSQL)
 - Redis (for queue system)
 
 ### Installation
@@ -17,14 +17,22 @@ A modern GST-compliant invoice management system for Indian businesses exporting
    npm install
    ```
 
-2. **Set up environment variables:**
+2. **Set up Supabase:**
+   - Create a new project at [supabase.com](https://supabase.com)
+   - Copy the database connection strings from Project Settings > Database
+
+3. **Set up environment variables:**
    ```bash
    cp .env.example .env.local
    ```
    
-   Edit `.env.local` with your configuration. All variables are documented in the file with examples.
+   Edit `.env.local` with your Supabase credentials:
+   - `DATABASE_DB_URL` - Connection pooler URL (for Prisma)
+   - `DATABASE_DIRECT_URL` - Direct connection URL (for migrations)
+   - `SUPABASE_URL` - Your Supabase project URL
+   - `SUPABASE_API_KEY` - Your Supabase anon key
 
-3. **Set up the database:**
+4. **Set up the database:**
    ```bash
    # Run migrations
    npx prisma migrate dev
@@ -33,13 +41,13 @@ A modern GST-compliant invoice management system for Indian businesses exporting
    npm run db:seed
    ```
 
-4. **Start Redis:**
+5. **Start Redis:**
    ```bash
    # In a separate terminal
    redis-server
    ```
 
-5. **Start the development server:**
+6. **Start the development server:**
 
    **Option A: Traditional local development**
    ```bash
@@ -134,7 +142,7 @@ Additional documentation is available in the `/docs` directory:
 ## Tech Stack
 
 - **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend:** tRPC, Prisma, PostgreSQL
+- **Backend:** tRPC, Prisma, Supabase (PostgreSQL)
 - **Queue:** BullMQ with Redis
 - **Authentication:** NextAuth.js
 - **Testing:** Vitest, Playwright

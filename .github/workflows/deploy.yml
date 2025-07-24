@@ -278,7 +278,9 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     if: success()
-    environment: production
+    environment:
+      name: production
+      url: https://gsthive.com
     
     steps:
       - name: Clean up VPS

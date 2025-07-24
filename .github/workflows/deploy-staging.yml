@@ -15,7 +15,6 @@ on:
         options:
           - deploy
           - rebuild
-          - migrate-only
 
 env:
   REGISTRY: ghcr.io
@@ -70,8 +69,51 @@ jobs:
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}
 
-  deploy:
+  migrate:
     needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: 
+      name: staging
+      url: https://staging.gsthive.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run database migrations on VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ vars.VPS_HOST }}
+          username: ${{ vars.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ vars.VPS_PORT }}
+          script: |
+            # Set environment variables
+            export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
+            export GITHUB_USER='${{ github.actor }}'
+            
+            # Login to GitHub Container Registry
+            echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+            
+            # Pull the latest image
+            docker pull ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):staging-latest
+            
+            # Get the docker network for gsthive-staging
+            NETWORK_NAME="gsthive-staging_default"
+            
+            # Create network if it doesn't exist
+            docker network create $NETWORK_NAME 2>/dev/null || true
+            
+            # Run migrations in a temporary container connected to the staging network
+            echo "Running database migrations..."
+            docker run --rm \
+              --network $NETWORK_NAME \
+              -e DATABASE_URL="postgresql://${{ vars.POSTGRES_USER }}:${{ secrets.POSTGRES_PASSWORD }}@gsthive-postgres:5432/${{ vars.POSTGRES_DB }}?schema=public" \
+              ${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):staging-latest \
+              npx prisma migrate deploy
+
+  deploy:
+    needs: migrate
     runs-on: ubuntu-latest
     environment: 
       name: staging
@@ -186,32 +228,9 @@ jobs:
                 docker-compose down
                 docker-compose up -d --force-recreate
                 ;;
-              "migrate-only")
-                echo "Running migrations only..."
-                docker-compose run --rm app npx prisma migrate deploy
-                ;;
               *)
                 echo "Standard deployment..."
                 docker-compose up -d
-                sleep 10
-                
-                # Try to run migrations, if it fails due to P3009, resolve and retry
-                echo "Running migrations..."
-                if ! docker-compose exec -T app npx prisma migrate deploy 2>&1 | tee /tmp/migrate.log; then
-                  if grep -q "P3009" /tmp/migrate.log; then
-                    echo "Found failed migrations, attempting to resolve..."
-                    # Get the failed migration name from the error message
-                    FAILED_MIGRATION=$(grep -o "The \`[^']*\` migration" /tmp/migrate.log | sed "s/The \\\`//;s/\\\` migration//")
-                    echo "Resolving failed migration: $FAILED_MIGRATION"
-                    docker-compose exec -T app npx prisma migrate resolve --rolled-back "$FAILED_MIGRATION" || true
-                    # Try migrations again
-                    echo "Retrying migrations after resolution..."
-                    docker-compose exec -T app npx prisma migrate deploy
-                  else
-                    echo "Migration failed for unknown reason"
-                    exit 1
-                  fi
-                fi
                 ;;
             esac
             

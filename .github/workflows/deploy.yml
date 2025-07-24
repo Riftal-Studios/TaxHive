@@ -15,6 +15,7 @@ on:
           - deploy
           - rebuild
           - migrate-only
+          - reset-migrations
 
 env:
   REGISTRY: ghcr.io
@@ -190,11 +191,34 @@ jobs:
                 echo "Running migrations only..."
                 docker-compose run --rm app npx prisma migrate deploy
                 ;;
+              "reset-migrations")
+                echo "Resetting failed migrations..."
+                docker-compose run --rm app npx prisma migrate resolve --rolled-back 20250716172554_init || true
+                docker-compose run --rm app npx prisma migrate resolve --rolled-back 20250723033426_add_onboarding_fields || true
+                docker-compose run --rm app npx prisma migrate resolve --rolled-back 20250723132410_add_email_history || true
+                docker-compose run --rm app npx prisma migrate resolve --rolled-back 20250723135037_add_payment_status_to_invoices || true
+                docker-compose run --rm app npx prisma migrate resolve --rolled-back 20250723164234_gsthive || true
+                docker-compose run --rm app npx prisma migrate resolve --rolled-back 20250723171450_ree || true
+                echo "Applying migrations..."
+                docker-compose run --rm app npx prisma migrate deploy
+                ;;
               *)
                 echo "Standard deployment..."
                 docker-compose up -d
                 sleep 10
-                docker-compose exec -T app npx prisma migrate deploy
+                
+                # Check for failed migrations and resolve if needed
+                echo "Checking migration status..."
+                if docker-compose exec -T app npx prisma migrate status | grep -q "failed"; then
+                  echo "Found failed migrations, attempting to resolve..."
+                  # Mark failed migrations as rolled back
+                  docker-compose exec -T app npx prisma migrate resolve --rolled-back 20250716172554_init || true
+                  # Try to apply migrations again
+                  docker-compose exec -T app npx prisma migrate deploy
+                else
+                  # Normal migration
+                  docker-compose exec -T app npx prisma migrate deploy
+                fi
                 ;;
             esac
             

@@ -194,7 +194,19 @@ jobs:
                 echo "Standard deployment..."
                 docker-compose up -d
                 sleep 10
-                docker-compose exec -T app npx prisma migrate deploy
+                
+                # Check for failed migrations and resolve if needed
+                echo "Checking migration status..."
+                if docker-compose exec -T app npx prisma migrate status | grep -q "failed"; then
+                  echo "Found failed migrations, attempting to resolve..."
+                  # Mark failed migrations as rolled back
+                  docker-compose exec -T app npx prisma migrate resolve --rolled-back 20250716172554_init || true
+                  # Try to apply migrations again
+                  docker-compose exec -T app npx prisma migrate deploy
+                else
+                  # Normal migration
+                  docker-compose exec -T app npx prisma migrate deploy
+                fi
                 ;;
             esac
             

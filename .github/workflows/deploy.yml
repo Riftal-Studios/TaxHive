@@ -80,7 +80,7 @@ jobs:
       - name: Create deployment package
         run: |
           mkdir -p deployment
-          cp docker-compose.production.yml deployment/docker-compose.yml
+          cp docker/docker-compose.production.yml deployment/docker-compose.yml
           cp deploy.sh deployment/
           
           # Create .env file from secrets

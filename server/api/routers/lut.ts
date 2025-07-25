@@ -139,7 +139,7 @@ export const lutRouter = createTRPCRouter({
       if (!dateValidation.success) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: dateValidation.error.errors[0].message,
+          message: dateValidation.error.issues[0].message,
         })
       }
 

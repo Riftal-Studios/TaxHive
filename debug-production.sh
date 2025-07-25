@@ -8,7 +8,16 @@ echo "Date: $(date)"
 echo ""
 
 echo "1. Checking running containers:"
-docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.CreatedAt}}"
+echo ""
+
+echo "1b. Checking container restart counts:"
+for container in gsthive-app gsthive-tunnel gsthive-postgres gsthive-redis; do
+  RESTARTS=$(docker inspect $container --format='{{.RestartCount}}' 2>/dev/null)
+  if [ $? -eq 0 ]; then
+    echo "$container: $RESTARTS restarts"
+  fi
+done
 echo ""
 
 echo "2. Checking container health:"

@@ -212,28 +212,28 @@ jobs:
             export DOCKER_IMAGE_PROD='${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr "[:upper:]" "[:lower:]"):latest'
             
             # Pull latest images
-            docker-compose pull
+            docker compose pull
             
             # Deploy based on type
             case "$DEPLOY_TYPE" in
               "rebuild")
                 echo "Rebuilding all services..."
-                docker-compose down
-                docker-compose up -d --force-recreate
+                docker compose down
+                docker compose up -d --force-recreate
                 ;;
               *)
                 echo "Standard deployment..."
-                docker-compose up -d
+                docker compose up -d
                 ;;
             esac
             
             # Verify all containers are running
             echo "Checking running containers..."
-            docker-compose ps
+            docker compose ps
             
             # Check cloudflared tunnel status
             echo "Checking Cloudflare tunnel logs..."
-            docker-compose logs cloudflared | tail -20
+            docker compose logs cloudflared | tail -20
             
             # Health check - using the actual production URL through Cloudflare
             sleep 10
@@ -241,7 +241,7 @@ jobs:
               echo "Health check passed"
             else
               echo "Health check failed - checking container logs"
-              docker-compose logs app
+              docker compose logs app
               # Don't fail deployment immediately - container might be healthy but Cloudflare tunnel not ready
               echo "Note: Container might be healthy even if external check fails"
             fi

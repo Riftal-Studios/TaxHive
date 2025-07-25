@@ -69,43 +69,8 @@ jobs:
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}
 
-  migrate:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: 
-      name: production
-      url: https://gsthive.com
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run database migrations
-        env:
-          DATABASE_DB_URL: ${{ secrets.DATABASE_DB_URL }}
-          DATABASE_DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
-        run: |
-          echo "Running database migrations on Supabase..."
-          
-          # Check if we have any failed migrations and resolve them
-          if npx prisma migrate status 2>&1 | grep -q "failed"; then
-            echo "Found failed migrations, attempting to resolve..."
-            npx prisma migrate resolve --rolled-back 20250716172554_init || true
-          fi
-          
-          # Now apply migrations
-          npx prisma migrate deploy
-
   deploy:
-    needs: migrate
+    needs: build-and-push
     runs-on: ubuntu-latest
     environment: 
       name: production
@@ -185,10 +150,9 @@ jobs:
             echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
             
             # Set all environment variables directly from GitHub secrets
-            export DATABASE_DB_URL='${{ secrets.DATABASE_DB_URL }}'
-            export DATABASE_DIRECT_URL='${{ secrets.DATABASE_DIRECT_URL }}'
-            export SUPABASE_URL='${{ secrets.SUPABASE_URL }}'
-            export SUPABASE_API_KEY='${{ secrets.SUPABASE_API_KEY }}'
+            export POSTGRES_USER='${{ secrets.POSTGRES_USER }}'
+            export POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
+            export POSTGRES_DB='${{ secrets.POSTGRES_DB }}'
             export REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
             export REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
             export NEXTAUTH_URL='${{ vars.NEXTAUTH_URL }}'
@@ -230,6 +194,10 @@ jobs:
             # Verify all containers are running
             echo "Checking running containers..."
             docker compose ps
+            
+            # Run database migrations from within the app container
+            echo "Running database migrations..."
+            docker compose exec -T app npx prisma migrate deploy
             
             # Check cloudflared tunnel status
             echo "Checking Cloudflare tunnel logs..."

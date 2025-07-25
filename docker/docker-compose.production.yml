@@ -39,8 +39,8 @@ services:
   # Next.js Application - Internal only
   app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.production
       target: runner
     container_name: gsthive-app
     restart: unless-stopped
@@ -86,13 +86,19 @@ services:
       - invoices:/app/public/invoices
     networks:
       - gsthive-internal
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     # NO PORTS EXPOSED
 
   # Queue Worker - Internal only
   queue-worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.production
       target: runner
     container_name: gsthive-queue-worker
     restart: unless-stopped
@@ -169,20 +175,21 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: gsthive-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate run --loglevel debug
     environment:
       NODE_ENV: production
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - gsthive-internal
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "cloudflared", "tunnel", "info"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      start_period: 90s
 
 networks:
   gsthive-internal:

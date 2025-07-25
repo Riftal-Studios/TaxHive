@@ -7,16 +7,18 @@ import { existsSync } from 'fs'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
+    const { path } = await params
+    
     // Check authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const [userId, ...filePathParts] = params.path
+    const [userId, ...filePathParts] = path
     const fileName = filePathParts.join('/')
 
     // Security check: ensure user can only access their own files

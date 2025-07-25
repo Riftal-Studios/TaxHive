@@ -182,13 +182,16 @@ services:
     networks:
       - gsthive-internal
     depends_on:
-      app:
-        condition: service_healthy
+      - app
     sysctls:
       - net.core.rmem_default=7168000
       - net.core.rmem_max=7168000
-    # Removed health check - it was causing container restarts
-    # The tunnel will show as healthy based on container status alone
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   gsthive-internal:

@@ -140,17 +140,51 @@ jobs:
             cp -f deployment/* . || true
             rm -rf deployment
             
-            # Set environment variables for deployment
-            export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'
-            export GITHUB_USER='${{ github.actor }}'
+            # Set deployment type
             export DEPLOY_TYPE='${{ github.event.inputs.deploy_type || 'deploy' }}'
             export COMPOSE_PROJECT_NAME='gsthive-prod'
+            
+            # Create secrets directory
+            mkdir -p /home/${{ vars.VPS_USER }}/gsthive-production/secrets
+            chmod 700 /home/${{ vars.VPS_USER }}/gsthive-production/secrets
+            
+            # Write secrets to files
+            echo "${{ secrets.POSTGRES_PASSWORD }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/postgres_password
+            echo "${{ secrets.REDIS_PASSWORD }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/redis_password
+            echo "${{ secrets.NEXTAUTH_SECRET }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/nextauth_secret
+            echo "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/cloudflare_tunnel_token
+            echo "${{ secrets.GITHUB_TOKEN }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/github_token
+            echo "${{ secrets.AWS_SES_SMTP_USER }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/aws_ses_smtp_user
+            echo "${{ secrets.AWS_SES_SMTP_PASSWORD }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/aws_ses_smtp_password
+            echo "${{ secrets.AWS_SES_ACCESS_KEY_ID }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/aws_ses_access_key_id
+            echo "${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/aws_ses_secret_access_key
+            echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/aws_access_key_id
+            echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/aws_secret_access_key
+            echo "${{ secrets.RBI_API_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/rbi_api_key
+            echo "${{ secrets.EXCHANGE_RATE_API_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/exchange_rate_api_key
+            echo "${{ secrets.CRON_SECRET }}" > /home/${{ vars.VPS_USER }}/gsthive-production/secrets/cron_secret
+            
+            # Set proper permissions on secret files
+            chmod 600 /home/${{ vars.VPS_USER }}/gsthive-production/secrets/*
+            
+            # Create .env file for non-secret variables
+            cat > /home/${{ vars.VPS_USER }}/gsthive-production/.env << 'EOF'
+            POSTGRES_USER=${{ vars.POSTGRES_USER }}
+            POSTGRES_DB=${{ vars.POSTGRES_DB }}
+            NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
+            EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
+            AWS_REGION=${{ vars.AWS_REGION }}
+            AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+            NODE_ENV=production
+            EOF
             
             # Create docker network if it doesn't exist
             docker network create gsthive-network || true
             
             # Login to GitHub Container Registry
-            echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+            cat /home/${{ vars.VPS_USER }}/gsthive-production/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull latest images
             docker compose --env-file .env pull
@@ -246,7 +280,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ vars.VPS_PORT }}
           script: |
-            # Remove deployment files
+            # Remove deployment files (but keep secrets)
             rm -rf /home/${{ vars.VPS_USER }}/deployment
             
             # Clean up Docker (but NEVER prune volumes - that deletes database data!)

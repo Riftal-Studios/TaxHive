@@ -6,12 +6,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-gsthive}
+      # MODIFICATION: Use POSTGRES_PASSWORD_FILE for Docker secrets
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - gsthive-internal
+    secrets:
+      - postgres_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -24,13 +27,16 @@ services:
     image: redis:7-alpine
     container_name: gsthive-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    # MODIFICATION: The command now reads the password from the secret file
+    command: sh -c 'redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"'
     volumes:
       - redis_data:/data
     networks:
       - gsthive-internal
+    secrets:
+      - redis_password
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli -a $$(cat /run/secrets/redis_password) ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -44,38 +50,36 @@ services:
       target: runner
     container_name: gsthive-app
     restart: unless-stopped
+    # IMPORTANT: The application code must be updated to read secrets from files.
+    # Secrets are available at /run/secrets/<secret_name>.
+    # Example in Node.js:
+    # const nextAuthSecret = fs.readFileSync('/run/secrets/nextauth_secret', 'utf8').trim();
+    # const postgresPassword = fs.readFileSync('/run/secrets/postgres_password', 'utf8').trim();
+    # Then construct DATABASE_URL dynamically in the application.
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}?schema=public
-      DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}?schema=public
-      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}?schema=public
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      
-      # NextAuth Configuration
+      # Non-secret environment variables
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gsthive}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      
-      # Email Configuration - Amazon SES
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
-      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
-      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
       AWS_SES_REGION: ${AWS_SES_REGION:-us-east-1}
-      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
-      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
-      
-      # AWS S3 for file storage
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      
-      # Exchange Rate APIs
-      RBI_API_KEY: ${RBI_API_KEY}
-      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
-      
-      # Cron
-      CRON_SECRET: ${CRON_SECRET}
+    secrets:
+      - postgres_password
+      - redis_password
+      - nextauth_secret
+      - aws_ses_smtp_user
+      - aws_ses_smtp_password
+      - aws_ses_access_key_id
+      - aws_ses_secret_access_key
+      - aws_access_key_id
+      - aws_secret_access_key
+      - rbi_api_key
+      - exchange_rate_api_key
+      - cron_secret
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,31 +107,28 @@ services:
     container_name: gsthive-queue-worker
     restart: unless-stopped
     command: npm run worker
+    # IMPORTANT: The queue worker code must also be updated to read secrets from files.
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}?schema=public
-      DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}?schema=public
-      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive}?schema=public
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      
-      # Email Configuration
+      # Non-secret environment variables
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gsthive}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
-      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
-      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
       AWS_SES_REGION: ${AWS_SES_REGION:-us-east-1}
-      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
-      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
-      
-      # AWS S3
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      
-      # Exchange Rate APIs
-      RBI_API_KEY: ${RBI_API_KEY}
-      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
+    secrets:
+      - postgres_password
+      - redis_password
+      - aws_ses_smtp_user
+      - aws_ses_smtp_password
+      - aws_ses_access_key_id
+      - aws_ses_secret_access_key
+      - aws_access_key_id
+      - aws_secret_access_key
+      - rbi_api_key
+      - exchange_rate_api_key
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,62 +140,21 @@ services:
     networks:
       - gsthive-internal
 
-  # Cron Jobs - Commented out until proper cron scheduler is implemented
-  # cron:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #     target: runner
-  #   container_name: gsthive-cron
-  #   restart: unless-stopped
-  #   command: npm run cron:exchange-rates
-  #   environment:
-  #     NODE_ENV: production
-  #     DATABASE_DB_URL: ${DATABASE_DB_URL}
-  #     DATABASE_DIRECT_URL: ${DATABASE_DIRECT_URL}
-  #     REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-  #     
-  #     # Supabase
-  #     SUPABASE_URL: ${SUPABASE_URL}
-  #     SUPABASE_API_KEY: ${SUPABASE_API_KEY}
-  #     
-  #     # Exchange Rate APIs
-  #     RBI_API_KEY: ${RBI_API_KEY}
-  #     EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
-  #     
-  #     # Cron Secret
-  #     CRON_SECRET: ${CRON_SECRET}
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - gsthive-internal
-
   # Cloudflare Tunnel for secure external access
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: gsthive-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate --protocol http2 run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    # MODIFICATION: Read token from secret file
+    command: sh -c 'tunnel --no-autoupdate --protocol http2 run --token $$(cat /run/secrets/cloudflare_tunnel_token)'
     environment:
       NODE_ENV: production
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - gsthive-internal
     depends_on:
       - app
-    # No depends_on - tunnel should start independently
-    # sysctls not supported on all systems
-    # sysctls:
-    #   - net.core.rmem_default=7168000
-    #   - net.core.rmem_max=7168000
-    # Health check removed - was causing container restarts
-    # healthcheck:
-    #   test: ["CMD", "cloudflared", "tunnel", "info"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 40s
+    secrets:
+      - cloudflare_tunnel_token
 
 networks:
   gsthive-internal:
@@ -207,3 +167,34 @@ volumes:
   redis_data:
   uploads:
   invoices:
+
+# MODIFICATION: Add top-level secrets block
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  redis_password:
+    file: ./secrets/redis_password
+  nextauth_secret:
+    file: ./secrets/nextauth_secret
+  cloudflare_tunnel_token:
+    file: ./secrets/cloudflare_tunnel_token
+  github_token:
+    file: ./secrets/github_token
+  aws_ses_smtp_user:
+    file: ./secrets/aws_ses_smtp_user
+  aws_ses_smtp_password:
+    file: ./secrets/aws_ses_smtp_password
+  aws_ses_access_key_id:
+    file: ./secrets/aws_ses_access_key_id
+  aws_ses_secret_access_key:
+    file: ./secrets/aws_ses_secret_access_key
+  aws_access_key_id:
+    file: ./secrets/aws_access_key_id
+  aws_secret_access_key:
+    file: ./secrets/aws_secret_access_key
+  rbi_api_key:
+    file: ./secrets/rbi_api_key
+  exchange_rate_api_key:
+    file: ./secrets/exchange_rate_api_key
+  cron_secret:
+    file: ./secrets/cron_secret

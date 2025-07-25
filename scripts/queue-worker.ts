@@ -4,11 +4,22 @@
  * Processes jobs from the BullMQ queue
  */
 
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import path from 'path'
+
+// Load .env.local for local development
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
 import { BullMQService } from '../lib/queue/bullmq.service'
 import { pdfGenerationHandler } from '../lib/queue/handlers/pdf-generation.handler'
 import { emailNotificationHandler } from '../lib/queue/handlers/email-notification.handler'
 import { exchangeRateFetchHandler } from '../lib/queue/handlers/exchange-rate-fetch.handler'
+
+// Debug environment loading
+console.log('Environment check:')
+console.log('REDIS_URL:', process.env.REDIS_URL)
+console.log('REDIS_HOST:', process.env.REDIS_HOST)
+console.log('REDIS_PORT:', process.env.REDIS_PORT)
+console.log('REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'not set')
 
 // Initialize queue service
 let redisConfig: any = {

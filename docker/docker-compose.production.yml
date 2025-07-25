@@ -183,9 +183,10 @@ services:
       - gsthive-internal
     depends_on:
       - app
-    sysctls:
-      - net.core.rmem_default=7168000
-      - net.core.rmem_max=7168000
+    # sysctls not supported on all systems
+    # sysctls:
+    #   - net.core.rmem_default=7168000
+    #   - net.core.rmem_max=7168000
     # Health check removed - was causing container restarts
     # healthcheck:
     #   test: ["CMD", "cloudflared", "tunnel", "info"]
@@ -198,6 +199,7 @@ networks:
   gsthive-internal:
     name: gsthive-network
     driver: bridge
+    external: true
 
 volumes:
   postgres_data:

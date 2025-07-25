@@ -32,9 +32,9 @@ jobs:
           
           # Required secrets - deployment will fail without these
           REQUIRED_SECRETS=(
-            "POSTGRES_USER:${{ secrets.POSTGRES_USER }}"
+            "POSTGRES_USER:${{ vars.POSTGRES_USER }}"
             "POSTGRES_PASSWORD:${{ secrets.POSTGRES_PASSWORD }}"
-            "POSTGRES_DB:${{ secrets.POSTGRES_DB }}"
+            "POSTGRES_DB:${{ vars.POSTGRES_DB }}"
             "REDIS_PASSWORD:${{ secrets.REDIS_PASSWORD }}"
             "NEXTAUTH_SECRET:${{ secrets.NEXTAUTH_SECRET }}"
             "CLOUDFLARE_TUNNEL_TOKEN:${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"
@@ -60,7 +60,6 @@ jobs:
             "AWS_SES_SECRET_ACCESS_KEY:${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}"
             "AWS_ACCESS_KEY_ID:${{ secrets.AWS_ACCESS_KEY_ID }}"
             "AWS_SECRET_ACCESS_KEY:${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-            "RBI_API_KEY:${{ secrets.RBI_API_KEY }}"
             "EXCHANGE_RATE_API_KEY:${{ secrets.EXCHANGE_RATE_API_KEY }}"
             "CRON_SECRET:${{ secrets.CRON_SECRET }}"
           )
@@ -135,7 +134,6 @@ jobs:
             done
             echo -e "\nThese may affect certain features:"
             echo "  - AWS_* : Email sending via SES, file uploads to S3"
-            echo "  - RBI_API_KEY : RBI exchange rate fetching"
             echo "  - EXCHANGE_RATE_API_KEY : Fallback exchange rate API"
             echo "  - CRON_SECRET : Scheduled job authentication"
           fi
@@ -286,9 +284,9 @@ jobs:
             echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
             
             # Set all environment variables directly from GitHub secrets
-            export POSTGRES_USER='${{ secrets.POSTGRES_USER }}'
+            export POSTGRES_USER='${{ vars.POSTGRES_USER }}'
             export POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
-            export POSTGRES_DB='${{ secrets.POSTGRES_DB }}'
+            export POSTGRES_DB='${{ vars.POSTGRES_DB }}'
             export REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
             export REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
             export NEXTAUTH_URL='${{ vars.NEXTAUTH_URL }}'
@@ -304,7 +302,6 @@ jobs:
             export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
             export AWS_REGION='${{ vars.AWS_REGION }}'
             export AWS_S3_BUCKET='${{ vars.AWS_S3_BUCKET }}'
-            export RBI_API_KEY='${{ secrets.RBI_API_KEY }}'
             export EXCHANGE_RATE_API_KEY='${{ secrets.EXCHANGE_RATE_API_KEY }}'
             export CRON_SECRET='${{ secrets.CRON_SECRET }}'
             export CLOUDFLARE_TUNNEL_TOKEN='${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}'

@@ -175,12 +175,14 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: gsthive-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate --protocol http2 run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     environment:
       NODE_ENV: production
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - gsthive-internal
+    depends_on:
+      - app
     # No depends_on - tunnel should start independently
     # sysctls not supported on all systems
     # sysctls:

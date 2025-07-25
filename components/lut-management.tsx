@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { api } from '@/lib/trpc/client'
 import { format } from 'date-fns'
+import { zodErrorsToFormErrors } from '@/lib/utils/zod-error-handler'
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/solid'
 
@@ -35,13 +36,8 @@ export default function LUTManagement() {
     },
     onError: (error) => {
       if (error.data?.zodError) {
-        const zodErrors: Partial<LUTFormData> = {}
-        Object.entries(error.data.zodError.fieldErrors).forEach(([field, messages]) => {
-          if (messages && messages.length > 0) {
-            zodErrors[field as keyof LUTFormData] = messages[0]
-          }
-        })
-        setErrors(zodErrors)
+        const formErrors = zodErrorsToFormErrors<LUTFormData>(error.data.zodError)
+        setErrors(formErrors)
       }
     },
   })
@@ -54,13 +50,8 @@ export default function LUTManagement() {
     },
     onError: (error) => {
       if (error.data?.zodError) {
-        const zodErrors: Partial<LUTFormData> = {}
-        Object.entries(error.data.zodError.fieldErrors).forEach(([field, messages]) => {
-          if (messages && messages.length > 0) {
-            zodErrors[field as keyof LUTFormData] = messages[0]
-          }
-        })
-        setErrors(zodErrors)
+        const formErrors = zodErrorsToFormErrors<LUTFormData>(error.data.zodError)
+        setErrors(formErrors)
       }
     },
   })

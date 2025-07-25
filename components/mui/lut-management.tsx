@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material'
 import { api } from '@/lib/trpc/client'
 import { format } from 'date-fns'
+import { zodErrorsToFormErrors } from '@/lib/utils/zod-error-handler'
 import { enqueueSnackbar } from 'notistack'
 
 interface LUTFormData {
@@ -70,13 +71,8 @@ export function MUILUTManagement() {
     },
     onError: (error) => {
       if (error.data?.zodError) {
-        const zodErrors: Partial<Record<keyof LUTFormData, string>> = {}
-        Object.entries(error.data.zodError.fieldErrors).forEach(([field, messages]) => {
-          if (messages && messages.length > 0) {
-            zodErrors[field as keyof LUTFormData] = messages[0]
-          }
-        })
-        setErrors(zodErrors)
+        const formErrors = zodErrorsToFormErrors<LUTFormData>(error.data.zodError)
+        setErrors(formErrors)
       }
       enqueueSnackbar(error.message, { variant: 'error' })
     },
@@ -91,13 +87,8 @@ export function MUILUTManagement() {
     },
     onError: (error) => {
       if (error.data?.zodError) {
-        const zodErrors: Partial<Record<keyof LUTFormData, string>> = {}
-        Object.entries(error.data.zodError.fieldErrors).forEach(([field, messages]) => {
-          if (messages && messages.length > 0) {
-            zodErrors[field as keyof LUTFormData] = messages[0]
-          }
-        })
-        setErrors(zodErrors)
+        const formErrors = zodErrorsToFormErrors<LUTFormData>(error.data.zodError)
+        setErrors(formErrors)
       }
       enqueueSnackbar(error.message, { variant: 'error' })
     },

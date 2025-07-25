@@ -22,6 +22,7 @@ import {
 } from '@mui/icons-material'
 import { api } from '@/lib/trpc/client'
 import { isValidGSTIN, isValidPAN, getStateFromGSTIN, getPANFromGSTIN } from '@/lib/validations/indian-tax'
+import { zodErrorsToFormErrors } from '@/lib/utils/zod-error-handler'
 import { MUILUTManagement } from './lut-management'
 import { MUIExchangeRates } from './exchange-rates'
 import { enqueueSnackbar } from 'notistack'
@@ -65,13 +66,8 @@ export function MUISettings() {
     onError: (error) => {
       // Handle validation errors from server
       if (error.data?.zodError) {
-        const errors: Record<string, string> = {}
-        Object.entries(error.data.zodError.fieldErrors).forEach(([field, messages]) => {
-          if (messages) {
-            errors[field] = Array.isArray(messages) ? messages[0] || '' : messages
-          }
-        })
-        setValidationErrors(errors)
+        const formErrors = zodErrorsToFormErrors<typeof profileForm>(error.data.zodError)
+        setValidationErrors(formErrors)
       }
       enqueueSnackbar(error.message, { variant: 'error' })
     },

@@ -181,8 +181,7 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - gsthive-internal
-    depends_on:
-      - app
+    # No depends_on - tunnel should start independently
     # sysctls not supported on all systems
     # sysctls:
     #   - net.core.rmem_default=7168000

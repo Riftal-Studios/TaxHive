@@ -7,7 +7,8 @@ import { appRouter } from '@/server/api/root'
 import { createCallerFactory } from '@/server/api/trpc'
 
 export const api = createCallerFactory(appRouter)(async () => {
-  const heads = new Headers(headers())
+  const requestHeaders = await headers()
+  const heads = new Headers(requestHeaders)
   heads.set('x-trpc-source', 'rsc')
 
   return createTRPCContext({

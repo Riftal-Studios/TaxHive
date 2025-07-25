@@ -1,5 +1,6 @@
 import { MUIInvoiceDetail } from '@/components/mui/invoice-detail'
 
-export default function InvoicePage({ params }: { params: { id: string } }) {
-  return <MUIInvoiceDetail invoiceId={params.id} />
+export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <MUIInvoiceDetail invoiceId={id} />
 }

@@ -7,9 +7,11 @@ import path from 'path'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
+    
     // Check authentication
     const session = await getServerSession(authOptions)
     if (!session?.user) {
@@ -19,7 +21,7 @@ export async function GET(
     // Get invoice to verify ownership and get PDF URL
     const invoice = await prisma.invoice.findFirst({
       where: {
-        id: params.id,
+        id: id,
         userId: session.user.id,
       },
       select: {

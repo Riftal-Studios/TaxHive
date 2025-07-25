@@ -72,7 +72,7 @@ jobs:
           tar -czf rollback.tar.gz rollback/
 
       - name: Deploy rollback
-        uses: appleboy/scp-action@v0.1.5
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ vars.VPS_HOST }}
           username: ${{ vars.VPS_USER }}

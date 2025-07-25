@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: gsthive-dev-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -19,12 +20,30 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: gsthive-dev-redis
     restart: unless-stopped
+    command: >
+      sh -c '
+        if [ -n "$${REDIS_PASSWORD}" ]; then
+          redis-server --requirepass "$${REDIS_PASSWORD}"
+        else
+          redis-server
+        fi
+      '
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     # No ports exposed - internal network only
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: >
+        sh -c '
+          if [ -n "$${REDIS_PASSWORD}" ]; then
+            redis-cli -a "$${REDIS_PASSWORD}" ping
+          else
+            redis-cli ping
+          fi
+        '
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,18 +55,29 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+    container_name: gsthive-dev-app
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
-      REDIS_URL: redis://redis:6379
+      DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://dev.gsthive.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
-      EMAIL_SERVER: ${EMAIL_SERVER}
       EMAIL_FROM: ${EMAIL_FROM}
+      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
+      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
+      AWS_SES_REGION: ${AWS_SES_REGION}
       AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
       AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
-      AWS_SES_REGION: ${AWS_SES_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      RBI_API_KEY: ${RBI_API_KEY}
+      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       CRON_SECRET: ${CRON_SECRET}
       NODE_ENV: ${NODE_ENV:-development}
     depends_on:
@@ -61,6 +91,7 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
+    container_name: gsthive-dev-tunnel
     restart: unless-stopped
     command: tunnel run
     environment:
@@ -76,10 +107,16 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: development
+    container_name: gsthive-dev-queue-worker
     command: npm run worker
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
-      REDIS_URL: redis://redis:6379
+      DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      RBI_API_KEY: ${RBI_API_KEY}
+      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       NODE_ENV: ${NODE_ENV:-development}
     depends_on:
       postgres:

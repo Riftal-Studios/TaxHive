@@ -5,17 +5,30 @@
  */
 
 import 'dotenv/config'
-import { BullMQService } from '@/lib/queue/bullmq.service'
-import { pdfGenerationHandler } from '@/lib/queue/handlers/pdf-generation.handler'
-import { emailNotificationHandler } from '@/lib/queue/handlers/email-notification.handler'
-import { exchangeRateFetchHandler } from '@/lib/queue/handlers/exchange-rate-fetch.handler'
+import { BullMQService } from '../lib/queue/bullmq.service'
+import { pdfGenerationHandler } from '../lib/queue/handlers/pdf-generation.handler'
+import { emailNotificationHandler } from '../lib/queue/handlers/email-notification.handler'
+import { exchangeRateFetchHandler } from '../lib/queue/handlers/exchange-rate-fetch.handler'
 
 // Initialize queue service
+let redisConfig: any = {
+  host: process.env.REDIS_HOST || 'localhost',
+  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  password: process.env.REDIS_PASSWORD,
+}
+
+// If REDIS_URL is provided, parse it
+if (process.env.REDIS_URL) {
+  const url = new URL(process.env.REDIS_URL)
+  redisConfig = {
+    host: url.hostname,
+    port: parseInt(url.port || '6379', 10),
+    password: url.password || undefined,
+  }
+}
+
 const queueService = new BullMQService({
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-  },
+  redis: redisConfig,
 })
 
 // Register job handlers
@@ -26,7 +39,7 @@ queueService.registerHandler('EXCHANGE_RATE_FETCH', exchangeRateFetchHandler)
 // Start processing jobs
 async function start() {
   console.log('🚀 Queue worker started')
-  console.log(`Redis: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`)
+  console.log(`Redis: ${redisConfig.host}:${redisConfig.port}${redisConfig.password ? ' (with auth)' : ''}`)
   
   // Graceful shutdown
   process.on('SIGTERM', async () => {

@@ -221,7 +221,7 @@ jobs:
           
           # Replace build sections with image references
           # Use environment variable to pass the image name to awk
-          export DOCKER_IMAGE_PROD="${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):latest"
+          export DOCKER_IMAGE_PROD="${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):main-${{ github.sha }}"
           awk -v image="$DOCKER_IMAGE_PROD" '
             /^  app:/ { in_app=1 }
             /^  queue-worker:/ { in_queue_worker=1 }
@@ -280,61 +280,69 @@ jobs:
             export DEPLOY_TYPE='${{ github.event.inputs.deploy_type || 'deploy' }}'
             export COMPOSE_PROJECT_NAME='gsthive-prod'
             
+            # Create docker network if it doesn't exist
+            docker network create gsthive-network || true
+            
             # Login to GitHub Container Registry
             echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
             
-            # Set all environment variables directly from GitHub secrets
-            export POSTGRES_USER='${{ vars.POSTGRES_USER }}'
-            export POSTGRES_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
-            export POSTGRES_DB='${{ vars.POSTGRES_DB }}'
-            export REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
-            export REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
-            export NEXTAUTH_URL='${{ vars.NEXTAUTH_URL }}'
-            export NEXTAUTH_SECRET='${{ secrets.NEXTAUTH_SECRET }}'
-            export EMAIL_PROVIDER='${{ vars.EMAIL_PROVIDER }}'
-            export EMAIL_FROM='${{ vars.EMAIL_FROM }}'
-            export AWS_SES_SMTP_USER='${{ secrets.AWS_SES_SMTP_USER }}'
-            export AWS_SES_SMTP_PASSWORD='${{ secrets.AWS_SES_SMTP_PASSWORD }}'
-            export AWS_SES_REGION='${{ vars.AWS_SES_REGION }}'
-            export AWS_SES_ACCESS_KEY_ID='${{ secrets.AWS_SES_ACCESS_KEY_ID }}'
-            export AWS_SES_SECRET_ACCESS_KEY='${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}'
-            export AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}'
-            export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
-            export AWS_REGION='${{ vars.AWS_REGION }}'
-            export AWS_S3_BUCKET='${{ vars.AWS_S3_BUCKET }}'
-            export EXCHANGE_RATE_API_KEY='${{ secrets.EXCHANGE_RATE_API_KEY }}'
-            export CRON_SECRET='${{ secrets.CRON_SECRET }}'
-            export CLOUDFLARE_TUNNEL_TOKEN='${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}'
-            export DOCKER_REGISTRY='${{ env.REGISTRY }}'
-            export DOCKER_IMAGE_PROD='${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr "[:upper:]" "[:lower:]"):latest'
+            # Create .env file from secrets (more secure than exporting)
+            cat << 'EOF' > .env
+            POSTGRES_USER=${{ vars.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            POSTGRES_DB=${{ vars.POSTGRES_DB }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379
+            NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            AWS_SES_SMTP_USER=${{ secrets.AWS_SES_SMTP_USER }}
+            AWS_SES_SMTP_PASSWORD=${{ secrets.AWS_SES_SMTP_PASSWORD }}
+            AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
+            AWS_SES_ACCESS_KEY_ID=${{ secrets.AWS_SES_ACCESS_KEY_ID }}
+            AWS_SES_SECRET_ACCESS_KEY=${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AWS_REGION=${{ vars.AWS_REGION }}
+            AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+            EXCHANGE_RATE_API_KEY=${{ secrets.EXCHANGE_RATE_API_KEY }}
+            CRON_SECRET=${{ secrets.CRON_SECRET }}
+            CLOUDFLARE_TUNNEL_TOKEN=${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+            DOCKER_REGISTRY=${{ env.REGISTRY }}
+            DOCKER_IMAGE_PROD=${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr "[:upper:]" "[:lower:]"):main-${{ github.sha }}
+            EOF
+            
+            # Set permissions on .env file
+            chmod 600 .env
             
             # Pull latest images
-            docker compose pull
+            docker compose --env-file .env pull
             
             # Deploy based on type
             case "$DEPLOY_TYPE" in
               "rebuild")
                 echo "Rebuilding all services..."
-                docker compose down
-                docker compose up -d --force-recreate
+                docker compose --env-file .env down
+                docker compose --env-file .env up -d --force-recreate
                 ;;
               *)
                 echo "Standard deployment..."
-                docker compose up -d
+                docker compose --env-file .env up -d
                 ;;
             esac
             
             # Verify all containers are running
             echo "Checking running containers..."
-            docker compose ps
+            docker compose --env-file .env ps
             
             # Run database migrations from within the app container
             echo "Running database migrations..."
-            docker compose exec -T app npx prisma migrate deploy
+            docker compose --env-file .env exec -T app npx prisma migrate deploy
             
             # Check cloudflared tunnel status
             echo "Checking Cloudflare tunnel logs..."
-            docker compose logs cloudflared | tail -20
+            docker compose --env-file .env logs cloudflared | tail -20
             
             # Health check - using the actual production URL through Cloudflare
             sleep 10
@@ -342,7 +350,7 @@ jobs:
               echo "Health check passed"
             else
               echo "Health check failed - checking container logs"
-              docker compose logs app
+              docker compose --env-file .env logs app
               # Don't fail deployment immediately - container might be healthy but Cloudflare tunnel not ready
               echo "Note: Container might be healthy even if external check fails"
             fi
@@ -405,9 +413,12 @@ jobs:
             # Remove deployment files
             rm -rf /home/${{ vars.VPS_USER }}/deployment
             
-            # Clean up Docker
+            # Clean up Docker (but NEVER prune volumes - that deletes database data!)
             docker system prune -f
-            docker volume prune -f
+            # docker volume prune -f # DANGEROUS - this deletes database data!
             
-            # Keep only last 3 images
-            docker images | grep ghcr.io | tail -n +4 | awk '{print $3}' | xargs -r docker rmi
+            # Clean up images older than 7 days (168 hours)
+            docker image prune -a -f --filter "until=168h"
+            
+            # Clean up builder cache
+            docker builder prune -f --filter "until=168h"

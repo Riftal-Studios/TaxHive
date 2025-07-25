@@ -140,7 +140,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: gsthive-staging-tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     environment:
       NODE_ENV: production
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}

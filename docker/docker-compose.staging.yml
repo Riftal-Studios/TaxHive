@@ -1,0 +1,167 @@
+services:
+  # PostgreSQL Database - Internal only
+  postgres:
+    image: postgres:16-alpine
+    container_name: gsthive-staging-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-gsthive_staging}
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - gsthive-staging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # NO PORTS EXPOSED
+
+  # Redis for queue/caching - Internal only  
+  redis:
+    image: redis:7-alpine
+    container_name: gsthive-staging-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - gsthive-staging
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # NO PORTS EXPOSED
+
+  # Next.js Application - Internal only
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runner
+    container_name: gsthive-staging-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive_staging}?schema=public
+      DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive_staging}?schema=public
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive_staging}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      
+      # NextAuth Configuration
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://stage.gsthive.com}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      
+      # Email Configuration - Amazon SES
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
+      EMAIL_FROM: ${EMAIL_FROM}
+      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
+      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
+      AWS_SES_REGION: ${AWS_SES_REGION:-ap-south-1}
+      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
+      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
+      
+      # AWS S3 for file storage
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      
+      # Exchange Rate APIs
+      RBI_API_KEY: ${RBI_API_KEY}
+      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
+      
+      # Cron
+      CRON_SECRET: ${CRON_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_staging:/app/uploads
+      - invoices_staging:/app/public/invoices
+    networks:
+      - gsthive-staging
+    # NO PORTS EXPOSED
+
+  # Queue Worker - Internal only
+  queue-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runner
+    container_name: gsthive-staging-queue-worker
+    restart: unless-stopped
+    # For now, disable queue worker in staging as scripts are not included in production build
+    # TODO: Fix this by including compiled queue worker in production build
+    command: sh -c "echo 'Queue worker disabled in staging' && sleep infinity"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive_staging}?schema=public
+      DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive_staging}?schema=public
+      DATABASE_DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-gsthive_staging}?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      
+      # Email Configuration
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
+      EMAIL_FROM: ${EMAIL_FROM}
+      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
+      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
+      AWS_SES_REGION: ${AWS_SES_REGION:-ap-south-1}
+      AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
+      AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
+      
+      # AWS S3
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+      
+      # Exchange Rate APIs
+      RBI_API_KEY: ${RBI_API_KEY}
+      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads_staging:/app/uploads
+      - invoices_staging:/app/public/invoices
+    networks:
+      - gsthive-staging
+
+  # Cloudflare Tunnel for secure external access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gsthive-staging-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      NODE_ENV: production
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - gsthive-staging
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  gsthive-staging:
+    name: gsthive-staging-network
+    driver: bridge
+
+volumes:
+  postgres_staging_data:
+  redis_staging_data:
+  uploads_staging:
+  invoices_staging:

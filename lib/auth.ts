@@ -12,7 +12,15 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     EmailProvider({
-      server: process.env.EMAIL_SERVER || {
+      server: process.env.AWS_SES_SMTP_USER && process.env.AWS_SES_SMTP_PASSWORD ? {
+        host: `email-smtp.${process.env.AWS_SES_REGION || 'us-east-1'}.amazonaws.com`,
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.AWS_SES_SMTP_USER,
+          pass: process.env.AWS_SES_SMTP_PASSWORD
+        }
+      } : {
         host: "localhost",
         port: 25,
         auth: {
@@ -21,7 +29,7 @@ export const authOptions: NextAuthOptions = {
         }
       },
       from: process.env.EMAIL_FROM || 'GSTHive <noreply@gsthive.com>',
-      sendVerificationRequest: process.env.EMAIL_SERVER ? sendVerificationRequest : sendVerificationRequestConsole,
+      sendVerificationRequest: process.env.AWS_SES_SMTP_USER ? sendVerificationRequest : sendVerificationRequestConsole,
       maxAge: 24 * 60 * 60, // 24 hours
     }),
   ],

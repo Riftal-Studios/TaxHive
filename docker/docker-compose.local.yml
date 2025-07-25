@@ -34,7 +34,7 @@ services:
   app:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       target: development
     restart: unless-stopped
     environment:
@@ -74,9 +74,9 @@ services:
   queue-worker:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
       target: development
-    command: npm run queue:worker
+    command: npm run worker
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
       REDIS_URL: redis://redis:6379

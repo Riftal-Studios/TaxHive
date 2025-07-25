@@ -40,11 +40,12 @@ services:
       
       # Email Configuration - Amazon SES
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
-      EMAIL_SERVER: ${EMAIL_SERVER}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
+      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
+      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
+      AWS_SES_REGION: ${AWS_SES_REGION:-us-east-1}
       AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
       AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
-      AWS_SES_REGION: ${AWS_SES_REGION:-ap-south-1}
       
       # AWS S3 for file storage
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -76,7 +77,7 @@ services:
       target: runner
     container_name: gsthive-queue-worker
     restart: unless-stopped
-    command: npm run queue:worker
+    command: npm run worker
     environment:
       NODE_ENV: production
       DATABASE_DB_URL: ${DATABASE_DB_URL}
@@ -89,11 +90,12 @@ services:
       
       # Email Configuration
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
-      EMAIL_SERVER: ${EMAIL_SERVER}
       EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
+      AWS_SES_SMTP_USER: ${AWS_SES_SMTP_USER}
+      AWS_SES_SMTP_PASSWORD: ${AWS_SES_SMTP_PASSWORD}
+      AWS_SES_REGION: ${AWS_SES_REGION:-us-east-1}
       AWS_SES_ACCESS_KEY_ID: ${AWS_SES_ACCESS_KEY_ID}
       AWS_SES_SECRET_ACCESS_KEY: ${AWS_SES_SECRET_ACCESS_KEY}
-      AWS_SES_REGION: ${AWS_SES_REGION:-ap-south-1}
       
       # AWS S3
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -113,36 +115,36 @@ services:
     networks:
       - gsthive-internal
 
-  # Cron Jobs - Internal only
-  cron:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
-    container_name: gsthive-cron
-    restart: unless-stopped
-    command: npm run cron:start
-    environment:
-      NODE_ENV: production
-      DATABASE_DB_URL: ${DATABASE_DB_URL}
-      DATABASE_DIRECT_URL: ${DATABASE_DIRECT_URL}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      
-      # Supabase
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_API_KEY: ${SUPABASE_API_KEY}
-      
-      # Exchange Rate APIs
-      RBI_API_KEY: ${RBI_API_KEY}
-      EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
-      
-      # Cron Secret
-      CRON_SECRET: ${CRON_SECRET}
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - gsthive-internal
+  # Cron Jobs - Commented out until proper cron scheduler is implemented
+  # cron:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     target: runner
+  #   container_name: gsthive-cron
+  #   restart: unless-stopped
+  #   command: npm run cron:exchange-rates
+  #   environment:
+  #     NODE_ENV: production
+  #     DATABASE_DB_URL: ${DATABASE_DB_URL}
+  #     DATABASE_DIRECT_URL: ${DATABASE_DIRECT_URL}
+  #     REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+  #     
+  #     # Supabase
+  #     SUPABASE_URL: ${SUPABASE_URL}
+  #     SUPABASE_API_KEY: ${SUPABASE_API_KEY}
+  #     
+  #     # Exchange Rate APIs
+  #     RBI_API_KEY: ${RBI_API_KEY}
+  #     EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
+  #     
+  #     # Cron Secret
+  #     CRON_SECRET: ${CRON_SECRET}
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - gsthive-internal
 
   # Cloudflare Tunnel for secure external access
   cloudflared:
@@ -152,9 +154,6 @@ services:
     command: tunnel run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    dns:
-      - 1.1.1.1
-      - 1.0.0.1
     networks:
       - gsthive-internal
     depends_on:

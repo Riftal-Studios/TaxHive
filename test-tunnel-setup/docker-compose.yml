@@ -1,0 +1,22 @@
+services:
+  app:
+    build: .
+    container_name: test-app
+    networks:
+      - test-network
+    # No ports exposed - internal only
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: test-tunnel
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ***REMOVED***
+    networks:
+      - test-network
+    depends_on:
+      - app
+
+networks:
+  test-network:
+    driver: bridge

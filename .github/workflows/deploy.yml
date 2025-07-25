@@ -271,8 +271,8 @@ jobs:
             
             # Extract new deployment
             tar -xzf /tmp/deployment.tar.gz
-            mv deployment/* .
-            rmdir deployment
+            cp -f deployment/* . || true
+            rm -rf deployment
             
             # Set environment variables for deployment
             export GITHUB_TOKEN='${{ secrets.GITHUB_TOKEN }}'

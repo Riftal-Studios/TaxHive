@@ -129,7 +129,7 @@ export const EmailNotificationJobSchema = z.object({
   to: z.string().email(),
   subject: z.string(),
   template: z.string(),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
   userId: z.string().optional(),
 })
 

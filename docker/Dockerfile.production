@@ -41,9 +41,12 @@ RUN npx prisma generate
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
-# Provide dummy database URLs for build time (not used at runtime)
-ENV DATABASE_DB_URL="postgresql://dummy:dummy@dummy:5432/dummy"
-ENV DATABASE_DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy"
+# Build args for NextAuth configuration
+ARG NEXTAUTH_URL
+ARG NEXTAUTH_SECRET
+# Set environment variables from build args
+ENV NEXTAUTH_URL=${NEXTAUTH_URL}
+ENV NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 RUN npm run build
 
 # Production stage

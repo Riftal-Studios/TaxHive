@@ -140,7 +140,7 @@ services:
 
 networks:
   gsthive-internal:
-    name: gsthive-network
+    name: gsthive-${COMPOSE_ENV:-production}-network
     driver: bridge
     external: true
 

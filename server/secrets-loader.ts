@@ -43,21 +43,21 @@ export function loadDockerSecrets(): void {
     }
   }
 
-  // Construct DATABASE_DB_URL if components are available
-  if (!process.env.DATABASE_DB_URL && process.env.POSTGRES_PASSWORD) {
+  // Construct DATABASE_URL if components are available
+  if (!process.env.DATABASE_URL && process.env.POSTGRES_PASSWORD) {
     const user = process.env.POSTGRES_USER || 'postgres'
     const password = process.env.POSTGRES_PASSWORD
     const host = process.env.POSTGRES_HOST || 'postgres'
     const port = process.env.POSTGRES_PORT || '5432'
     const db = process.env.POSTGRES_DB || 'gsthive'
     
-    process.env.DATABASE_DB_URL = `postgresql://${user}:${password}@${host}:${port}/${db}`
-    console.log('✓ DATABASE_DB_URL constructed from Docker secrets')
+    process.env.DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${db}`
+    console.log('✓ DATABASE_URL constructed from Docker secrets')
     
     // Also set DATABASE_DIRECT_URL to the same value
     if (!process.env.DATABASE_DIRECT_URL) {
-      process.env.DATABASE_DIRECT_URL = process.env.DATABASE_DB_URL
-      console.log('✓ DATABASE_DIRECT_URL set from DATABASE_DB_URL')
+      process.env.DATABASE_DIRECT_URL = process.env.DATABASE_URL
+      console.log('✓ DATABASE_DIRECT_URL set from DATABASE_URL')
     }
   }
 

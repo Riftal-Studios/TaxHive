@@ -121,8 +121,8 @@ function createTransporter() {
 }
 
 function formatFromAddress(senderName?: string, senderEmail?: string): string {
-  const email = senderEmail || process.env.EMAIL_FROM || 'noreply@freelancehive.com'
-  const name = senderName || process.env.EMAIL_FROM_NAME || 'FreelanceHive'
+  const email = senderEmail || process.env.EMAIL_FROM || 'noreply@gsthive.com'
+  const name = senderName || process.env.EMAIL_FROM_NAME || 'GSTHive'
   
   return `"${name}" <${email}>`
 }

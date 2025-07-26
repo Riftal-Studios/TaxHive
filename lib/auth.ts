@@ -68,6 +68,8 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.name = token.name
         session.user.email = token.email
+        session.user.onboardingCompleted = token.onboardingCompleted
+        session.user.onboardingStep = token.onboardingStep
       }
 
       return session
@@ -81,6 +83,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Always try to get the latest user data from database
+      // This runs on every JWT callback including session updates
       if (token.email) {
         const dbUser = await prisma.user.findFirst({
           where: {
@@ -92,6 +95,8 @@ export const authOptions: NextAuthOptions = {
           token.id = dbUser.id
           token.name = dbUser.name
           token.email = dbUser.email
+          token.onboardingCompleted = dbUser.onboardingCompleted
+          token.onboardingStep = dbUser.onboardingStep
         }
       }
 

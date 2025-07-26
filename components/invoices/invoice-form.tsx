@@ -5,6 +5,16 @@ import type { Client, LUT } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, getLUTExpiryStatus } from '@/lib/validations/gst'
+import { 
+  getInputClassName, 
+  selectClassName, 
+  textareaClassName, 
+  buttonClassName, 
+  exchangeRateInputClassName,
+  getDropdownButtonClassName,
+  dropdownContainerClassName,
+  dropdownItemClassName
+} from '@/lib/ui-utils'
 
 interface LineItem {
   id: string
@@ -280,16 +290,12 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               type="button"
               id="client"
               onClick={() => setShowClientDropdown(!showClientDropdown)}
-              className={`mt-1 w-full px-3 py-2 text-left border rounded-md shadow-sm bg-white dark:bg-gray-700 ${
-                errors.clientId
-                  ? 'border-red-300 dark:border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
-              } focus:ring-indigo-500 focus:border-indigo-500`}
+              className={getDropdownButtonClassName(!!errors.clientId)}
             >
               {selectedClient ? selectedClient.name : 'Select a client'}
             </button>
             {showClientDropdown && (
-              <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
+              <div className={dropdownContainerClassName}>
                 {clients.map(client => (
                   <button
                     key={client.id}
@@ -298,7 +304,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       setFormData(prev => ({ ...prev, clientId: client.id }))
                       setShowClientDropdown(false)
                     }}
-                    className="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
+                    className={dropdownItemClassName}
                   >
                     {client.name}
                   </button>
@@ -320,16 +326,12 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               type="button"
               id="lut"
               onClick={() => setShowLutDropdown(!showLutDropdown)}
-              className={`mt-1 w-full px-3 py-2 text-left border rounded-md shadow-sm bg-white dark:bg-gray-700 ${
-                errors.lutId
-                  ? 'border-red-300 dark:border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
-              } focus:ring-indigo-500 focus:border-indigo-500`}
+              className={getDropdownButtonClassName(!!errors.lutId)}
             >
               {selectedLut ? selectedLut.lutNumber : 'Select a LUT'}
             </button>
             {showLutDropdown && (
-              <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
+              <div className={dropdownContainerClassName}>
                 {luts.map(lut => (
                   <button
                     key={lut.id}
@@ -338,7 +340,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       setFormData(prev => ({ ...prev, lutId: lut.id }))
                       setShowLutDropdown(false)
                     }}
-                    className="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
+                    className={dropdownItemClassName}
                   >
                     {lut.lutNumber}
                   </button>
@@ -360,7 +362,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             id="issueDate"
             value={formData.issueDate}
             onChange={(e) => setFormData(prev => ({ ...prev, issueDate: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={getInputClassName()}
           />
         </div>
 
@@ -373,7 +375,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             id="dueDate"
             value={formData.dueDate}
             onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={getInputClassName()}
           />
         </div>
 
@@ -389,7 +391,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               setFormData(prev => ({ ...prev, currency: newCurrency }))
               onCurrencyChange?.(newCurrency)
             }}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={selectClassName}
           >
             {currencyOptions.map(currency => (
               <option key={currency.code} value={currency.code}>
@@ -407,7 +409,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             id="paymentTerms"
             value={formData.paymentTerms}
             onChange={(e) => setFormData(prev => ({ ...prev, paymentTerms: Number(e.target.value) }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={selectClassName}
           >
             {paymentTermOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -481,7 +483,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       onManualExchangeRateChange?.(value)
                     }}
                     placeholder="Enter rate"
-                    className="w-32 px-3 py-1 text-sm border border-yellow-300 dark:border-yellow-700 rounded-md bg-white dark:bg-gray-800 focus:ring-yellow-500 focus:border-yellow-500"
+                    className={exchangeRateInputClassName}
                   />
                   <span className="text-xs text-yellow-600 dark:text-yellow-400">
                     (Manual entry)
@@ -509,11 +511,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     id={`description-${item.id}`}
                     value={item.description}
                     onChange={(e) => handleLineItemChange(item.id, 'description', e.target.value)}
-                    className={`mt-1 block w-full rounded-md shadow-sm ${
-                      errors.lineItems?.[item.id]?.description
-                        ? 'border-red-300 dark:border-red-500'
-                        : 'border-gray-300 dark:border-gray-600'
-                    } bg-white dark:bg-gray-700 focus:border-indigo-500 focus:ring-indigo-500`}
+                    className={getInputClassName(!!errors.lineItems?.[item.id]?.description)}
                   />
                   {errors.lineItems?.[item.id]?.description && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -538,14 +536,10 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       onFocus={() => setShowSacDropdown(prev => ({ ...prev, [item.id]: true }))}
                       onBlur={() => setTimeout(() => setShowSacDropdown(prev => ({ ...prev, [item.id]: false })), 200)}
                       placeholder="Search or enter code"
-                      className={`block w-full rounded-md shadow-sm ${
-                        errors.lineItems?.[item.id]?.sacCode
-                          ? 'border-red-300 dark:border-red-500'
-                          : 'border-gray-300 dark:border-gray-600'
-                      } bg-white dark:bg-gray-700 focus:border-indigo-500 focus:ring-indigo-500`}
+                      className={getInputClassName(!!errors.lineItems?.[item.id]?.sacCode)}
                     />
                     {showSacDropdown[item.id] && (
-                      <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className={`${dropdownContainerClassName} max-h-60 overflow-auto`}>
                         {getFilteredSacCodes(item.id).map(sac => (
                           <button
                             key={sac.code}
@@ -556,7 +550,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                               setSacSearchTerm(prev => ({ ...prev, [item.id]: sac.code }))
                               setShowSacDropdown(prev => ({ ...prev, [item.id]: false }))
                             }}
-                            className="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 text-sm"
+                            className={`${dropdownItemClassName} text-sm`}
                           >
                             <div className="font-medium text-gray-900 dark:text-white">{sac.code}</div>
                             <div className="text-gray-500 dark:text-gray-400 text-xs">{sac.description}</div>
@@ -586,11 +580,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     id={`quantity-${item.id}`}
                     value={item.quantity}
                     onChange={(e) => handleLineItemChange(item.id, 'quantity', e.target.value)}
-                    className={`mt-1 block w-full rounded-md shadow-sm ${
-                      errors.lineItems?.[item.id]?.quantity
-                        ? 'border-red-300 dark:border-red-500'
-                        : 'border-gray-300 dark:border-gray-600'
-                    } bg-white dark:bg-gray-700 focus:border-indigo-500 focus:ring-indigo-500`}
+                    className={getInputClassName(!!errors.lineItems?.[item.id]?.quantity)}
                   />
                 </div>
 
@@ -603,11 +593,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     id={`rate-${item.id}`}
                     value={item.rate}
                     onChange={(e) => handleLineItemChange(item.id, 'rate', e.target.value)}
-                    className={`mt-1 block w-full rounded-md shadow-sm ${
-                      errors.lineItems?.[item.id]?.rate
-                        ? 'border-red-300 dark:border-red-500'
-                        : 'border-gray-300 dark:border-gray-600'
-                    } bg-white dark:bg-gray-700 focus:border-indigo-500 focus:ring-indigo-500`}
+                    className={getInputClassName(!!errors.lineItems?.[item.id]?.rate)}
                   />
                 </div>
 
@@ -726,7 +712,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             rows={3}
             value={formData.bankDetails}
             onChange={(e) => setFormData(prev => ({ ...prev, bankDetails: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={textareaClassName}
           />
         </div>
 
@@ -739,7 +725,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             rows={3}
             value={formData.notes}
             onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-            className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className={textareaClassName}
           />
         </div>
       </div>
@@ -749,14 +735,14 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500"
+          className={buttonClassName.secondary}
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-gray-800 focus:ring-indigo-500 disabled:opacity-50"
+          className={buttonClassName.primary}
         >
           {isSubmitting ? 'Saving...' : 'Save Draft'}
         </button>

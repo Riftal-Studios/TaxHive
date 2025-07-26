@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid'
+import { useSession } from 'next-auth/react'
 
 type OnboardingStep = 'profile' | 'client' | 'lut' | 'invoice' | 'complete'
 type OnboardingStepWithData = Exclude<OnboardingStep, 'complete'>
@@ -27,17 +28,19 @@ const STEP_DESCRIPTIONS = {
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { update } = useSession()
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
-  const utils = api.useUtils()
   
   const { data: status, isLoading } = api.users.getOnboardingStatus.useQuery()
   const completeOnboardingMutation = api.users.completeOnboarding.useMutation({
     onSuccess: async () => {
-      console.log('Complete onboarding success - navigating to dashboard')
-      // Invalidate the query to ensure fresh data
-      await utils.users.getOnboardingStatus.invalidate()
-      // Use window.location.href for immediate navigation
-      window.location.href = '/dashboard'
+      console.log('Complete onboarding success - updating session and navigating')
+      // Force session update to refresh the JWT token
+      await update()
+      // Use router.refresh() to ensure middleware re-evaluates
+      router.refresh()
+      // Navigate to dashboard
+      router.push('/dashboard')
     },
     onError: (error) => {
       console.error('Complete onboarding error:', error)
@@ -45,11 +48,13 @@ export default function OnboardingPage() {
   })
   const skipOnboardingMutation = api.users.skipOnboarding.useMutation({
     onSuccess: async () => {
-      console.log('Skip onboarding success - navigating to dashboard')
-      // Invalidate the query to ensure fresh data
-      await utils.users.getOnboardingStatus.invalidate()
-      // Use window.location.href for immediate navigation
-      window.location.href = '/dashboard'
+      console.log('Skip onboarding success - updating session and navigating')
+      // Force session update to refresh the JWT token
+      await update()
+      // Use router.refresh() to ensure middleware re-evaluates
+      router.refresh()
+      // Navigate to dashboard
+      router.push('/dashboard')
     },
     onError: (error) => {
       console.error('Skip onboarding error:', error)

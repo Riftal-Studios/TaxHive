@@ -53,12 +53,6 @@ export function loadDockerSecrets(): void {
     
     process.env.DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${db}`
     console.log('✓ DATABASE_URL constructed from Docker secrets')
-    
-    // Also set DATABASE_DIRECT_URL to the same value
-    if (!process.env.DATABASE_DIRECT_URL) {
-      process.env.DATABASE_DIRECT_URL = process.env.DATABASE_URL
-      console.log('✓ DATABASE_DIRECT_URL set from DATABASE_URL')
-    }
   }
 
   // Construct REDIS_URL if components are available

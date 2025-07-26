@@ -92,6 +92,8 @@ export const authOptions: NextAuthOptions = {
           token.id = dbUser.id
           token.name = dbUser.name
           token.email = dbUser.email
+          token.onboardingCompleted = dbUser.onboardingCompleted
+          token.onboardingStep = dbUser.onboardingStep
         }
       }
 

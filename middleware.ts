@@ -28,24 +28,9 @@ export default withAuth(
     
     // Check onboarding status for authenticated users
     if (token && !isExemptPath) {
-      // Check if user has completed onboarding
-      const userResponse = await fetch(`${req.nextUrl.origin}/api/trpc/users.getOnboardingStatus`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          cookie: req.headers.get('cookie') || '',
-        },
-        body: JSON.stringify({}),
-      })
-      
-      if (userResponse.ok) {
-        const data = await userResponse.json()
-        const onboardingStatus = data?.result?.data
-        
-        // If onboarding is not completed and user is not on onboarding page, redirect
-        if (!onboardingStatus?.completed && req.nextUrl.pathname !== '/onboarding') {
-          return NextResponse.redirect(new URL('/onboarding', req.url))
-        }
+      // If onboarding is not completed, redirect to onboarding
+      if (!token.onboardingCompleted) {
+        return NextResponse.redirect(new URL('/onboarding', req.url))
       }
     }
     

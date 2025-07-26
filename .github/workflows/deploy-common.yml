@@ -180,7 +180,7 @@ jobs:
             
             # Wait for services to be healthy
             echo "Waiting for services to be healthy..."
-            sleep 15
+            sleep 30
             
             # Check container health
             docker compose ps
@@ -223,16 +223,23 @@ jobs:
             
             cd /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}
             
-            # Check internal health endpoint
+            # Check internal health endpoint with retries
             echo "Checking internal health..."
-            docker compose exec -T app wget -q -O- http://localhost:3000/api/health || {
-              echo "❌ Internal health check failed"
-              echo "Container logs:"
-              docker compose logs app --tail=50
-              exit 1
-            }
-            
-            echo "✅ Internal health check passed"
+            for i in {1..5}; do
+              if docker compose exec -T app wget -q -O- http://localhost:3000/api/health; then
+                echo "✅ Internal health check passed"
+                break
+              else
+                if [ $i -eq 5 ]; then
+                  echo "❌ Internal health check failed after 5 attempts"
+                  echo "Container logs:"
+                  docker compose logs app --tail=50
+                  exit 1
+                fi
+                echo "Health check attempt $i failed, retrying in 10 seconds..."
+                sleep 10
+              fi
+            done
             
             # Check Cloudflare tunnel
             echo "Checking Cloudflare tunnel..."

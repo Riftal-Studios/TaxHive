@@ -86,5 +86,8 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
-CMD ["node", "server.js"]
+# Copy lib directory for init script
+COPY --chown=node:node lib ./lib
+
+# Start the application with init script
+CMD ["node", "-r", "./lib/init.js", "server.js"]

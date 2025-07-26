@@ -58,45 +58,86 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: '/auth/verify-request',
     error: '/auth/error',
   },
+  events: {
+    async signIn({ user, account, profile, isNewUser }) {
+      console.log('Sign in event:', { user: user.email, account: account?.provider, isNewUser })
+    },
+    async signOut({ session, token }) {
+      console.log('Sign out event:', { user: session?.user?.email || token?.email })
+    },
+    async createUser({ user }) {
+      console.log('User created:', { user: user.email })
+    },
+    async linkAccount({ user, account, profile }) {
+      console.log('Account linked:', { user: user.email, provider: account.provider })
+    },
+    async session({ session, token }) {
+      // Log session access (can be noisy, uncomment if needed for debugging)
+      // console.log('Session accessed:', { user: session.user.email })
+    },
+  },
   callbacks: {
     async signIn({ user }) {
-      // Log successful sign in
-      console.log('User signing in:', user.email)
-      return true
+      try {
+        // Log successful sign in
+        console.log('User signing in:', user.email)
+        return true
+      } catch (error) {
+        console.error('Sign in callback error:', error)
+        // Return true to allow sign in to continue even if logging fails
+        return true
+      }
     },
     async session({ token, session }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.name = token.name
-        session.user.email = token.email
-      }
+      try {
+        if (token) {
+          session.user.id = token.id as string
+          session.user.name = token.name
+          session.user.email = token.email
+        }
 
-      return session
+        return session
+      } catch (error) {
+        console.error('Session callback error:', error)
+        // Return session as-is to prevent breaking the auth flow
+        return session
+      }
     },
     async jwt({ token, user }) {
-      // If user is defined, this is the initial sign in
-      if (user) {
-        token.id = user.id
-        token.email = user.email
-        token.name = user.name
-      }
-
-      // Always try to get the latest user data from database
-      if (token.email) {
-        const dbUser = await prisma.user.findFirst({
-          where: {
-            email: token.email,
-          },
-        })
-
-        if (dbUser) {
-          token.id = dbUser.id
-          token.name = dbUser.name
-          token.email = dbUser.email
+      try {
+        // If user is defined, this is the initial sign in
+        if (user) {
+          token.id = user.id
+          token.email = user.email
+          token.name = user.name
         }
-      }
 
-      return token
+        // Try to get the latest user data from database
+        if (token.email) {
+          try {
+            const dbUser = await prisma.user.findFirst({
+              where: {
+                email: token.email,
+              },
+            })
+
+            if (dbUser) {
+              token.id = dbUser.id
+              token.name = dbUser.name
+              token.email = dbUser.email
+            }
+          } catch (dbError) {
+            console.error('Database error in JWT callback:', dbError)
+            // Continue with existing token data if database query fails
+          }
+        }
+
+        return token
+      } catch (error) {
+        console.error('JWT callback error:', error)
+        // Return token as-is to prevent breaking the auth flow
+        return token
+      }
     },
   },
 }

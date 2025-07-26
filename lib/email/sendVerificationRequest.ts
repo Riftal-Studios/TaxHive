@@ -6,18 +6,30 @@ export async function sendVerificationRequest({
   url,
   provider,
 }: SendVerificationRequestParams) {
-  const { server, from } = provider
-  const transport = createTransport(server)
-  const result = await transport.sendMail({
-    to: email,
-    from,
-    subject: 'Sign in to GSTHive',
-    text: text({ url, email }),
-    html: html({ url, email }),
-  })
-  const failed = result.rejected.filter(Boolean)
-  if (failed.length) {
-    throw new Error(`Email(s) (${failed.join(', ')}) could not be sent`)
+  try {
+    const { server, from } = provider
+    const transport = createTransport(server)
+    
+    console.log('Sending verification email to:', email)
+    
+    const result = await transport.sendMail({
+      to: email,
+      from,
+      subject: 'Sign in to GSTHive',
+      text: text({ url, email }),
+      html: html({ url, email }),
+    })
+    
+    const failed = result.rejected.filter(Boolean)
+    if (failed.length) {
+      throw new Error(`Email(s) (${failed.join(', ')}) could not be sent`)
+    }
+    
+    console.log('Verification email sent successfully to:', email)
+  } catch (error) {
+    console.error('Failed to send verification email:', error)
+    // Re-throw the error so NextAuth can handle it properly
+    throw new Error(`Failed to send verification email: ${error.message}`)
   }
 }
 

@@ -53,9 +53,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+# Create non-root user with UID 1000 to match Docker secrets ownership
+RUN addgroup --system --gid 1000 nodejs && \
+    adduser --system --uid 1000 nextjs
 
 # Create necessary directories with correct permissions
 RUN mkdir -p uploads public/invoices && \

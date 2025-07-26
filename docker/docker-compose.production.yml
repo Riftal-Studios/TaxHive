@@ -53,17 +53,7 @@ services:
     # const nextAuthSecret = fs.readFileSync('/run/secrets/nextauth_secret', 'utf8').trim();
     # const postgresPassword = fs.readFileSync('/run/secrets/postgres_password', 'utf8').trim();
     # Then construct DATABASE_URL dynamically in the application.
-    environment:
-      NODE_ENV: production
-      # Non-secret environment variables
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-gsthive}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
-      EMAIL_FROM: ${EMAIL_FROM:-noreply@gsthive.com}
-      AWS_SES_REGION: ${AWS_SES_REGION:-us-east-1}
-      AWS_REGION: ${AWS_REGION:-ap-south-1}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
+    # All configuration now comes from secrets
     secrets:
       - postgres_password
       - redis_password
@@ -77,6 +67,15 @@ services:
       - rbi_api_key
       - exchange_rate_api_key
       - cron_secret
+      - postgres_user
+      - postgres_db
+      - nextauth_url
+      - email_provider
+      - email_from
+      - aws_ses_region
+      - aws_region
+      - aws_s3_bucket
+      - node_env
     depends_on:
       postgres:
         condition: service_healthy
@@ -194,3 +193,21 @@ secrets:
     file: ./secrets/exchange_rate_api_key
   cron_secret:
     file: ./secrets/cron_secret
+  postgres_user:
+    file: ./secrets/postgres_user
+  postgres_db:
+    file: ./secrets/postgres_db
+  nextauth_url:
+    file: ./secrets/nextauth_url
+  email_provider:
+    file: ./secrets/email_provider
+  email_from:
+    file: ./secrets/email_from
+  aws_ses_region:
+    file: ./secrets/aws_ses_region
+  aws_region:
+    file: ./secrets/aws_region
+  aws_s3_bucket:
+    file: ./secrets/aws_s3_bucket
+  node_env:
+    file: ./secrets/node_env

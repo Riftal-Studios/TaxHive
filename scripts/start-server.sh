@@ -1,12 +1,6 @@
 #!/bin/sh
 # Load secrets and start the Next.js server
 
-# Load .env file if it exists
-if [ -f .env ]; then
-  echo "Loading environment variables from .env..."
-  export $(grep -v '^#' .env | xargs)
-fi
-
 # Load Docker secrets
 echo "Loading Docker secrets..."
 
@@ -30,6 +24,17 @@ load_secret "aws_ses_smtp_user" "AWS_SES_SMTP_USER"
 load_secret "aws_ses_smtp_password" "AWS_SES_SMTP_PASSWORD"
 load_secret "exchange_rate_api_key" "EXCHANGE_RATE_API_KEY"
 load_secret "cron_secret" "CRON_SECRET"
+
+# Load environment configuration from secrets
+load_secret "postgres_user" "POSTGRES_USER"
+load_secret "postgres_db" "POSTGRES_DB"
+load_secret "nextauth_url" "NEXTAUTH_URL"
+load_secret "email_provider" "EMAIL_PROVIDER"
+load_secret "email_from" "EMAIL_FROM"
+load_secret "aws_ses_region" "AWS_SES_REGION"
+load_secret "aws_region" "AWS_REGION"
+load_secret "aws_s3_bucket" "AWS_S3_BUCKET"
+load_secret "node_env" "NODE_ENV"
 
 # Construct DATABASE_URL if needed
 if [ -z "$DATABASE_URL" ] && [ -n "$POSTGRES_PASSWORD" ]; then

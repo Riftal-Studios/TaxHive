@@ -55,6 +55,9 @@ jobs:
           echo "postgres_user=${{ vars.POSTGRES_USER }}" >> $GITHUB_OUTPUT
           echo "postgres_db=${{ vars.POSTGRES_DB }}" >> $GITHUB_OUTPUT
           echo "nextauth_url=${{ vars.NEXTAUTH_URL }}" >> $GITHUB_OUTPUT
+          
+          # Debug: Show what NEXTAUTH_URL is being captured
+          echo "DEBUG: NEXTAUTH_URL being captured: ${{ vars.NEXTAUTH_URL }}"
           echo "email_provider=${{ vars.EMAIL_PROVIDER }}" >> $GITHUB_OUTPUT
           echo "email_from=${{ vars.EMAIL_FROM }}" >> $GITHUB_OUTPUT
           echo "aws_ses_region=${{ vars.AWS_SES_REGION }}" >> $GITHUB_OUTPUT
@@ -149,18 +152,19 @@ jobs:
             # Set proper permissions on secret files
             chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
             
-            # Create .env file for non-secret variables
-            cat > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env << EOF
-            POSTGRES_USER=${{ steps.vars.outputs.postgres_user }}
-            POSTGRES_DB=${{ steps.vars.outputs.postgres_db }}
-            NEXTAUTH_URL=${{ steps.vars.outputs.nextauth_url }}
-            EMAIL_PROVIDER=${{ steps.vars.outputs.email_provider }}
-            EMAIL_FROM=${{ steps.vars.outputs.email_from }}
-            AWS_SES_REGION=${{ steps.vars.outputs.aws_ses_region }}
-            AWS_REGION=${{ steps.vars.outputs.aws_region }}
-            AWS_S3_BUCKET=${{ steps.vars.outputs.aws_s3_bucket }}
-            NODE_ENV=${{ steps.vars.outputs.node_env }}
-            EOF
+            # Create additional secret files for non-secret environment variables
+            echo "${{ steps.vars.outputs.postgres_user }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_user
+            echo "${{ steps.vars.outputs.postgres_db }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_db
+            echo "${{ steps.vars.outputs.nextauth_url }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/nextauth_url
+            echo "${{ steps.vars.outputs.email_provider }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/email_provider
+            echo "${{ steps.vars.outputs.email_from }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/email_from
+            echo "${{ steps.vars.outputs.aws_ses_region }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_region
+            echo "${{ steps.vars.outputs.aws_region }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_region
+            echo "${{ steps.vars.outputs.aws_s3_bucket }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_s3_bucket
+            echo "${{ steps.vars.outputs.node_env }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/node_env
+            
+            # Set proper permissions on all secret files
+            chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
             
             # Create docker network if it doesn't exist
             docker network create gsthive-network || true
@@ -169,7 +173,7 @@ jobs:
             cat /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull latest images
-            docker compose --env-file .env pull
+            docker compose pull
             
             # Create docker-compose.override.yml for Cloudflare tunnel
             cat > docker-compose.override.yml << EOF

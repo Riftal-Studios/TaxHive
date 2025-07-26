@@ -87,7 +87,11 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Copy lib directory for init script
-COPY --chown=node:node lib ./lib
+COPY --chown=node:node lib/init.js ./lib/init.js
 
-# Start the application with init script
-CMD ["node", "-r", "./lib/init.js", "server.js"]
+# Create a startup script that loads secrets and then starts the server
+RUN echo '#!/usr/bin/env node\nrequire("./lib/init.js");\nrequire("./server.js");' > start.js && \
+    chmod +x start.js
+
+# Start the application
+CMD ["node", "start.js"]

@@ -1,0 +1,121 @@
+name: Test
+
+on:
+  push:
+    branches-ignore:
+      - staging
+  pull_request:
+    branches:
+      - main
+      - staging
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: gsthive_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup test environment
+        run: |
+          cat > .env.test << EOF
+          DATABASE_URL=postgresql://postgres:testpassword@localhost:5432/gsthive_test
+          DATABASE_DIRECT_URL=postgresql://postgres:testpassword@localhost:5432/gsthive_test
+          NEXTAUTH_URL=http://localhost:3000
+          NEXTAUTH_SECRET=test-secret-only-for-ci
+          NODE_ENV=test
+          EOF
+
+      - name: Run Prisma migrations
+        run: pnpm prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
+
+      - name: Lint code
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Run unit tests
+        run: pnpm test:unit
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
+
+      - name: Run integration tests
+        run: pnpm test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
+
+      - name: Build application
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
+          SKIP_ENV_VALIDATION: true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile.production
+          push: false
+          tags: gsthive:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

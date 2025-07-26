@@ -1,9 +1,6 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       deploy_type:
@@ -14,12 +11,28 @@ on:
         options:
           - deploy
           - rebuild
+      confirm_production:
+        description: 'Type "DEPLOY TO PRODUCTION" to confirm'
+        required: true
+        type: string
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm_production }}" != "DEPLOY TO PRODUCTION" ]; then
+            echo "❌ Production deployment cancelled - confirmation text did not match"
+            exit 1
+          fi
+          echo "✅ Production deployment confirmed"
+
   build-and-push:
+    needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -50,10 +63,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.env.outputs.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-,format=long
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=prod-,format=long
+            type=raw,value=production
+            type=raw,value=latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -88,7 +100,7 @@ jobs:
           
           # Replace build sections with image references
           # Use environment variable to pass the image name to awk
-          export DOCKER_IMAGE_PROD="${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):main-${{ github.sha }}"
+          export DOCKER_IMAGE_PROD="${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):prod-${{ github.sha }}"
           awk -v image="$DOCKER_IMAGE_PROD" '
             /^  app:/ { in_app=1 }
             /^  queue-worker:/ { in_queue_worker=1 }
@@ -226,25 +238,7 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const emoji = status === 'success' ? '✅' : '❌';
-            const message = `${emoji} Deployment to production ${status}`;
-            
-            // Only create deployment status if we have a deployment ID
-            if (context.payload.deployment?.id) {
-              try {
-                await github.rest.repos.createDeploymentStatus({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  deployment_id: context.payload.deployment.id,
-                  state: status === 'success' ? 'success' : 'failure',
-                  environment: 'production',
-                  description: message
-                });
-              } catch (error) {
-                console.log('Could not create deployment status:', error.message);
-              }
-            } else {
-              console.log('No deployment ID found, skipping status update');
-            }
+            const message = `${emoji} Production deployment ${status}`;
             
             // Always log the result
             console.log(message);

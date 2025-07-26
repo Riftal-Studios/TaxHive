@@ -74,10 +74,11 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - api/auth (auth endpoints)
      * - api/trpc (tRPC endpoints need separate auth)
+     * - api/health (health check endpoint)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api/auth|api/trpc|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/auth|api/trpc|api/health|_next/static|_next/image|favicon.ico).*)',
   ],
 }

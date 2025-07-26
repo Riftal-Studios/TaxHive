@@ -19,22 +19,9 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  prepare-build:
+  build-and-push:
     runs-on: ubuntu-latest
     environment: production
-    outputs:
-      nextauth_url: ${{ steps.vars.outputs.nextauth_url }}
-      nextauth_secret: ${{ steps.vars.outputs.nextauth_secret }}
-    steps:
-      - name: Set build variables
-        id: vars
-        run: |
-          echo "nextauth_url=${{ vars.NEXTAUTH_URL }}" >> $GITHUB_OUTPUT
-          echo "nextauth_secret=${{ secrets.NEXTAUTH_SECRET }}" >> $GITHUB_OUTPUT
-
-  build-and-push:
-    needs: prepare-build
-    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -82,8 +69,8 @@ jobs:
           build-args: |
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}
-            NEXTAUTH_URL=${{ needs.prepare-build.outputs.nextauth_url }}
-            NEXTAUTH_SECRET=${{ needs.prepare-build.outputs.nextauth_secret }}
+            NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
 
   prepare-deployment:
     needs: build-and-push

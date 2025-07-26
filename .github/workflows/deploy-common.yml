@@ -139,7 +139,7 @@ jobs:
             chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
             
             # Create .env file for non-secret variables
-            cat > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/.env << 'EOF'
+            cat > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env << 'EOF'
             POSTGRES_USER=${{ vars.POSTGRES_USER }}
             POSTGRES_DB=${{ vars.POSTGRES_DB }}
             NEXTAUTH_URL=${{ inputs.environment == 'staging' && (vars.STAGING_NEXTAUTH_URL || vars.NEXTAUTH_URL) || vars.NEXTAUTH_URL }}

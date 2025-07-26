@@ -4,15 +4,8 @@
 echo "Cleaning up temporary production fixes..."
 
 # Remove hardcoded NEXTAUTH_SECRET from docker-compose.yml
-if grep -q "NEXTAUTH_SECRET: ***REMOVED***" docker-compose.yml; then
-    echo "Removing hardcoded NEXTAUTH_SECRET..."
-    sed -i '/NEXTAUTH_SECRET: ***REMOVED***/d' docker-compose.yml
-fi
-
-# Remove hardcoded Cloudflare token if present
-if grep -q '***REMOVED***' docker-compose.yml; then
-    echo "Removing hardcoded Cloudflare token..."
-    sed -i 's|"tunnel", "--no-autoupdate", "run", "--token", "***REMOVED***"|"tunnel", "--no-autoupdate", "run"|' docker-compose.yml
+if grep -q "NEXTAUTH_SECRET:" docker-compose.yml | grep -v '${NEXTAUTH_SECRET}'; then
+    echo "Found hardcoded NEXTAUTH_SECRET - please remove manually"
 fi
 
 # Remove any .env files that shouldn't be there
@@ -30,3 +23,4 @@ fi
 rm -f load-secrets.js docker-entrypoint.sh tunnel-entrypoint.sh
 
 echo "✓ Cleanup completed"
+echo "NOTE: Please manually check docker-compose.yml for any hardcoded secrets"

@@ -208,65 +208,6 @@ This is an automated email. Please do not reply directly to this message.`,
   }
 }
 
-export function generateMagicLinkEmail(magicLink: string): EmailTemplate {
-  return {
-    subject: 'Sign in to GSTHive',
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        ${baseStyles}
-      </head>
-      <body>
-        <div class="email-container">
-          <div class="header">
-            <h1>Sign in to GSTHive</h1>
-          </div>
-          
-          <div class="content">
-            <p>Click the button below to sign in to your account:</p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${magicLink}" class="button">Sign In</a>
-            </div>
-            
-            <p>This link will expire in 24 hours.</p>
-            
-            <p>If you didn't request this, please ignore this email.</p>
-            
-            <p>Best regards,<br>
-            GSTHive Team</p>
-          </div>
-          
-          <div class="footer">
-            <p><strong>GSTHive</strong></p>
-            <p>GST-Compliant Invoice Management for Indian Freelancers</p>
-            <p style="margin-top: 20px; font-size: 12px;">
-              This is an automated email. Please do not reply directly to this message.
-            </p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `,
-    text: `Sign in to GSTHive
-
-Click the link below to sign in to your account:
-
-${magicLink}
-
-This link will expire in 24 hours.
-
-If you didn't request this, please ignore this email.
-
-Best regards,
-GSTHive Team
-
-This is an automated email. Please do not reply directly to this message.`,
-  }
-}
 
 export const emailTemplates = {
   invoice: (data: EmailTemplateData) => {

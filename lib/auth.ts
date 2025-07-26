@@ -2,12 +2,9 @@
 import '@/server/secrets-loader'
 
 import { NextAuthOptions } from 'next-auth'
-import EmailProvider from 'next-auth/providers/email'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from './prisma'
-import { sendVerificationRequest } from './email/sendVerificationRequest'
-import { sendVerificationRequestConsole } from './email/consoleEmail'
 import { verifyPassword } from './auth/password'
 
 const nextAuthUrl = process.env.NEXTAUTH_URL
@@ -63,7 +60,7 @@ export const authOptions: NextAuthOptions = {
         }
         
         if (!user.password) {
-          throw new Error('Please use magic link to sign in')
+          throw new Error('Account not found. Please sign up first')
         }
         
         const isValid = await verifyPassword(credentials.password, user.password)
@@ -79,31 +76,9 @@ export const authOptions: NextAuthOptions = {
         }
       }
     }),
-    EmailProvider({
-      server: process.env.AWS_SES_SMTP_USER && process.env.AWS_SES_SMTP_PASSWORD ? {
-        host: `email-smtp.${process.env.AWS_SES_REGION || 'us-east-1'}.amazonaws.com`,
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.AWS_SES_SMTP_USER,
-          pass: process.env.AWS_SES_SMTP_PASSWORD
-        }
-      } : {
-        host: "localhost",
-        port: 25,
-        auth: {
-          user: "",
-          pass: ""
-        }
-      },
-      from: process.env.EMAIL_FROM || 'GSTHive <noreply@gsthive.com>',
-      sendVerificationRequest: process.env.AWS_SES_SMTP_USER ? sendVerificationRequest : sendVerificationRequestConsole,
-      maxAge: 24 * 60 * 60, // 24 hours
-    }),
   ],
   pages: {
     signIn: '/auth/signin',
-    verifyRequest: '/auth/verify-request',
     error: '/auth/error',
   },
   callbacks: {

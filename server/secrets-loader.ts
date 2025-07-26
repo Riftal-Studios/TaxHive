@@ -27,6 +27,7 @@ export function loadDockerSecrets(): void {
   ]
 
   console.log('Loading Docker secrets...')
+  let secretsLoaded = 0
 
   for (const { file, env } of secrets) {
     const secretPath = `/run/secrets/${file}`
@@ -35,15 +36,18 @@ export function loadDockerSecrets(): void {
         const secret = readFileSync(secretPath, 'utf8').trim()
         if (secret && !process.env[env]) {
           process.env[env] = secret
-          console.log(`✓ Loaded ${env} from Docker secret`)
+          secretsLoaded++
         }
       } catch (error) {
-        console.warn(`Failed to read Docker secret ${file}:`, error)
+        console.warn(`Failed to read Docker secret ${file}`)
       }
     }
   }
 
-  // Construct DATABASE_URL if components are available
+  if (secretsLoaded > 0) {
+    console.log(`✓ Loaded ${secretsLoaded} secrets from Docker`)
+  }
+
   if (!process.env.DATABASE_URL && process.env.POSTGRES_PASSWORD) {
     const user = process.env.POSTGRES_USER || 'postgres'
     const password = process.env.POSTGRES_PASSWORD
@@ -52,7 +56,7 @@ export function loadDockerSecrets(): void {
     const db = process.env.POSTGRES_DB || 'gsthive'
     
     process.env.DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${db}`
-    console.log('✓ DATABASE_URL constructed from Docker secrets')
+    console.log('✓ DATABASE_URL constructed from secrets')
   }
 
   // Construct REDIS_URL if components are available
@@ -62,7 +66,7 @@ export function loadDockerSecrets(): void {
     const port = process.env.REDIS_PORT || '6379'
     
     process.env.REDIS_URL = `redis://:${password}@${host}:${port}`
-    console.log('✓ REDIS_URL constructed from Docker secrets')
+    console.log('✓ REDIS_URL constructed from secrets')
   }
 
   console.log('Docker secrets loading complete')

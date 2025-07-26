@@ -30,9 +30,11 @@ yarn-error.log*
 .env*.local
 .env.secrets
 .env.production
+.env.backup.local
 !.env.example
 !.env.development
 !.env.production.template
+!.env.backup
 
 # vercel
 .vercel
@@ -56,3 +58,6 @@ prisma/*.db-journal
 .vars
 .secrets.staging
 .vars.staging
+
+.secrets.local
+.secrets.production

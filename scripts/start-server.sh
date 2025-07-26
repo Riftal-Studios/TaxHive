@@ -62,6 +62,9 @@ echo "  NEXTAUTH_URL: ${NEXTAUTH_URL}"
 echo "  NODE_ENV: ${NODE_ENV}"
 echo "  DATABASE_URL: ${DATABASE_URL:0:30}..." # Show only first 30 chars for security
 
+# Ensure all environment variables are exported
+set -a  # automatically export all variables
+
 # Start the Next.js server
 echo "Starting Next.js server..."
 exec node server.js

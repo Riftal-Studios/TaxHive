@@ -89,5 +89,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
-CMD ["/app/scripts/start-server.sh"]
+# Use shell form to ensure environment variables are loaded before Node.js starts
+ENTRYPOINT ["/app/scripts/start-server.sh"]

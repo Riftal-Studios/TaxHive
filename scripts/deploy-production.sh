@@ -46,7 +46,17 @@ main() {
     
     # Run migrations
     echo "Running database migrations..."
-    docker compose exec -T app npx prisma migrate deploy || echo "Migration failed or already up to date"
+    # Build DATABASE_URL from environment variables and secrets
+    POSTGRES_USER="${POSTGRES_USER:-postgres}"
+    POSTGRES_DB="${POSTGRES_DB:-gsthive}"
+    POSTGRES_PASSWORD=$(cat ./secrets/postgres_password 2>/dev/null || echo "")
+    
+    if [ -n "$POSTGRES_PASSWORD" ]; then
+        DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+        docker compose exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy || echo "Migration failed or already up to date"
+    else
+        echo "Warning: Could not read postgres password for migrations"
+    fi
     
     # Show status
     echo "Deployment status:"

@@ -68,11 +68,13 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.name = token.name
         session.user.email = token.email
+        session.user.onboardingCompleted = token.onboardingCompleted
+        session.user.onboardingStep = token.onboardingStep
       }
 
       return session
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       // If user is defined, this is the initial sign in
       if (user) {
         token.id = user.id
@@ -81,6 +83,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Always try to get the latest user data from database
+      // This runs on every JWT callback including session updates
       if (token.email) {
         const dbUser = await prisma.user.findFirst({
           where: {

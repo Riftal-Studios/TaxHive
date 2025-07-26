@@ -189,8 +189,8 @@ jobs:
             # Set proper permissions on .env file
             chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env
             
-            # Create docker network if it doesn't exist
-            docker network create gsthive-network || true
+            # Create environment-specific docker network if it doesn't exist
+            docker network create gsthive-${{ inputs.environment }}-network || true
             
             # Login to GitHub Container Registry
             cat /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -206,6 +206,7 @@ jobs:
             EOF
             
             # Deploy with docker compose --env-file .env
+            export COMPOSE_ENV=${{ inputs.environment }}
             if [ "${{ inputs.deploy_type }}" = "rebuild" ]; then
                 echo "Rebuilding all services..."
                 docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env down

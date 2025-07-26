@@ -81,19 +81,4 @@ jobs:
       vps_host: ${{ vars.VPS_HOST }}
       vps_user: ${{ vars.VPS_USER }}
       vps_port: ${{ vars.VPS_PORT }}
-    secrets:
-      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-      CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      AWS_SES_SMTP_USER: ${{ secrets.AWS_SES_SMTP_USER }}
-      AWS_SES_SMTP_PASSWORD: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
-      AWS_SES_ACCESS_KEY_ID: ${{ secrets.AWS_SES_ACCESS_KEY_ID }}
-      AWS_SES_SECRET_ACCESS_KEY: ${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      RBI_API_KEY: ${{ secrets.RBI_API_KEY }}
-      EXCHANGE_RATE_API_KEY: ${{ secrets.EXCHANGE_RATE_API_KEY }}
-      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    secrets: inherit

@@ -28,37 +28,6 @@ on:
         required: true
         type: string
         description: 'VPS port'
-    secrets:
-      VPS_SSH_KEY:
-        required: true
-      POSTGRES_PASSWORD:
-        required: true
-      REDIS_PASSWORD:
-        required: true
-      NEXTAUTH_SECRET:
-        required: true
-      CLOUDFLARE_TUNNEL_TOKEN:
-        required: true
-      GITHUB_TOKEN:
-        required: true
-      AWS_SES_SMTP_USER:
-        required: true
-      AWS_SES_SMTP_PASSWORD:
-        required: true
-      AWS_SES_ACCESS_KEY_ID:
-        required: true
-      AWS_SES_SECRET_ACCESS_KEY:
-        required: true
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-      RBI_API_KEY:
-        required: true
-      EXCHANGE_RATE_API_KEY:
-        required: true
-      CRON_SECRET:
-        required: true
 
 jobs:
   deploy:

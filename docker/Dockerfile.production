@@ -77,7 +77,7 @@ COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node lib/init.js ./lib/init.js
 
 # Create a startup script that loads secrets and then starts the server (before switching user)
-RUN echo '#!/usr/bin/env node\nrequire("./lib/init.js");\nrequire("./server.js");' > start.js && \
+RUN printf '#!/usr/bin/env node\nrequire("./lib/init.js");\nrequire("./server.js");\n' > start.js && \
     chmod +x start.js && \
     chown node:node start.js
 

@@ -206,6 +206,32 @@ jobs:
             POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
             DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
             
+            # Check container status before migrations
+            echo "Checking container status..."
+            docker compose ps
+            
+            # Check app logs to see why it might be restarting
+            echo "Checking app container logs..."
+            docker compose logs app --tail=50
+            
+            # Wait for container to be ready
+            echo "Waiting for container to be ready..."
+            for i in {1..10}; do
+              if docker compose exec -T app echo "Container is ready"; then
+                echo "✅ Container is ready"
+                break
+              else
+                if [ $i -eq 10 ]; then
+                  echo "❌ Container failed to become ready after 10 attempts"
+                  docker compose ps
+                  docker compose logs app --tail=100
+                  exit 1
+                fi
+                echo "Container not ready yet, attempt $i/10, waiting 5 seconds..."
+                sleep 5
+              fi
+            done
+            
             echo "Running database migrations..."
             docker compose exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy
             

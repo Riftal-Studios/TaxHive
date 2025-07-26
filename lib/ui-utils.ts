@@ -40,6 +40,47 @@ export const exchangeRateInputClassName = `
 `.replace(/\s+/g, ' ').trim()
 
 /**
+ * Dropdown button styles
+ */
+export const dropdownButtonClassName = `
+  mt-1 w-full px-3 py-2 text-left 
+  border rounded-md shadow-sm 
+  bg-white dark:bg-gray-700 
+  text-gray-900 dark:text-white
+  border-gray-300 dark:border-gray-600
+  focus:ring-indigo-500 focus:border-indigo-500
+`.replace(/\s+/g, ' ').trim()
+
+export function getDropdownButtonClassName(hasError?: boolean): string {
+  if (hasError) {
+    return dropdownButtonClassName.replace(
+      'border-gray-300 dark:border-gray-600',
+      'border-red-300 dark:border-red-500'
+    )
+  }
+  return dropdownButtonClassName
+}
+
+/**
+ * Dropdown container styles
+ */
+export const dropdownContainerClassName = `
+  absolute z-10 mt-1 w-full 
+  bg-white dark:bg-gray-700 
+  border border-gray-300 dark:border-gray-600 
+  rounded-md shadow-lg
+`.replace(/\s+/g, ' ').trim()
+
+/**
+ * Dropdown item styles
+ */
+export const dropdownItemClassName = `
+  block w-full px-4 py-2 text-left 
+  text-gray-900 dark:text-white
+  hover:bg-gray-100 dark:hover:bg-gray-600
+`.replace(/\s+/g, ' ').trim()
+
+/**
  * Common button styles
  */
 export const buttonClassName = {

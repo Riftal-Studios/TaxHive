@@ -5,7 +5,16 @@ import type { Client, LUT } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, getLUTExpiryStatus } from '@/lib/validations/gst'
-import { getInputClassName, selectClassName, textareaClassName, buttonClassName, exchangeRateInputClassName } from '@/lib/ui-utils'
+import { 
+  getInputClassName, 
+  selectClassName, 
+  textareaClassName, 
+  buttonClassName, 
+  exchangeRateInputClassName,
+  getDropdownButtonClassName,
+  dropdownContainerClassName,
+  dropdownItemClassName
+} from '@/lib/ui-utils'
 
 interface LineItem {
   id: string
@@ -281,16 +290,12 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               type="button"
               id="client"
               onClick={() => setShowClientDropdown(!showClientDropdown)}
-              className={`mt-1 w-full px-3 py-2 text-left border rounded-md shadow-sm bg-white dark:bg-gray-700 ${
-                errors.clientId
-                  ? 'border-red-300 dark:border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
-              } focus:ring-indigo-500 focus:border-indigo-500`}
+              className={getDropdownButtonClassName(!!errors.clientId)}
             >
               {selectedClient ? selectedClient.name : 'Select a client'}
             </button>
             {showClientDropdown && (
-              <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
+              <div className={dropdownContainerClassName}>
                 {clients.map(client => (
                   <button
                     key={client.id}
@@ -299,7 +304,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       setFormData(prev => ({ ...prev, clientId: client.id }))
                       setShowClientDropdown(false)
                     }}
-                    className="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
+                    className={dropdownItemClassName}
                   >
                     {client.name}
                   </button>
@@ -321,16 +326,12 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               type="button"
               id="lut"
               onClick={() => setShowLutDropdown(!showLutDropdown)}
-              className={`mt-1 w-full px-3 py-2 text-left border rounded-md shadow-sm bg-white dark:bg-gray-700 ${
-                errors.lutId
-                  ? 'border-red-300 dark:border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
-              } focus:ring-indigo-500 focus:border-indigo-500`}
+              className={getDropdownButtonClassName(!!errors.lutId)}
             >
               {selectedLut ? selectedLut.lutNumber : 'Select a LUT'}
             </button>
             {showLutDropdown && (
-              <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
+              <div className={dropdownContainerClassName}>
                 {luts.map(lut => (
                   <button
                     key={lut.id}
@@ -339,7 +340,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       setFormData(prev => ({ ...prev, lutId: lut.id }))
                       setShowLutDropdown(false)
                     }}
-                    className="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600"
+                    className={dropdownItemClassName}
                   >
                     {lut.lutNumber}
                   </button>
@@ -538,7 +539,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       className={getInputClassName(!!errors.lineItems?.[item.id]?.sacCode)}
                     />
                     {showSacDropdown[item.id] && (
-                      <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className={`${dropdownContainerClassName} max-h-60 overflow-auto`}>
                         {getFilteredSacCodes(item.id).map(sac => (
                           <button
                             key={sac.code}
@@ -549,7 +550,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                               setSacSearchTerm(prev => ({ ...prev, [item.id]: sac.code }))
                               setShowSacDropdown(prev => ({ ...prev, [item.id]: false }))
                             }}
-                            className="block w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-600 text-sm"
+                            className={`${dropdownItemClassName} text-sm`}
                           >
                             <div className="font-medium text-gray-900 dark:text-white">{sac.code}</div>
                             <div className="text-gray-500 dark:text-gray-400 text-xs">{sac.description}</div>

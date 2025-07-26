@@ -16,14 +16,20 @@ on:
         required: true
         type: string
         description: 'Docker image tag to deploy'
+      vps_host:
+        required: true
+        type: string
+        description: 'VPS host address'
+      vps_user:
+        required: true
+        type: string
+        description: 'VPS username'
+      vps_port:
+        required: true
+        type: string
+        description: 'VPS port'
     secrets:
-      VPS_HOST:
-        required: true
-      VPS_USER:
-        required: true
       VPS_SSH_KEY:
-        required: true
-      VPS_PORT:
         required: true
       POSTGRES_PASSWORD:
         required: true
@@ -107,26 +113,26 @@ jobs:
       - name: Copy deployment package to VPS
         uses: appleboy/scp-action@v1.0.0
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ inputs.vps_host }}
+          username: ${{ inputs.vps_user }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ inputs.vps_port }}
           source: deployment.tar.gz
           target: /tmp/
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ inputs.vps_host }}
+          username: ${{ inputs.vps_user }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ inputs.vps_port }}
           script: |
             set -e  # Exit on error
             
             # Extract deployment package to environment directory
-            mkdir -p /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
-            cd /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            mkdir -p /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}
+            cd /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}
             
             # Clean up old deployment files
             rm -rf deployment
@@ -141,27 +147,27 @@ jobs:
             export COMPOSE_PROJECT_NAME='${{ steps.vars.outputs.compose_project }}'
             
             # Create secrets directory
-            mkdir -p /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets
-            chmod 700 /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets
+            mkdir -p /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets
+            chmod 700 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets
             
             # Write secrets to files
-            echo "${{ secrets.POSTGRES_PASSWORD }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_password
-            echo "${{ secrets.REDIS_PASSWORD }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/redis_password
-            echo "${{ secrets.NEXTAUTH_SECRET }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/nextauth_secret
-            echo "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/cloudflare_tunnel_token
-            echo "${{ secrets.GITHUB_TOKEN }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token
-            echo "${{ secrets.AWS_SES_SMTP_USER }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_smtp_user
-            echo "${{ secrets.AWS_SES_SMTP_PASSWORD }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_smtp_password
-            echo "${{ secrets.AWS_SES_ACCESS_KEY_ID }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_access_key_id
-            echo "${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_secret_access_key
-            echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_access_key_id
-            echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_secret_access_key
-            echo "${{ secrets.RBI_API_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/rbi_api_key
-            echo "${{ secrets.EXCHANGE_RATE_API_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/exchange_rate_api_key
-            echo "${{ secrets.CRON_SECRET }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/cron_secret
+            echo "${{ secrets.POSTGRES_PASSWORD }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_password
+            echo "${{ secrets.REDIS_PASSWORD }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/redis_password
+            echo "${{ secrets.NEXTAUTH_SECRET }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/nextauth_secret
+            echo "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/cloudflare_tunnel_token
+            echo "${{ secrets.GITHUB_TOKEN }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token
+            echo "${{ secrets.AWS_SES_SMTP_USER }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_smtp_user
+            echo "${{ secrets.AWS_SES_SMTP_PASSWORD }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_smtp_password
+            echo "${{ secrets.AWS_SES_ACCESS_KEY_ID }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_access_key_id
+            echo "${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_secret_access_key
+            echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_access_key_id
+            echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_secret_access_key
+            echo "${{ secrets.RBI_API_KEY }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/rbi_api_key
+            echo "${{ secrets.EXCHANGE_RATE_API_KEY }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/exchange_rate_api_key
+            echo "${{ secrets.CRON_SECRET }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/cron_secret
             
             # Set proper permissions on secret files
-            chmod 600 /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
+            chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
             
             # Create .env file for non-secret variables
             cat > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/.env << 'EOF'
@@ -180,7 +186,7 @@ jobs:
             docker network create gsthive-network || true
             
             # Login to GitHub Container Registry
-            cat /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            cat /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull latest images
             docker compose --env-file .env pull
@@ -215,14 +221,14 @@ jobs:
       - name: Run database migrations
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ inputs.vps_host }}
+          username: ${{ inputs.vps_user }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ inputs.vps_port }}
           script: |
             set -e  # Exit on error
             
-            cd /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            cd /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}
             
             # Build DATABASE_URL for migrations
             POSTGRES_USER="${{ vars.POSTGRES_USER || 'postgres' }}"
@@ -238,14 +244,14 @@ jobs:
       - name: Health check
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ inputs.vps_host }}
+          username: ${{ inputs.vps_user }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ inputs.vps_port }}
           script: |
             set -e  # Exit on error
             
-            cd /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            cd /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}
             
             # Check internal health endpoint
             echo "Checking internal health..."
@@ -275,10 +281,10 @@ jobs:
         if: success()
         uses: appleboy/ssh-action@v1.2.2
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
+          host: ${{ inputs.vps_host }}
+          username: ${{ inputs.vps_user }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ inputs.vps_port }}
           script: |
             # Clean up Docker (but NEVER prune volumes - that deletes database data!)
             docker system prune -f

@@ -78,11 +78,11 @@ jobs:
       environment: staging
       deploy_type: ${{ github.event.inputs.deploy_type || 'deploy' }}
       image_tag: ghcr.io/riftal-studios/gsthive:main-${{ github.sha }}
+      vps_host: ${{ vars.VPS_HOST }}
+      vps_user: ${{ vars.VPS_USER }}
+      vps_port: ${{ vars.VPS_PORT }}
     secrets:
-      VPS_HOST: ${{ vars.VPS_HOST }}
-      VPS_USER: ${{ vars.VPS_USER }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-      VPS_PORT: ${{ vars.VPS_PORT }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
       NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}

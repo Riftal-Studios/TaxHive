@@ -30,7 +30,6 @@ export default function OnboardingPage() {
   const router = useRouter()
   const { update } = useSession()
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
-  const utils = api.useUtils()
   
   const { data: status, isLoading } = api.users.getOnboardingStatus.useQuery()
   const completeOnboardingMutation = api.users.completeOnboarding.useMutation({

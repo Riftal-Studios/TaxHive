@@ -74,7 +74,7 @@ export const authOptions: NextAuthOptions = {
 
       return session
     },
-    async jwt({ token, user, trigger, session }) {
+    async jwt({ token, user }) {
       // If user is defined, this is the initial sign in
       if (user) {
         token.id = user.id

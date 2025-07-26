@@ -46,6 +46,15 @@ export function ThemeProvider({ children, defaultMode = 'system' }: ThemeProvide
   }, [defaultMode])
 
   useEffect(() => {
+    // Update the document class for Tailwind dark mode
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [isDarkMode])
+
+  useEffect(() => {
     // Listen for system theme changes
     if (defaultMode === 'system' && !localStorage.getItem('theme-mode')) {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')

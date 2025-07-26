@@ -53,29 +53,28 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user with UID 1000 to match Docker secrets ownership
-RUN addgroup --system --gid 1000 nodejs && \
-    adduser --system --uid 1000 nextjs
+# Use the existing node user (UID 1000) which matches Docker secrets ownership
+# No need to create a new user as node:alpine already has node user with UID 1000
 
 # Create necessary directories with correct permissions
 RUN mkdir -p uploads public/invoices && \
-    chown -R nextjs:nodejs uploads public/invoices
+    chown -R node:node uploads public/invoices
 
 # Copy production dependencies
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 
 # Copy built application
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 
 # Copy Prisma schema and migrations
-COPY --chown=nextjs:nodejs prisma ./prisma
+COPY --chown=node:node prisma ./prisma
 
 # Copy scripts
-COPY --chown=nextjs:nodejs scripts ./scripts
+COPY --chown=node:node scripts ./scripts
 
 # Switch to non-root user
-USER nextjs
+USER node
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

@@ -3,7 +3,7 @@ import type Mail from 'nodemailer/lib/mailer'
 
 type SendMailOptions = Mail.Options
 type Attachment = Mail.Attachment
-import { emailTemplates, type EmailTemplateData } from './templates'
+import { emailTemplates, type EmailTemplateData, generateOTPEmail } from './templates'
 
 export interface EmailOptions {
   to: string
@@ -137,5 +137,32 @@ export function createPDFAttachment(
     filename,
     content,
     contentType,
+  }
+}
+
+// Send OTP email
+export async function sendOTPEmail(
+  to: string,
+  otp: string,
+  purpose: 'SIGNUP' | 'PASSWORD_RESET'
+): Promise<EmailResult> {
+  const transporter = createTransporter()
+  const { subject, html, text } = generateOTPEmail(otp, purpose)
+  
+  const mailOptions: SendMailOptions = {
+    from: formatFromAddress(),
+    to,
+    subject,
+    html,
+    text,
+  }
+  
+  const info = await transporter.sendMail(mailOptions)
+  
+  return {
+    messageId: info.messageId,
+    accepted: info.accepted as string[],
+    rejected: info.rejected as string[],
+    timestamp: new Date(),
   }
 }

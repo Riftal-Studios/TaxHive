@@ -6,8 +6,10 @@ import { adminRouter } from '@/server/api/routers/admin'
 import { lutRouter } from '@/server/api/routers/lut'
 import { dashboardRouter } from '@/server/api/routers/dashboard'
 import { paymentRouter } from '@/server/api/routers/payment'
+import { authRouter } from '@/server/api/routers/auth'
 
 export const appRouter = createTRPCRouter({
+  auth: authRouter,
   clients: clientRouter,
   invoices: invoiceRouter,
   users: userRouter,

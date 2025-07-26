@@ -3,10 +3,12 @@ import '@/server/secrets-loader'
 
 import { NextAuthOptions } from 'next-auth'
 import EmailProvider from 'next-auth/providers/email'
+import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import { prisma } from './prisma'
 import { sendVerificationRequest } from './email/sendVerificationRequest'
 import { sendVerificationRequestConsole } from './email/consoleEmail'
+import { verifyPassword } from './auth/password'
 
 const nextAuthUrl = process.env.NEXTAUTH_URL
 const nextAuthSecret = process.env.NEXTAUTH_SECRET
@@ -30,6 +32,53 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
   },
   providers: [
+    CredentialsProvider({
+      name: 'credentials',
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Please enter email and password')
+        }
+        
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+          select: {
+            id: true,
+            email: true,
+            password: true,
+            name: true,
+            emailVerified: true,
+          }
+        })
+        
+        if (!user) {
+          throw new Error('No user found with this email')
+        }
+        
+        if (!user.emailVerified) {
+          throw new Error('Please verify your email first')
+        }
+        
+        if (!user.password) {
+          throw new Error('Please use magic link to sign in')
+        }
+        
+        const isValid = await verifyPassword(credentials.password, user.password)
+        
+        if (!isValid) {
+          throw new Error('Invalid password')
+        }
+        
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        }
+      }
+    }),
     EmailProvider({
       server: process.env.AWS_SES_SMTP_USER && process.env.AWS_SES_SMTP_PASSWORD ? {
         host: `email-smtp.${process.env.AWS_SES_REGION || 'us-east-1'}.amazonaws.com`,

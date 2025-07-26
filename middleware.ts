@@ -10,7 +10,6 @@ const ONBOARDING_EXEMPT_PATHS = [
   '/clients',  // Allow clients access during onboarding
   '/invoices/new', // Allow invoice creation during onboarding
   '/test-onboarding', // Test page
-  '/dashboard', // Temporarily allow dashboard to debug
 ]
 
 export default withAuth(
@@ -27,26 +26,28 @@ export default withAuth(
       req.nextUrl.pathname.startsWith(path)
     )
     
-    // Temporarily disable onboarding check for debugging
-    // if (token && !isExemptPath) {
-    //   // Check if user has completed onboarding
-    //   const userResponse = await fetch(`${req.nextUrl.origin}/api/trpc/users.getOnboardingStatus`, {
-    //     method: 'GET',
-    //     headers: {
-    //       cookie: req.headers.get('cookie') || '',
-    //     },
-    //   })
+    // Check onboarding status for authenticated users
+    if (token && !isExemptPath) {
+      // Check if user has completed onboarding
+      const userResponse = await fetch(`${req.nextUrl.origin}/api/trpc/users.getOnboardingStatus`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          cookie: req.headers.get('cookie') || '',
+        },
+        body: JSON.stringify({}),
+      })
       
-    //   if (userResponse.ok) {
-    //     const data = await userResponse.json()
-    //     const onboardingStatus = data?.result?.data
+      if (userResponse.ok) {
+        const data = await userResponse.json()
+        const onboardingStatus = data?.result?.data
         
-    //     // If onboarding is not completed and user is not on onboarding page, redirect
-    //     if (!onboardingStatus?.completed && req.nextUrl.pathname !== '/onboarding') {
-    //       return NextResponse.redirect(new URL('/onboarding', req.url))
-    //     }
-    //   }
-    // }
+        // If onboarding is not completed and user is not on onboarding page, redirect
+        if (!onboardingStatus?.completed && req.nextUrl.pathname !== '/onboarding') {
+          return NextResponse.redirect(new URL('/onboarding', req.url))
+        }
+      }
+    }
     
     return NextResponse.next()
   },

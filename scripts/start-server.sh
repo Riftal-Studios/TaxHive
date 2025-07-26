@@ -1,6 +1,12 @@
 #!/bin/sh
 # Load secrets and start the Next.js server
 
+# Load .env file if it exists
+if [ -f .env ]; then
+  echo "Loading environment variables from .env..."
+  export $(grep -v '^#' .env | xargs)
+fi
+
 # Load Docker secrets
 echo "Loading Docker secrets..."
 
@@ -44,6 +50,12 @@ if [ -z "$REDIS_URL" ] && [ -n "$REDIS_PASSWORD" ]; then
 fi
 
 echo "Docker secrets loading complete"
+
+# Debug: Show critical environment variables
+echo "Environment check:"
+echo "  NEXTAUTH_URL: ${NEXTAUTH_URL}"
+echo "  NODE_ENV: ${NODE_ENV}"
+echo "  DATABASE_URL: ${DATABASE_URL:0:30}..." # Show only first 30 chars for security
 
 # Start the Next.js server
 echo "Starting Next.js server..."

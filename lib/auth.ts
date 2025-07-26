@@ -8,6 +8,12 @@ import { prisma } from './prisma'
 import { sendVerificationRequest } from './email/sendVerificationRequest'
 import { sendVerificationRequestConsole } from './email/consoleEmail'
 
+const nextAuthUrl = process.env.NEXTAUTH_URL
+
+if (!nextAuthUrl) {
+  console.warn('NEXTAUTH_URL is not set, authentication may not work correctly')
+}
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as NextAuthOptions['adapter'],
   secret: process.env.NEXTAUTH_SECRET,

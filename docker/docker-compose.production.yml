@@ -2,7 +2,6 @@ services:
   # PostgreSQL Database - Internal only
   postgres:
     image: postgres:16-alpine
-    container_name: gsthive-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -25,7 +24,6 @@ services:
   # Redis for queue/caching - Internal only  
   redis:
     image: redis:7-alpine
-    container_name: gsthive-redis
     restart: unless-stopped
     # MODIFICATION: The command now reads the password from the secret file
     command: sh -c 'redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"'
@@ -48,7 +46,6 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.production
       target: runner
-    container_name: gsthive-app
     restart: unless-stopped
     # IMPORTANT: The application code must be updated to read secrets from files.
     # Secrets are available at /run/secrets/<secret_name>.
@@ -104,7 +101,6 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.production
       target: runner
-    container_name: gsthive-queue-worker
     restart: unless-stopped
     command: npm run worker
     # IMPORTANT: The queue worker code must also be updated to read secrets from files.
@@ -143,7 +139,6 @@ services:
   # Cloudflare Tunnel for secure external access
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: gsthive-tunnel
     restart: unless-stopped
     # Note: Since cloudflared is a distroless image without shell,
     # we need to handle the token differently. The token will be

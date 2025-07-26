@@ -13,8 +13,6 @@ update_cloudflare_token() {
         
         # Create a temporary override file for cloudflared
         cat > docker-compose.override.yml << EOF
-version: "3.8"
-
 services:
   cloudflared:
     command: ["tunnel", "--no-autoupdate", "run", "--token", "$token"]

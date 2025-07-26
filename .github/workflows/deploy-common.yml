@@ -152,19 +152,42 @@ jobs:
             # Set proper permissions on secret files
             chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
             
-            # Create additional secret files for non-secret environment variables
-            echo "${{ steps.vars.outputs.postgres_user }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_user
-            echo "${{ steps.vars.outputs.postgres_db }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_db
-            echo "${{ steps.vars.outputs.nextauth_url }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/nextauth_url
-            echo "${{ steps.vars.outputs.email_provider }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/email_provider
-            echo "${{ steps.vars.outputs.email_from }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/email_from
-            echo "${{ steps.vars.outputs.aws_ses_region }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_region
-            echo "${{ steps.vars.outputs.aws_region }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_region
-            echo "${{ steps.vars.outputs.aws_s3_bucket }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_s3_bucket
-            echo "${{ steps.vars.outputs.node_env }}" > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/node_env
+            # Create .env file with all configuration
+            cat > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env << EOF
+            # Database
+            POSTGRES_USER=${{ steps.vars.outputs.postgres_user }}
+            POSTGRES_DB=${{ steps.vars.outputs.postgres_db }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             
-            # Set proper permissions on all secret files
-            chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
+            # Redis
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            
+            # NextAuth
+            NEXTAUTH_URL=${{ steps.vars.outputs.nextauth_url }}
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            
+            # Email
+            EMAIL_PROVIDER=${{ steps.vars.outputs.email_provider }}
+            EMAIL_FROM=${{ steps.vars.outputs.email_from }}
+            AWS_SES_SMTP_USER=${{ secrets.AWS_SES_SMTP_USER }}
+            AWS_SES_SMTP_PASSWORD=${{ secrets.AWS_SES_SMTP_PASSWORD }}
+            AWS_SES_REGION=${{ steps.vars.outputs.aws_ses_region }}
+            
+            # AWS
+            AWS_REGION=${{ steps.vars.outputs.aws_region }}
+            AWS_S3_BUCKET=${{ steps.vars.outputs.aws_s3_bucket }}
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            
+            # Other
+            NODE_ENV=${{ steps.vars.outputs.node_env }}
+            RBI_API_KEY=${{ secrets.RBI_API_KEY }}
+            EXCHANGE_RATE_API_KEY=${{ secrets.EXCHANGE_RATE_API_KEY }}
+            CRON_SECRET=${{ secrets.CRON_SECRET }}
+            EOF
+            
+            # Set proper permissions on .env file
+            chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env
             
             # Create docker network if it doesn't exist
             docker network create gsthive-network || true
@@ -173,7 +196,7 @@ jobs:
             cat /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull latest images
-            docker compose pull
+            docker compose --env-file .env --env-file .env pull
             
             # Create docker-compose.override.yml for Cloudflare tunnel
             cat > docker-compose.override.yml << EOF
@@ -182,14 +205,14 @@ jobs:
                 command: ["tunnel", "--no-autoupdate", "run", "--token", "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"]
             EOF
             
-            # Deploy with docker compose
+            # Deploy with docker compose --env-file .env
             if [ "${{ inputs.deploy_type }}" = "rebuild" ]; then
                 echo "Rebuilding all services..."
-                docker compose down
-                docker compose up -d --force-recreate
+                docker compose --env-file .env down
+                docker compose --env-file .env up -d --force-recreate
             else
                 echo "Standard deployment..."
-                docker compose up -d
+                docker compose --env-file .env up -d
             fi
             
             # Wait for services to be healthy
@@ -197,7 +220,7 @@ jobs:
             sleep 30
             
             # Check container health
-            docker compose ps
+            docker compose --env-file .env ps
             
             # Cleanup
             rm -f /tmp/deployment.tar.gz
@@ -222,23 +245,23 @@ jobs:
             
             # Check container status before migrations
             echo "Checking container status..."
-            docker compose ps
+            docker compose --env-file .env ps
             
             # Check app logs to see why it might be restarting
             echo "Checking app container logs..."
-            docker compose logs app --tail=50
+            docker compose --env-file .env logs app --tail=50
             
             # Wait for container to be ready
             echo "Waiting for container to be ready..."
             for i in {1..10}; do
-              if docker compose exec -T app echo "Container is ready"; then
+              if docker compose --env-file .env exec -T app echo "Container is ready"; then
                 echo "✅ Container is ready"
                 break
               else
                 if [ $i -eq 10 ]; then
                   echo "❌ Container failed to become ready after 10 attempts"
-                  docker compose ps
-                  docker compose logs app --tail=100
+                  docker compose --env-file .env ps
+                  docker compose --env-file .env logs app --tail=100
                   exit 1
                 fi
                 echo "Container not ready yet, attempt $i/10, waiting 5 seconds..."
@@ -247,7 +270,7 @@ jobs:
             done
             
             echo "Running database migrations..."
-            docker compose exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy
+            docker compose --env-file .env exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy
             
             echo "✅ Migrations completed successfully"
 
@@ -267,14 +290,14 @@ jobs:
             echo "Checking internal health..."
             for i in {1..5}; do
               # Use Node.js to check health endpoint (same as Dockerfile HEALTHCHECK)
-              if docker compose exec -T app node -e "require('http').get('http://localhost:3000/api/health', (res) => { console.log('Health check status:', res.statusCode); process.exit(res.statusCode === 200 ? 0 : 1) })"; then
+              if docker compose --env-file .env exec -T app node -e "require('http').get('http://localhost:3000/api/health', (res) => { console.log('Health check status:', res.statusCode); process.exit(res.statusCode === 200 ? 0 : 1) })"; then
                 echo "✅ Internal health check passed"
                 break
               else
                 if [ $i -eq 5 ]; then
                   echo "❌ Internal health check failed after 5 attempts"
                   echo "Container logs:"
-                  docker compose logs app --tail=50
+                  docker compose --env-file .env logs app --tail=50
                   exit 1
                 fi
                 echo "Health check attempt $i failed, retrying in 10 seconds..."
@@ -284,7 +307,7 @@ jobs:
             
             # Check Cloudflare tunnel
             echo "Checking Cloudflare tunnel..."
-            docker compose logs cloudflared --tail=20
+            docker compose --env-file .env logs cloudflared --tail=20
             
             # External health check (non-blocking)
             sleep 5

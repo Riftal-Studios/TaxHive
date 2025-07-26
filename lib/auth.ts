@@ -26,7 +26,6 @@ if (!nextAuthSecret) {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as NextAuthOptions['adapter'],
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // Trust the Host header when behind proxy
   session: {
     strategy: 'jwt',
   },

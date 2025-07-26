@@ -9,9 +9,18 @@ import { sendVerificationRequest } from './email/sendVerificationRequest'
 import { sendVerificationRequestConsole } from './email/consoleEmail'
 
 const nextAuthUrl = process.env.NEXTAUTH_URL
+const nextAuthSecret = process.env.NEXTAUTH_SECRET
+
+console.log('NextAuth Configuration:')
+console.log('  NEXTAUTH_URL:', nextAuthUrl)
+console.log('  NEXTAUTH_SECRET:', nextAuthSecret ? '[SET]' : '[NOT SET]')
 
 if (!nextAuthUrl) {
-  console.warn('NEXTAUTH_URL is not set, authentication may not work correctly')
+  console.error('CRITICAL: NEXTAUTH_URL is not set, authentication will not work correctly')
+}
+
+if (!nextAuthSecret) {
+  console.error('CRITICAL: NEXTAUTH_SECRET is not set, JWT signing will fail')
 }
 
 export const authOptions: NextAuthOptions = {

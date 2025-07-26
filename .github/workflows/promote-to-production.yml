@@ -1,0 +1,110 @@
+name: Promote to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_pr:
+        description: 'Create PR from staging to main'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git fetch origin prod
+          CHANGES=$(git rev-list --count origin/prod..HEAD)
+          echo "count=$CHANGES" >> $GITHUB_OUTPUT
+          
+          if [ "$CHANGES" -eq 0 ]; then
+            echo "No changes to promote"
+            exit 0
+          fi
+          
+          echo "Found $CHANGES commits to promote"
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.count != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:main`,
+              base: 'prod'
+            });
+            
+            if (prs.length > 0) {
+              console.log(`PR already exists: #${prs[0].number}`);
+              return;
+            }
+            
+            // Get commit messages for the PR body
+            const { data: commits } = await github.rest.repos.compareCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              base: 'prod',
+              head: 'main'
+            });
+            
+            const commitList = commits.commits
+              .map(c => `- ${c.commit.message.split('\n')[0]} (${c.sha.substring(0, 7)})`)
+              .join('\n');
+            
+            const prBody = `## 🚀 Production Deployment
+            
+            This PR promotes the latest staging changes to production.
+            
+            ### Changes included:
+            ${commitList}
+            
+            ### Pre-deployment checklist:
+            - [ ] All tests passing on main
+            - [ ] Staging deployment verified working
+            - [ ] No critical bugs reported
+            - [ ] Database migrations reviewed (if any)
+            - [ ] Performance impact assessed
+            
+            ### Deployment notes:
+            - This will trigger an automatic deployment to production when merged
+            - Ensure staging has been thoroughly tested before merging
+            `;
+            
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚀 Deploy to Production: ${new Date().toISOString().split('T')[0]}`,
+              body: prBody,
+              head: 'main',
+              base: 'prod'
+            });
+            
+            console.log(`Created PR #${pr.number}: ${pr.html_url}`);
+            
+            // Add labels if they exist
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: ['deployment', 'production']
+              });
+            } catch (e) {
+              console.log('Could not add labels:', e.message);
+            }

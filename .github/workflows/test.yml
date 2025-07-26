@@ -3,11 +3,11 @@ name: Test
 on:
   push:
     branches-ignore:
-      - staging
+      - main
+      - prod
   pull_request:
     branches:
       - main
-      - staging
 
 env:
   NODE_VERSION: '20'

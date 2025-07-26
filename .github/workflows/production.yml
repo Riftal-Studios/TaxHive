@@ -1,6 +1,9 @@
 name: Deploy to Production
 
 on:
+  push:
+    branches:
+      - prod
   workflow_dispatch:
     inputs:
       deploy_type:
@@ -11,28 +14,12 @@ on:
         options:
           - deploy
           - rebuild
-      confirm_production:
-        description: 'Type "DEPLOY TO PRODUCTION" to confirm'
-        required: true
-        type: string
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate confirmation
-        run: |
-          if [ "${{ github.event.inputs.confirm_production }}" != "DEPLOY TO PRODUCTION" ]; then
-            echo "❌ Production deployment cancelled - confirmation text did not match"
-            exit 1
-          fi
-          echo "✅ Production deployment confirmed"
-
   build-and-push:
-    needs: validate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,9 +50,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.env.outputs.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=prod-,format=long
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-,format=long
             type=raw,value=production
-            type=raw,value=latest
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

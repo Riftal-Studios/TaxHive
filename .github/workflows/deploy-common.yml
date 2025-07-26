@@ -50,6 +50,16 @@ jobs:
             echo "compose_project=gsthive-staging" >> $GITHUB_OUTPUT
             echo "node_env=staging" >> $GITHUB_OUTPUT
           fi
+          
+          # Capture environment variables
+          echo "postgres_user=${{ vars.POSTGRES_USER }}" >> $GITHUB_OUTPUT
+          echo "postgres_db=${{ vars.POSTGRES_DB }}" >> $GITHUB_OUTPUT
+          echo "nextauth_url=${{ vars.NEXTAUTH_URL }}" >> $GITHUB_OUTPUT
+          echo "email_provider=${{ vars.EMAIL_PROVIDER }}" >> $GITHUB_OUTPUT
+          echo "email_from=${{ vars.EMAIL_FROM }}" >> $GITHUB_OUTPUT
+          echo "aws_ses_region=${{ vars.AWS_SES_REGION }}" >> $GITHUB_OUTPUT
+          echo "aws_region=${{ vars.AWS_REGION }}" >> $GITHUB_OUTPUT
+          echo "aws_s3_bucket=${{ vars.AWS_S3_BUCKET }}" >> $GITHUB_OUTPUT
 
       - name: Create deployment package
         run: |
@@ -140,15 +150,15 @@ jobs:
             chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
             
             # Create .env file for non-secret variables
-            cat > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env << 'EOF'
-            POSTGRES_USER=${{ vars.POSTGRES_USER }}
-            POSTGRES_DB=${{ vars.POSTGRES_DB }}
-            NEXTAUTH_URL=${{ inputs.environment == 'staging' && (vars.STAGING_NEXTAUTH_URL || vars.NEXTAUTH_URL) || vars.NEXTAUTH_URL }}
-            EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
-            EMAIL_FROM=${{ vars.EMAIL_FROM }}
-            AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
-            AWS_REGION=${{ vars.AWS_REGION }}
-            AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+            cat > /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env << EOF
+            POSTGRES_USER=${{ steps.vars.outputs.postgres_user }}
+            POSTGRES_DB=${{ steps.vars.outputs.postgres_db }}
+            NEXTAUTH_URL=${{ steps.vars.outputs.nextauth_url }}
+            EMAIL_PROVIDER=${{ steps.vars.outputs.email_provider }}
+            EMAIL_FROM=${{ steps.vars.outputs.email_from }}
+            AWS_SES_REGION=${{ steps.vars.outputs.aws_ses_region }}
+            AWS_REGION=${{ steps.vars.outputs.aws_region }}
+            AWS_S3_BUCKET=${{ steps.vars.outputs.aws_s3_bucket }}
             NODE_ENV=${{ steps.vars.outputs.node_env }}
             EOF
             

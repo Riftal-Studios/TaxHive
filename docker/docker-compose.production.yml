@@ -145,16 +145,17 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: gsthive-tunnel
     restart: unless-stopped
-    # MODIFICATION: Read token from secret file
-    command: sh -c 'tunnel --no-autoupdate --protocol http2 run --token $$(cat /run/secrets/cloudflare_tunnel_token)'
+    # Note: Since cloudflared is a distroless image without shell,
+    # we need to handle the token differently. The token will be
+    # injected during deployment.
+    command: ["tunnel", "--no-autoupdate", "run"]
     environment:
       NODE_ENV: production
+      # Token will be set via environment variable during deployment
     networks:
       - gsthive-internal
     depends_on:
       - app
-    secrets:
-      - cloudflare_tunnel_token
 
 networks:
   gsthive-internal:

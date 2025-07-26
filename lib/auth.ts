@@ -1,3 +1,6 @@
+// Load Docker secrets before configuring auth
+import '@/server/secrets-loader'
+
 import { NextAuthOptions } from 'next-auth'
 import EmailProvider from 'next-auth/providers/email'
 import { PrismaAdapter } from '@auth/prisma-adapter'

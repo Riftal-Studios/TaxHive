@@ -84,6 +84,7 @@ jobs:
         run: |
           mkdir -p deployment
           cp docker/docker-compose.production.yml deployment/docker-compose.yml
+          cp scripts/deploy-production.sh deployment/
           
           # Replace build sections with image references
           # Use environment variable to pass the image name to awk
@@ -189,26 +190,11 @@ jobs:
             # Pull latest images
             docker compose --env-file .env pull
             
-            # Deploy based on type
-            case "$DEPLOY_TYPE" in
-              "rebuild")
-                echo "Rebuilding all services..."
-                docker compose --env-file .env down
-                docker compose --env-file .env up -d --force-recreate
-                ;;
-              *)
-                echo "Standard deployment..."
-                docker compose --env-file .env up -d
-                ;;
-            esac
+            # Make deployment script executable
+            chmod +x ./deploy-production.sh
             
-            # Verify all containers are running
-            echo "Checking running containers..."
-            docker compose --env-file .env ps
-            
-            # Run database migrations from within the app container
-            echo "Running database migrations..."
-            docker compose --env-file .env exec -T app npx prisma migrate deploy
+            # Run deployment script
+            ./deploy-production.sh "$DEPLOY_TYPE"
             
             # Check cloudflared tunnel status
             echo "Checking Cloudflare tunnel logs..."

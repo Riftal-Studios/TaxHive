@@ -1,3 +1,6 @@
+// Load Docker secrets before anything else
+import '../secrets-loader'
+
 import { initTRPC, TRPCError } from '@trpc/server'
 import { type NextRequest } from 'next/server'
 import superjson from 'superjson'

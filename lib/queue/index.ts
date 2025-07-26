@@ -15,10 +15,27 @@ export function getQueueService(): QueueService {
     // If REDIS_URL is provided, parse it
     if (process.env.REDIS_URL) {
       const url = new URL(process.env.REDIS_URL)
-      redisConfig = {
-        host: url.hostname,
-        port: parseInt(url.port || '6379', 10),
-        password: url.password || undefined,
+      // For Redis URLs like redis://:password@host:port, the password is in username
+      // For Redis URLs like redis://user:password@host:port, the password is in password
+      const password = url.password || (url.username === '' ? url.username : null) || 
+                       (url.pathname && url.pathname.includes('@') ? url.username : null)
+      
+      // Handle the common redis://:password@host format
+      if (!url.password && url.username === '' && process.env.REDIS_URL.includes('://:')) {
+        const match = process.env.REDIS_URL.match(/redis:\/\/:([^@]+)@/)
+        if (match) {
+          redisConfig = {
+            host: url.hostname,
+            port: parseInt(url.port || '6379', 10),
+            password: match[1],
+          }
+        }
+      } else {
+        redisConfig = {
+          host: url.hostname,
+          port: parseInt(url.port || '6379', 10),
+          password: password || undefined,
+        }
       }
     }
 

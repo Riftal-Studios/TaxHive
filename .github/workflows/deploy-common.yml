@@ -196,7 +196,7 @@ jobs:
             cat /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             # Pull latest images
-            docker compose --env-file .env --env-file .env pull
+            docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env pull
             
             # Create docker-compose.override.yml for Cloudflare tunnel
             cat > docker-compose.override.yml << EOF
@@ -208,11 +208,11 @@ jobs:
             # Deploy with docker compose --env-file .env
             if [ "${{ inputs.deploy_type }}" = "rebuild" ]; then
                 echo "Rebuilding all services..."
-                docker compose --env-file .env down
-                docker compose --env-file .env up -d --force-recreate
+                docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env down
+                docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env up -d --force-recreate
             else
                 echo "Standard deployment..."
-                docker compose --env-file .env up -d
+                docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env up -d
             fi
             
             # Wait for services to be healthy
@@ -245,23 +245,23 @@ jobs:
             
             # Check container status before migrations
             echo "Checking container status..."
-            docker compose --env-file .env ps
+            docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env ps
             
             # Check app logs to see why it might be restarting
             echo "Checking app container logs..."
-            docker compose --env-file .env logs app --tail=50
+            docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env logs app --tail=50
             
             # Wait for container to be ready
             echo "Waiting for container to be ready..."
             for i in {1..10}; do
-              if docker compose --env-file .env exec -T app echo "Container is ready"; then
+              if docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env exec -T app echo "Container is ready"; then
                 echo "✅ Container is ready"
                 break
               else
                 if [ $i -eq 10 ]; then
                   echo "❌ Container failed to become ready after 10 attempts"
-                  docker compose --env-file .env ps
-                  docker compose --env-file .env logs app --tail=100
+                  docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env ps
+                  docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env logs app --tail=100
                   exit 1
                 fi
                 echo "Container not ready yet, attempt $i/10, waiting 5 seconds..."
@@ -270,7 +270,7 @@ jobs:
             done
             
             echo "Running database migrations..."
-            docker compose --env-file .env exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy
+            docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy
             
             echo "✅ Migrations completed successfully"
 
@@ -290,14 +290,14 @@ jobs:
             echo "Checking internal health..."
             for i in {1..5}; do
               # Use Node.js to check health endpoint (same as Dockerfile HEALTHCHECK)
-              if docker compose --env-file .env exec -T app node -e "require('http').get('http://localhost:3000/api/health', (res) => { console.log('Health check status:', res.statusCode); process.exit(res.statusCode === 200 ? 0 : 1) })"; then
+              if docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env exec -T app node -e "require('http').get('http://localhost:3000/api/health', (res) => { console.log('Health check status:', res.statusCode); process.exit(res.statusCode === 200 ? 0 : 1) })"; then
                 echo "✅ Internal health check passed"
                 break
               else
                 if [ $i -eq 5 ]; then
                   echo "❌ Internal health check failed after 5 attempts"
                   echo "Container logs:"
-                  docker compose --env-file .env logs app --tail=50
+                  docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env logs app --tail=50
                   exit 1
                 fi
                 echo "Health check attempt $i failed, retrying in 10 seconds..."
@@ -307,7 +307,7 @@ jobs:
             
             # Check Cloudflare tunnel
             echo "Checking Cloudflare tunnel..."
-            docker compose --env-file .env logs cloudflared --tail=20
+            docker compose --project-name ${{ steps.vars.outputs.compose_project }} --env-file .env logs cloudflared --tail=20
             
             # External health check (non-blocking)
             sleep 5

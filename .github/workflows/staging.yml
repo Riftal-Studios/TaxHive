@@ -24,6 +24,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
     
     steps:
       - name: Checkout code
@@ -71,210 +73,27 @@ jobs:
 
   deploy:
     needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: 
-      name: staging
-      url: https://staging.gsthive.com
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create deployment package
-        run: |
-          mkdir -p deployment
-          cp docker/docker-compose.production.yml deployment/docker-compose.yml
-          cp scripts/deploy-production.sh deployment/
-          
-          # Replace build sections with image references
-          # Use environment variable to pass the image name to awk
-          export DOCKER_IMAGE_PROD="${{ env.REGISTRY }}/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]'):main-${{ github.sha }}"
-          awk -v image="$DOCKER_IMAGE_PROD" '
-            /^  app:/ { in_app=1 }
-            /^  queue-worker:/ { in_queue_worker=1 }
-            /^  cron:/ { in_cron=1 }
-            /^  [a-z-]+:/ && !/^  (app|queue-worker|cron):/ { in_app=0; in_queue_worker=0; in_cron=0 }
-            
-            /^    build:/ {
-              if (in_app || in_queue_worker || in_cron) {
-                print "    image: " image
-                # Skip the build section
-                while (getline && /^      /) {}
-                # Print the current line if it is not part of build section
-                if (!/^      /) print
-                next
-              }
-            }
-            { print }
-          ' deployment/docker-compose.yml > deployment/docker-compose.yml.tmp
-          mv deployment/docker-compose.yml.tmp deployment/docker-compose.yml
-          
-          tar -czf deployment.tar.gz deployment/
-
-      - name: Copy deployment package to VPS
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ vars.VPS_HOST }}
-          username: ${{ vars.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ vars.VPS_PORT }}
-          source: deployment.tar.gz
-          target: /tmp/
-
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ vars.VPS_HOST }}
-          username: ${{ vars.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ vars.VPS_PORT }}
-          script: |
-            # Extract deployment package to staging directory
-            mkdir -p /home/${{ vars.VPS_USER }}/gsthive-staging
-            cd /home/${{ vars.VPS_USER }}/gsthive-staging
-            
-            # Clean up old deployment files
-            rm -rf deployment
-            
-            # Extract new deployment
-            tar -xzf /tmp/deployment.tar.gz
-            cp -f deployment/* . || true
-            rm -rf deployment
-            
-            # Set deployment type
-            export DEPLOY_TYPE='${{ github.event.inputs.deploy_type || 'deploy' }}'
-            export COMPOSE_PROJECT_NAME='gsthive-staging'
-            
-            # Create secrets directory
-            mkdir -p /home/${{ vars.VPS_USER }}/gsthive-staging/secrets
-            chmod 700 /home/${{ vars.VPS_USER }}/gsthive-staging/secrets
-            
-            # Write secrets to files
-            echo "${{ secrets.POSTGRES_PASSWORD }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/postgres_password
-            echo "${{ secrets.REDIS_PASSWORD }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/redis_password
-            echo "${{ secrets.NEXTAUTH_SECRET }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/nextauth_secret
-            echo "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/cloudflare_tunnel_token
-            echo "${{ secrets.GITHUB_TOKEN }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/github_token
-            echo "${{ secrets.AWS_SES_SMTP_USER }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/aws_ses_smtp_user
-            echo "${{ secrets.AWS_SES_SMTP_PASSWORD }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/aws_ses_smtp_password
-            echo "${{ secrets.AWS_SES_ACCESS_KEY_ID }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/aws_ses_access_key_id
-            echo "${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/aws_ses_secret_access_key
-            echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/aws_access_key_id
-            echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/aws_secret_access_key
-            echo "${{ secrets.RBI_API_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/rbi_api_key
-            echo "${{ secrets.EXCHANGE_RATE_API_KEY }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/exchange_rate_api_key
-            echo "${{ secrets.CRON_SECRET }}" > /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/cron_secret
-            
-            # Set proper permissions on secret files
-            chmod 600 /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/*
-            
-            # Create .env file for non-secret variables
-            cat > /home/${{ vars.VPS_USER }}/gsthive-staging/.env << 'EOF'
-            POSTGRES_USER=${{ vars.POSTGRES_USER }}
-            POSTGRES_DB=${{ vars.POSTGRES_DB }}
-            NEXTAUTH_URL=${{ vars.STAGING_NEXTAUTH_URL || vars.NEXTAUTH_URL }}
-            EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
-            EMAIL_FROM=${{ vars.EMAIL_FROM }}
-            AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
-            AWS_REGION=${{ vars.AWS_REGION }}
-            AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
-            NODE_ENV=staging
-            EOF
-            
-            # Create docker network if it doesn't exist
-            docker network create gsthive-network || true
-            
-            # Login to GitHub Container Registry
-            cat /home/${{ vars.VPS_USER }}/gsthive-staging/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Pull latest images
-            docker compose --env-file .env pull
-            
-            # Make deployment script executable
-            chmod +x ./deploy-production.sh
-            
-            # Run deployment script
-            ./deploy-production.sh "$DEPLOY_TYPE"
-            
-            # Check cloudflared tunnel status
-            echo "Checking Cloudflare tunnel logs..."
-            docker compose --env-file .env logs cloudflared | tail -20
-            
-            # Health check - using the actual production URL through Cloudflare
-            sleep 10
-            if curl -f -s ${{ vars.NEXTAUTH_URL }}/api/health > /dev/null; then
-              echo "Health check passed"
-            else
-              echo "Health check failed - checking container logs"
-              docker compose --env-file .env logs app
-              # Don't fail deployment immediately - container might be healthy but Cloudflare tunnel not ready
-              echo "Note: Container might be healthy even if external check fails"
-            fi
-            
-            # Cleanup old images
-            docker image prune -f
-            
-            echo "Deployment completed successfully!"
-            
-            # Cleanup
-            rm -f /tmp/deployment.tar.gz
-
-      - name: Notify deployment status
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const status = '${{ job.status }}';
-            const emoji = status === 'success' ? '✅' : '❌';
-            const message = `${emoji} Deployment to staging ${status}`;
-            
-            // Only create deployment status if we have a deployment ID
-            if (context.payload.deployment?.id) {
-              try {
-                await github.rest.repos.createDeploymentStatus({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  deployment_id: context.payload.deployment.id,
-                  state: status === 'success' ? 'success' : 'failure',
-                  environment: 'staging',
-                  description: message
-                });
-              } catch (error) {
-                console.log('Could not create deployment status:', error.message);
-              }
-            } else {
-              console.log('No deployment ID found, skipping status update');
-            }
-            
-            // Always log the result
-            console.log(message);
-
-  cleanup:
-    needs: deploy
-    runs-on: ubuntu-latest
-    if: success()
-    environment:
-      name: staging
-      url: https://staging.gsthive.com
-    
-    steps:
-      - name: Clean up VPS
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ vars.VPS_HOST }}
-          username: ${{ vars.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ vars.VPS_PORT }}
-          script: |
-            # Remove deployment files (but keep secrets)
-            rm -rf /home/${{ vars.VPS_USER }}/deployment
-            
-            # Clean up Docker (but NEVER prune volumes - that deletes database data!)
-            docker system prune -f
-            # docker volume prune -f # DANGEROUS - this deletes database data!
-            
-            # Clean up images older than 7 days (168 hours)
-            docker image prune -a -f --filter "until=168h"
-            
-            # Clean up builder cache
-            docker builder prune -f --filter "until=168h"
+    uses: ./.github/workflows/deploy-common.yml
+    with:
+      environment: staging
+      deploy_type: ${{ github.event.inputs.deploy_type || 'deploy' }}
+      image_tag: ghcr.io/riftal-studios/gsthive:main-${{ github.sha }}
+    secrets:
+      VPS_HOST: ${{ vars.VPS_HOST }}
+      VPS_USER: ${{ vars.VPS_USER }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_PORT: ${{ vars.VPS_PORT }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      AWS_SES_SMTP_USER: ${{ secrets.AWS_SES_SMTP_USER }}
+      AWS_SES_SMTP_PASSWORD: ${{ secrets.AWS_SES_SMTP_PASSWORD }}
+      AWS_SES_ACCESS_KEY_ID: ${{ secrets.AWS_SES_ACCESS_KEY_ID }}
+      AWS_SES_SECRET_ACCESS_KEY: ${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      RBI_API_KEY: ${{ secrets.RBI_API_KEY }}
+      EXCHANGE_RATE_API_KEY: ${{ secrets.EXCHANGE_RATE_API_KEY }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}

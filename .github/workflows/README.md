@@ -14,22 +14,34 @@
 
 ### 2. staging.yml
 - **Triggers**: Push to main branch
-- **Purpose**: Deploy to staging environment
+- **Purpose**: Build and deploy to staging environment
 - **URL**: https://staging.gsthive.com
 - **When**: After code is merged to main
+- **Uses**: deploy-common.yml for deployment logic
 
 ### 3. production.yml
 - **Triggers**: Push to prod branch
-- **Purpose**: Deploy to production environment
+- **Purpose**: Build and deploy to production environment
 - **URL**: https://gsthive.com
 - **When**: After PR from main is merged to prod
+- **Uses**: deploy-common.yml for deployment logic
 
-### 4. promote-to-production.yml
+### 4. deploy-common.yml
+- **Triggers**: Called by staging.yml and production.yml
+- **Purpose**: Reusable deployment workflow with:
+  - Secrets management
+  - Database migrations (with proper error handling)
+  - Health checks (internal and external)
+  - Container deployment
+  - Cleanup tasks
+- **When**: Used by other workflows
+
+### 5. promote-to-production.yml
 - **Triggers**: Manual workflow dispatch from main branch
 - **Purpose**: Create PR from main to prod for production deployment
 - **When**: When staging is tested and ready for production
 
-### 5. rollback.yml
+### 6. rollback.yml
 - **Triggers**: Manual workflow dispatch
 - **Purpose**: Rollback to a previous deployment
 - **When**: If issues are found in production

@@ -1,0 +1,290 @@
+name: Common Deployment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: 'Environment name (staging or production)'
+      deploy_type:
+        required: false
+        type: string
+        default: 'deploy'
+        description: 'Deployment type (deploy or rebuild)'
+      image_tag:
+        required: true
+        type: string
+        description: 'Docker image tag to deploy'
+    secrets:
+      VPS_HOST:
+        required: true
+      VPS_USER:
+        required: true
+      VPS_SSH_KEY:
+        required: true
+      VPS_PORT:
+        required: true
+      POSTGRES_PASSWORD:
+        required: true
+      REDIS_PASSWORD:
+        required: true
+      NEXTAUTH_SECRET:
+        required: true
+      CLOUDFLARE_TUNNEL_TOKEN:
+        required: true
+      GITHUB_TOKEN:
+        required: true
+      AWS_SES_SMTP_USER:
+        required: true
+      AWS_SES_SMTP_PASSWORD:
+        required: true
+      AWS_SES_ACCESS_KEY_ID:
+        required: true
+      AWS_SES_SECRET_ACCESS_KEY:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      RBI_API_KEY:
+        required: true
+      EXCHANGE_RATE_API_KEY:
+        required: true
+      CRON_SECRET:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set deployment variables
+        id: vars
+        run: |
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            echo "deploy_dir=gsthive-production" >> $GITHUB_OUTPUT
+            echo "compose_project=gsthive-prod" >> $GITHUB_OUTPUT
+            echo "node_env=production" >> $GITHUB_OUTPUT
+          else
+            echo "deploy_dir=gsthive-staging" >> $GITHUB_OUTPUT
+            echo "compose_project=gsthive-staging" >> $GITHUB_OUTPUT
+            echo "node_env=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create deployment package
+        run: |
+          mkdir -p deployment
+          cp docker/docker-compose.production.yml deployment/docker-compose.yml
+          
+          # Replace build sections with image references
+          export DOCKER_IMAGE="${{ inputs.image_tag }}"
+          awk -v image="$DOCKER_IMAGE" '
+            /^  app:/ { in_app=1 }
+            /^  queue-worker:/ { in_queue_worker=1 }
+            /^  cron:/ { in_cron=1 }
+            /^  [a-z-]+:/ && !/^  (app|queue-worker|cron):/ { in_app=0; in_queue_worker=0; in_cron=0 }
+            
+            /^    build:/ {
+              if (in_app || in_queue_worker || in_cron) {
+                print "    image: " image
+                # Skip the build section
+                while (getline && /^      /) {}
+                # Print the current line if it is not part of build section
+                if (!/^      /) print
+                next
+              }
+            }
+            { print }
+          ' deployment/docker-compose.yml > deployment/docker-compose.yml.tmp
+          mv deployment/docker-compose.yml.tmp deployment/docker-compose.yml
+          
+          tar -czf deployment.tar.gz deployment/
+
+      - name: Copy deployment package to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: deployment.tar.gz
+          target: /tmp/
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e  # Exit on error
+            
+            # Extract deployment package to environment directory
+            mkdir -p /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            cd /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            
+            # Clean up old deployment files
+            rm -rf deployment
+            
+            # Extract new deployment
+            tar -xzf /tmp/deployment.tar.gz
+            cp -f deployment/* . || true
+            rm -rf deployment
+            
+            # Set deployment type
+            export DEPLOY_TYPE='${{ inputs.deploy_type }}'
+            export COMPOSE_PROJECT_NAME='${{ steps.vars.outputs.compose_project }}'
+            
+            # Create secrets directory
+            mkdir -p /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets
+            chmod 700 /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets
+            
+            # Write secrets to files
+            echo "${{ secrets.POSTGRES_PASSWORD }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/postgres_password
+            echo "${{ secrets.REDIS_PASSWORD }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/redis_password
+            echo "${{ secrets.NEXTAUTH_SECRET }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/nextauth_secret
+            echo "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/cloudflare_tunnel_token
+            echo "${{ secrets.GITHUB_TOKEN }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token
+            echo "${{ secrets.AWS_SES_SMTP_USER }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_smtp_user
+            echo "${{ secrets.AWS_SES_SMTP_PASSWORD }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_smtp_password
+            echo "${{ secrets.AWS_SES_ACCESS_KEY_ID }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_access_key_id
+            echo "${{ secrets.AWS_SES_SECRET_ACCESS_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_ses_secret_access_key
+            echo "${{ secrets.AWS_ACCESS_KEY_ID }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_access_key_id
+            echo "${{ secrets.AWS_SECRET_ACCESS_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/aws_secret_access_key
+            echo "${{ secrets.RBI_API_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/rbi_api_key
+            echo "${{ secrets.EXCHANGE_RATE_API_KEY }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/exchange_rate_api_key
+            echo "${{ secrets.CRON_SECRET }}" > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/cron_secret
+            
+            # Set proper permissions on secret files
+            chmod 600 /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/*
+            
+            # Create .env file for non-secret variables
+            cat > /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/.env << 'EOF'
+            POSTGRES_USER=${{ vars.POSTGRES_USER }}
+            POSTGRES_DB=${{ vars.POSTGRES_DB }}
+            NEXTAUTH_URL=${{ inputs.environment == 'staging' && (vars.STAGING_NEXTAUTH_URL || vars.NEXTAUTH_URL) || vars.NEXTAUTH_URL }}
+            EMAIL_PROVIDER=${{ vars.EMAIL_PROVIDER }}
+            EMAIL_FROM=${{ vars.EMAIL_FROM }}
+            AWS_SES_REGION=${{ vars.AWS_SES_REGION }}
+            AWS_REGION=${{ vars.AWS_REGION }}
+            AWS_S3_BUCKET=${{ vars.AWS_S3_BUCKET }}
+            NODE_ENV=${{ steps.vars.outputs.node_env }}
+            EOF
+            
+            # Create docker network if it doesn't exist
+            docker network create gsthive-network || true
+            
+            # Login to GitHub Container Registry
+            cat /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull latest images
+            docker compose --env-file .env pull
+            
+            # Create docker-compose.override.yml for Cloudflare tunnel
+            cat > docker-compose.override.yml << EOF
+            services:
+              cloudflared:
+                command: ["tunnel", "--no-autoupdate", "run", "--token", "${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}"]
+            EOF
+            
+            # Deploy with docker compose
+            if [ "${{ inputs.deploy_type }}" = "rebuild" ]; then
+                echo "Rebuilding all services..."
+                docker compose down
+                docker compose up -d --force-recreate
+            else
+                echo "Standard deployment..."
+                docker compose up -d
+            fi
+            
+            # Wait for services to be healthy
+            echo "Waiting for services to be healthy..."
+            sleep 15
+            
+            # Check container health
+            docker compose ps
+            
+            # Cleanup
+            rm -f /tmp/deployment.tar.gz
+
+      - name: Run database migrations
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e  # Exit on error
+            
+            cd /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            
+            # Build DATABASE_URL for migrations
+            POSTGRES_USER="${{ vars.POSTGRES_USER || 'postgres' }}"
+            POSTGRES_DB="${{ vars.POSTGRES_DB || 'gsthive' }}"
+            POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+            
+            echo "Running database migrations..."
+            docker compose exec -T -e DATABASE_URL="$DATABASE_URL" app npx prisma migrate deploy
+            
+            echo "✅ Migrations completed successfully"
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e  # Exit on error
+            
+            cd /home/${{ secrets.VPS_USER }}/${{ steps.vars.outputs.deploy_dir }}
+            
+            # Check internal health endpoint
+            echo "Checking internal health..."
+            docker compose exec -T app wget -q -O- http://localhost:3000/api/health || {
+              echo "❌ Internal health check failed"
+              echo "Container logs:"
+              docker compose logs app --tail=50
+              exit 1
+            }
+            
+            echo "✅ Internal health check passed"
+            
+            # Check Cloudflare tunnel
+            echo "Checking Cloudflare tunnel..."
+            docker compose logs cloudflared --tail=20
+            
+            # External health check (non-blocking)
+            sleep 5
+            HEALTH_URL="${{ inputs.environment == 'staging' && (vars.STAGING_NEXTAUTH_URL || vars.NEXTAUTH_URL) || vars.NEXTAUTH_URL }}/api/health"
+            if curl -f -s "$HEALTH_URL" > /dev/null; then
+              echo "✅ External health check passed"
+            else
+              echo "⚠️  External health check failed (Cloudflare tunnel may still be initializing)"
+            fi
+
+      - name: Cleanup old images
+        if: success()
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            # Clean up Docker (but NEVER prune volumes - that deletes database data!)
+            docker system prune -f
+            
+            # Clean up images older than 7 days (168 hours)
+            docker image prune -a -f --filter "until=168h"
+            
+            # Clean up builder cache
+            docker builder prune -f --filter "until=168h"

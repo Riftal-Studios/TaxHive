@@ -445,11 +445,11 @@ This is an automated reminder. Please do not reply directly to this message.`
             <p>If you have already renewed your LUT, please update the details in your profile to stop receiving these reminders.</p>
             
             <p>Best regards,<br>
-            FreelanceHive Team</p>
+            GSTHive Team</p>
           </div>
           
           <div class="footer">
-            <p><strong>FreelanceHive</strong></p>
+            <p><strong>GSTHive</strong></p>
             <p>GST-Compliant Invoice Management for Indian Freelancers</p>
             <p style="margin-top: 20px; font-size: 12px;">
               This is an automated reminder. Please do not reply directly to this message.
@@ -484,7 +484,7 @@ Visit GST Portal: https://www.gst.gov.in/
 If you have already renewed your LUT, please update the details in your profile to stop receiving these reminders.
 
 Best regards,
-FreelanceHive Team
+GSTHive Team
 
 This is an automated reminder. Please do not reply directly to this message.`
     

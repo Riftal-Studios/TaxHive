@@ -133,11 +133,29 @@ gsthive-app/
 - ✅ Multi-currency support with RBI exchange rates
 - ✅ GST compliance for exports (0% IGST)
 
+## Deployment
+
+The project uses GitHub Actions for automated deployments:
+
+### Environments
+- **Staging**: Automatically deploys on push to `main` branch → https://stage.gsthive.com
+- **Production**: Automatically deploys on push to `prod` branch → https://gsthive.com
+
+### Deployment Workflow
+1. Push changes to `main` branch
+2. Staging environment automatically deploys
+3. Test thoroughly on staging
+4. Create PR from `main` to `prod` (or merge directly)
+5. Production automatically deploys when merged
+
+### Manual Deployment
+You can also trigger deployments manually from GitHub Actions:
+- Go to Actions → Select workflow (Staging/Production) → Run workflow
+
 ## Documentation
 
 Additional documentation is available in the `/docs` directory:
 - **[GITHUB_ENVIRONMENTS_SETUP.md](docs/GITHUB_ENVIRONMENTS_SETUP.md)** - Automated deployment setup
-- **[SINGLE_VPS_SETUP.md](docs/SINGLE_VPS_SETUP.md)** - Multi-environment on one server
 - **[LOCAL_SETUP.md](docs/local-setup.md)** - Local development without Docker
 - **[queue-system.md](docs/queue-system.md)** - Background job processing
 

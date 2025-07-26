@@ -226,7 +226,8 @@ jobs:
             # Check internal health endpoint with retries
             echo "Checking internal health..."
             for i in {1..5}; do
-              if docker compose exec -T app wget -q -O- http://localhost:3000/api/health; then
+              # Use Node.js to check health endpoint (same as Dockerfile HEALTHCHECK)
+              if docker compose exec -T app node -e "require('http').get('http://localhost:3000/api/health', (res) => { console.log('Health check status:', res.statusCode); process.exit(res.statusCode === 200 ? 0 : 1) })"; then
                 echo "✅ Internal health check passed"
                 break
               else

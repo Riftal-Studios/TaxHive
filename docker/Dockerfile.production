@@ -73,13 +73,8 @@ COPY --chown=node:node prisma ./prisma
 # Copy scripts
 COPY --chown=node:node scripts ./scripts
 
-# Copy lib directory for init script
-COPY --chown=node:node lib/init.js ./lib/init.js
-
-# Create a startup script that loads secrets and then starts the server (before switching user)
-RUN printf '#!/usr/bin/env node\nrequire("./lib/init.js");\nrequire("./server.js");\n' > start.js && \
-    chmod +x start.js && \
-    chown node:node start.js
+# Make start script executable
+RUN chmod +x scripts/start-server.sh
 
 # Switch to non-root user
 USER node
@@ -95,4 +90,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Start the application
-CMD ["node", "start.js"]
+CMD ["/app/scripts/start-server.sh"]

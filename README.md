@@ -2,6 +2,8 @@
 
 A modern GST-compliant invoice management system for Indian businesses exporting services. Built with Next.js, TypeScript, and PostgreSQL.
 
+> **Note**: This project uses automated CI/CD with GitHub Actions for seamless deployments to staging and production environments.
+
 ## Getting Started
 
 ### Prerequisites

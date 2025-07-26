@@ -69,14 +69,30 @@ jobs:
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}
 
-  deploy:
+  prepare-deployment:
     needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      vps_host: ${{ steps.vars.outputs.vps_host }}
+      vps_user: ${{ steps.vars.outputs.vps_user }}
+      vps_port: ${{ steps.vars.outputs.vps_port }}
+    steps:
+      - name: Set deployment variables
+        id: vars
+        run: |
+          echo "vps_host=${{ vars.VPS_HOST }}" >> $GITHUB_OUTPUT
+          echo "vps_user=${{ vars.VPS_USER }}" >> $GITHUB_OUTPUT
+          echo "vps_port=${{ vars.VPS_PORT }}" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: prepare-deployment
     uses: ./.github/workflows/deploy-common.yml
     with:
       environment: production
       deploy_type: ${{ github.event.inputs.deploy_type || 'deploy' }}
       image_tag: ghcr.io/riftal-studios/gsthive:prod-${{ github.sha }}
-      vps_host: ${{ vars.VPS_HOST }}
-      vps_user: ${{ vars.VPS_USER }}
-      vps_port: ${{ vars.VPS_PORT }}
+      vps_host: ${{ needs.prepare-deployment.outputs.vps_host }}
+      vps_user: ${{ needs.prepare-deployment.outputs.vps_user }}
+      vps_port: ${{ needs.prepare-deployment.outputs.vps_port }}
     secrets: inherit

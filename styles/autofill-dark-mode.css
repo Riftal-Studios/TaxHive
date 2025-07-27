@@ -1,0 +1,39 @@
+/* Force light text in dark mode for all autofilled inputs */
+[data-mui-color-scheme="dark"] input:-webkit-autofill,
+[data-mui-color-scheme="dark"] input:-webkit-autofill:hover,
+[data-mui-color-scheme="dark"] input:-webkit-autofill:focus,
+[data-mui-color-scheme="dark"] input:-webkit-autofill:active,
+[data-mui-color-scheme="dark"] input[type="password"]:-webkit-autofill,
+[data-mui-color-scheme="dark"] input[type="password"]:-webkit-autofill:hover,
+[data-mui-color-scheme="dark"] input[type="password"]:-webkit-autofill:focus,
+[data-mui-color-scheme="dark"] input[type="password"]:-webkit-autofill:active {
+  -webkit-text-fill-color: #fff !important;
+  -webkit-box-shadow: 0 0 0 100px #1e1e1e inset !important;
+  box-shadow: 0 0 0 100px #1e1e1e inset !important;
+  caret-color: #fff !important;
+}
+
+/* Light mode autofill */
+[data-mui-color-scheme="light"] input:-webkit-autofill,
+[data-mui-color-scheme="light"] input:-webkit-autofill:hover,
+[data-mui-color-scheme="light"] input:-webkit-autofill:focus,
+[data-mui-color-scheme="light"] input:-webkit-autofill:active {
+  -webkit-text-fill-color: #000 !important;
+  -webkit-box-shadow: 0 0 0 100px #fff inset !important;
+  box-shadow: 0 0 0 100px #fff inset !important;
+}
+
+/* Fallback for any missed cases */
+.MuiInputBase-root.Mui-focused input:-webkit-autofill,
+.MuiInputBase-root input:-webkit-autofill {
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Additional specificity for MUI dark theme */
+.MuiInputBase-input:-webkit-autofill {
+  -webkit-text-fill-color: inherit !important;
+}
+
+[data-mui-color-scheme="dark"] .MuiInputBase-input:-webkit-autofill {
+  -webkit-text-fill-color: #fff !important;
+}

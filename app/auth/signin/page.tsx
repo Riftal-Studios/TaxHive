@@ -53,9 +53,9 @@ export default function SignInPage() {
         setError(result.error)
       } else if (result?.ok) {
         enqueueSnackbar('Signed in successfully!', { variant: 'success' })
-        router.push(callbackUrl)
+        router.push(callbackUrl as any)
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred')
     } finally {
       setLoading(false)
@@ -66,10 +66,11 @@ export default function SignInPage() {
     <Container component="main" maxWidth="sm">
       <Box
         sx={{
-          marginTop: 8,
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
@@ -132,11 +133,9 @@ export default function SignInPage() {
             />
             
             <Box sx={{ textAlign: 'right', mb: 2 }}>
-              <Link href="/auth/forgot-password" passHref>
-                <MuiLink variant="body2">
-                  Forgot password?
-                </MuiLink>
-              </Link>
+              <MuiLink href="/auth/forgot-password" variant="body2" component={Link}>
+                Forgot password?
+              </MuiLink>
             </Box>
             
             <Button
@@ -154,10 +153,10 @@ export default function SignInPage() {
           
           <Box sx={{ mt: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              Don't have an account?{' '}
-              <Link href="/auth/signup" style={{ color: 'inherit' }}>
+              Don&apos;t have an account?{' '}
+              <MuiLink href="/auth/signup" component={Link} color="inherit">
                 Sign up
-              </Link>
+              </MuiLink>
             </Typography>
           </Box>
         </Paper>

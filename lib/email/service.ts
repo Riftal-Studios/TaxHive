@@ -62,6 +62,15 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
 function createTransporter() {
   const emailProvider = process.env.EMAIL_PROVIDER || 'smtp'
 
+  // Console transport for development
+  if (emailProvider === 'console' || process.env.NODE_ENV === 'development' && !process.env.EMAIL_PROVIDER) {
+    return nodemailer.createTransport({
+      streamTransport: true,
+      newline: 'unix',
+      buffer: true,
+    })
+  }
+
   switch (emailProvider) {
     case 'sendgrid':
       return nodemailer.createTransport({
@@ -83,8 +92,8 @@ function createTransporter() {
         port: 587,
         secure: false,
         auth: {
-          user: process.env.AWS_SES_ACCESS_KEY_ID,
-          pass: process.env.AWS_SES_SECRET_ACCESS_KEY,
+          user: process.env.AWS_SES_SMTP_USER || process.env.AWS_SES_ACCESS_KEY_ID,
+          pass: process.env.AWS_SES_SMTP_PASSWORD || process.env.AWS_SES_SECRET_ACCESS_KEY,
         },
       })
 
@@ -146,6 +155,25 @@ export async function sendOTPEmail(
   otp: string,
   purpose: 'SIGNUP' | 'PASSWORD_RESET'
 ): Promise<EmailResult> {
+  const emailProvider = process.env.EMAIL_PROVIDER || 'smtp'
+  
+  // For console/development, just log the OTP
+  if (emailProvider === 'console') {
+    console.log('\n📧 EMAIL OTP (Development Mode)')
+    console.log('================================')
+    console.log(`To: ${to}`)
+    console.log(`Purpose: ${purpose}`)
+    console.log(`OTP Code: ${otp}`)
+    console.log('================================\n')
+    
+    return {
+      messageId: `console-${Date.now()}`,
+      accepted: [to],
+      rejected: [],
+      timestamp: new Date(),
+    }
+  }
+  
   const transporter = createTransporter()
   const { subject, html, text } = generateOTPEmail(otp, purpose)
   

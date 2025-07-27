@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
-const OTP_LENGTH = 6
 const OTP_EXPIRY_MINUTES = 10
 const MAX_ATTEMPTS = 3
 

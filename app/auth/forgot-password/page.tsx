@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { api } from '@/lib/trpc/client'
 import {
   Box,
@@ -84,10 +83,11 @@ export default function ForgotPasswordPage() {
     <Container component="main" maxWidth="sm">
       <Box
         sx={{
-          marginTop: 8,
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
@@ -109,7 +109,7 @@ export default function ForgotPasswordPage() {
           {step === 'email' ? (
             <Box component="form" onSubmit={handleSendOTP}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Enter your email address and we'll send you a verification code to reset your password.
+                Enter your email address and we&apos;ll send you a verification code to reset your password.
               </Typography>
               
               <TextField

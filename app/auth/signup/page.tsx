@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/trpc/client'
+import { validatePassword } from '@/lib/auth/password'
+import { PasswordStrengthIcon } from '@/components/password-strength-meter'
 import {
   Box,
   Container,
@@ -25,6 +27,7 @@ import {
   Email as EmailIcon,
   Lock as LockIcon,
   Person as PersonIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
 import { enqueueSnackbar } from 'notistack'
 
@@ -46,7 +49,7 @@ export default function SignUpPage() {
   const sendOTPMutation = api.auth.sendSignupOTP.useMutation({
     onSuccess: () => {
       setOtpSent(true)
-      setActiveStep(1)
+      // Don't move to next step automatically - wait for OTP verification
       enqueueSnackbar('Verification code sent to your email!', { variant: 'success' })
     },
     onError: (error) => {
@@ -62,6 +65,8 @@ export default function SignUpPage() {
     onError: (error) => {
       if (error.message.includes('OTP')) {
         setOtpError(error.message)
+      } else if (error.message.includes('Password')) {
+        setPasswordError(error.message)
       } else {
         enqueueSnackbar(error.message, { variant: 'error' })
       }
@@ -90,6 +95,12 @@ export default function SignUpPage() {
     setPasswordError('')
     setOtpError('')
     
+    // Validate name
+    if (!name.trim()) {
+      enqueueSnackbar('Name is required', { variant: 'error' })
+      return
+    }
+    
     // Validate passwords match
     if (password !== confirmPassword) {
       setPasswordError('Passwords do not match')
@@ -97,8 +108,9 @@ export default function SignUpPage() {
     }
     
     // Validate password strength
-    if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters long')
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.errors[0])
       return
     }
     
@@ -112,7 +124,7 @@ export default function SignUpPage() {
       email,
       otp,
       password,
-      name: name || undefined,
+      name: name.trim(),
     })
   }
 
@@ -124,10 +136,11 @@ export default function SignUpPage() {
     <Container component="main" maxWidth="sm">
       <Box
         sx={{
-          marginTop: 8,
+          minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
@@ -186,7 +199,13 @@ export default function SignUpPage() {
                   <Button
                     fullWidth
                     variant="contained"
-                    onClick={() => setActiveStep(1)}
+                    onClick={() => {
+                      if (otp.length === 6) {
+                        setActiveStep(1)
+                      } else {
+                        setOtpError('Please enter the 6-digit code')
+                      }
+                    }}
                     disabled={otp.length !== 6 || isLoading}
                     sx={{ mb: 2 }}
                   >
@@ -222,10 +241,38 @@ export default function SignUpPage() {
             <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSignup(); }}>
               <TextField
                 fullWidth
-                label="Name (Optional)"
+                label="Email (Verified)"
+                value={email}
+                disabled
+                InputProps={{
+                  readOnly: true,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="success" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <CheckCircleIcon color="success" sx={{ fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ 
+                  mb: 3,
+                  '& .MuiInputBase-input.Mui-disabled': {
+                    WebkitTextFillColor: (theme) => theme.palette.text.secondary,
+                    color: (theme) => theme.palette.text.secondary,
+                  }
+                }}
+              />
+              
+              <TextField
+                fullWidth
+                label="Full Name (As per PAN)"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
+                required
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -233,7 +280,7 @@ export default function SignUpPage() {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 2 }}
+                sx={{ mb: 3 }}
               />
               
               <TextField
@@ -243,12 +290,36 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 error={!!passwordError}
-                helperText={passwordError || 'At least 8 characters with uppercase, lowercase, number, and special character'}
+                helperText={passwordError}
                 autoComplete="new-password"
+                inputProps={{
+                  sx: {
+                    '&:-webkit-autofill': {
+                      WebkitBoxShadow: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '0 0 0 100px #1e1e1e inset !important'
+                          : '0 0 0 100px #fff inset !important',
+                      WebkitTextFillColor: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '#fff !important' 
+                          : '#000 !important',
+                    },
+                    '&:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
+                      WebkitBoxShadow: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '0 0 0 100px #1e1e1e inset !important'
+                          : '0 0 0 100px #fff inset !important',
+                      WebkitTextFillColor: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '#fff !important' 
+                          : '#000 !important',
+                    },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <LockIcon />
+                      <PasswordStrengthIcon password={password} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -262,7 +333,7 @@ export default function SignUpPage() {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ mb: 2 }}
+                sx={{ mb: 3 }}
               />
               
               <TextField
@@ -274,10 +345,38 @@ export default function SignUpPage() {
                 error={!!passwordError && password !== confirmPassword}
                 helperText={password !== confirmPassword ? 'Passwords do not match' : ''}
                 autoComplete="new-password"
+                inputProps={{
+                  sx: {
+                    '&:-webkit-autofill': {
+                      WebkitBoxShadow: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '0 0 0 100px #1e1e1e inset !important'
+                          : '0 0 0 100px #fff inset !important',
+                      WebkitTextFillColor: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '#fff !important' 
+                          : '#000 !important',
+                    },
+                    '&:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
+                      WebkitBoxShadow: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '0 0 0 100px #1e1e1e inset !important'
+                          : '0 0 0 100px #fff inset !important',
+                      WebkitTextFillColor: (theme) => 
+                        theme.palette.mode === 'dark' 
+                          ? '#fff !important' 
+                          : '#000 !important',
+                    },
+                  },
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <LockIcon />
+                      <PasswordStrengthIcon 
+                        password={password} 
+                        confirmPassword={confirmPassword} 
+                        isConfirmField 
+                      />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -298,7 +397,7 @@ export default function SignUpPage() {
                 fullWidth
                 type="submit"
                 variant="contained"
-                disabled={isLoading || !password || password !== confirmPassword}
+                disabled={isLoading || !name.trim() || !password || password !== confirmPassword}
                 sx={{ mb: 2 }}
               >
                 Create Account

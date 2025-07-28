@@ -46,7 +46,7 @@ export const invoiceRouter = createTRPCRouter({
       const userId = ctx.session.user.id
       
       // Use transaction for atomicity
-      return await db.$transaction(async (tx) => {
+      return await db.$transaction(async (tx: any) => {
         // Get the current fiscal year
         const currentFY = getCurrentFiscalYear(input.issueDate)
         
@@ -179,7 +179,7 @@ export const invoiceRouter = createTRPCRouter({
       const db = ctx.prisma
       const userId = ctx.session.user.id
       
-      return await db.$transaction(async (tx) => {
+      return await db.$transaction(async (tx: any) => {
         // Build update data with proper relation handling
         const data: Record<string, unknown> = {}
         

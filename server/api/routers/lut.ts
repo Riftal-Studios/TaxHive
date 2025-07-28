@@ -38,7 +38,7 @@ export const lutRouter = createTRPCRouter({
       }).optional()
     )
     .query(async ({ ctx, input }) => {
-      const where: Prisma.LUTWhereInput = {
+      const where: any = {
         userId: ctx.session.user.id,
       }
 

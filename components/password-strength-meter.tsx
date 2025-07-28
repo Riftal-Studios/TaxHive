@@ -1,4 +1,4 @@
-import { Tooltip, Box, Typography, styled } from '@mui/material'
+import { Tooltip, Box, styled } from '@mui/material'
 import { Lock as LockIcon, LockOpen as LockOpenIcon } from '@mui/icons-material'
 
 const DarkModeTooltip = styled(({ className, ...props }: any) => (

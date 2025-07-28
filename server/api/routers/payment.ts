@@ -51,7 +51,7 @@ export const paymentRouter = createTRPCRouter({
 
       // Check if payment would exceed invoice amount
       const totalPaid = invoice.payments.reduce(
-        (sum, payment) => sum.add(payment.amount),
+        (sum: any, payment: any) => sum.add(payment.amount),
         new Decimal(0)
       )
       const newTotalPaid = totalPaid.add(new Decimal(input.amount))
@@ -257,9 +257,9 @@ export const paymentRouter = createTRPCRouter({
 
       // If amount is being updated, recalculate invoice totals
       if (input.amount !== undefined && input.amount !== Number(payment.amount)) {
-        const otherPayments = payment.invoice.payments.filter(p => p.id !== payment.id)
+        const otherPayments = payment.invoice.payments.filter((p: any) => p.id !== payment.id)
         const otherPaymentsTotal = otherPayments.reduce(
-          (sum, p) => sum.add(p.amount),
+          (sum: any, p: any) => sum.add(p.amount),
           new Decimal(0)
         )
         const newTotalPaid = otherPaymentsTotal.add(new Decimal(input.amount))
@@ -378,9 +378,9 @@ export const paymentRouter = createTRPCRouter({
       })
 
       // Recalculate invoice payment status and amounts
-      const remainingPayments = payment.invoice.payments.filter(p => p.id !== payment.id)
+      const remainingPayments = payment.invoice.payments.filter((p: any) => p.id !== payment.id)
       const amountPaid = remainingPayments.reduce(
-        (sum, p) => sum.add(p.amount),
+        (sum: any, p: any) => sum.add(p.amount),
         new Decimal(0)
       )
       const balanceDue = new Decimal(payment.invoice.totalAmount).minus(amountPaid)
@@ -446,7 +446,7 @@ export const paymentRouter = createTRPCRouter({
       })
 
       // Calculate summary by currency
-      const summaryByCurrency = payments.reduce((acc, payment) => {
+      const summaryByCurrency = payments.reduce((acc: any, payment: any) => {
         const currency = payment.currency
         if (!acc[currency]) {
           acc[currency] = {
@@ -460,7 +460,7 @@ export const paymentRouter = createTRPCRouter({
       }, {} as Record<string, { total: Decimal; count: number }>)
 
       // Convert to response format
-      const summary = Object.entries(summaryByCurrency).map(([currency, data]) => ({
+      const summary = Object.entries(summaryByCurrency).map(([currency, data]: [string, any]) => ({
         currency,
         total: Number(data.total),
         count: data.count,

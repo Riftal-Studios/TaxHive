@@ -155,7 +155,7 @@ export const dashboardRouter = createTRPCRouter({
         take: limit,
       })
 
-      return invoices.map(invoice: any => ({
+      return invoices.map((invoice: any) => ({
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
@@ -178,7 +178,7 @@ export const dashboardRouter = createTRPCRouter({
       },
     })
 
-    return statusGroups.map(group: any => ({
+    return statusGroups.map((group: any) => ({
       status: group.status,
       count: group._count.id,
       amount: Number(group._sum.totalInINR || 0),
@@ -212,7 +212,7 @@ export const dashboardRouter = createTRPCRouter({
       })
 
       // Get client details for the grouped results
-      const clientIds = clientGroups.map(g: any => g.clientId)
+      const clientIds = clientGroups.map((g: any) => g.clientId)
       const clientDetails = await ctx.prisma.invoice.findMany({
         where: {
           userId: ctx.session.user.id,
@@ -231,13 +231,13 @@ export const dashboardRouter = createTRPCRouter({
       })
 
       const clientMap = new Map(
-        clientDetails.map(c: any => [c.clientId, c.client])
+        clientDetails.map((c: any) => [c.clientId, c.client])
       )
 
-      return clientGroups.map(group: any => ({
+      return clientGroups.map((group: any) => ({
         clientId: group.clientId,
-        clientName: clientMap.get(group.clientId)?.name || 'Unknown',
-        companyName: clientMap.get(group.clientId)?.company || null,
+        clientName: (clientMap.get(group.clientId) as any)?.name || 'Unknown',
+        companyName: (clientMap.get(group.clientId) as any)?.company || null,
         invoiceCount: group._count.id,
         totalRevenue: Number(group._sum.totalInINR || 0),
       }))
@@ -277,7 +277,7 @@ export const dashboardRouter = createTRPCRouter({
       }
 
       // Aggregate invoice data
-      invoices.forEach(invoice => {
+      invoices.forEach((invoice: any) => {
         const monthKey = format(invoice.invoiceDate, 'yyyy-MM')
         const existing = monthlyRevenue.get(monthKey) || { revenue: 0, invoiceCount: 0 }
         

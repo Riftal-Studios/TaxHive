@@ -115,7 +115,7 @@ export function MUIExchangeRates() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {exchangeRates?.map((rate) => (
+              {exchangeRates?.map((rate: any) => (
                 <TableRow key={rate.id}>
                   <TableCell>
                     <Typography variant="body1" fontWeight={500}>

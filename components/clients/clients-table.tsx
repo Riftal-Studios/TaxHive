@@ -1,6 +1,6 @@
 'use client'
 
-import type { Client } from '@prisma/client'
+import type { Client } from '@/types/prisma-temp'
 
 interface ClientsTableProps {
   clients: Client[]

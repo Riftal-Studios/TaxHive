@@ -21,7 +21,7 @@ import {
 import { api } from '@/lib/trpc/client'
 import { ClientsTable } from './clients-table'
 import { ClientForm, type ClientFormData } from './client-form'
-import type { Client } from '@prisma/client'
+import type { Client } from '@/types/prisma-temp'
 import { enqueueSnackbar } from 'notistack'
 
 export function MUIClients() {

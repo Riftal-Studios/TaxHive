@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer'
 
 // Re-export for backward compatibility
 export { uploadPDF } from './pdf-uploader'
-import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
+import type { Invoice, InvoiceItem, User, Client, LUT } from '@/types/prisma-temp'
 import { SAC_HSN_CODES } from './constants'
 import { numberToWordsIndian, numberToWordsInternational } from './utils/number-to-words'
 
@@ -330,7 +330,7 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
             </tr>
           </thead>
           <tbody>
-            ${invoice.lineItems.map((item, index) => `
+            ${invoice.lineItems.map((item: any, index: number) => `
               <tr>
                 <td class="number">${index + 1}</td>
                 <td>${item.description}</td>

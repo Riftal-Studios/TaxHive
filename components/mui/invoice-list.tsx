@@ -284,7 +284,7 @@ export function InvoiceList() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {displayedInvoices?.map((invoice) => (
+                {displayedInvoices?.map((invoice: any) => (
                   <TableRow
                     key={invoice.id}
                     hover

@@ -331,7 +331,7 @@ export default function LUTManagement() {
                 </td>
               </tr>
             ) : (
-              luts.map((lut) => {
+              luts.map((lut: any) => {
                 const isExpired = new Date(lut.validTill) < new Date()
                 
                 return (

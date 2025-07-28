@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { BullMQService } from '@/lib/queue/bullmq.service'
 import { pdfGenerationHandler } from '@/lib/queue/handlers/pdf-generation.handler'
 import { prisma } from '@/lib/prisma'
-import type { User, Client, Invoice, LUT } from '@prisma/client'
+import type { User, Client, Invoice, LUT } from '@/types/prisma-temp'
 
 describe('PDF Generation Queue Integration', () => {
   let queueService: BullMQService

@@ -227,7 +227,7 @@ describe('Invoice Router', () => {
         },
       }
 
-      vi.mocked(db.$transaction).mockImplementation(async (callback) => {
+      vi.mocked(db.$transaction).mockImplementation(async (callback: any) => {
         return callback(mockTx as any)
       })
 
@@ -298,7 +298,7 @@ describe('Invoice Router', () => {
         },
       }
 
-      vi.mocked(db.$transaction).mockImplementation(async (callback) => {
+      vi.mocked(db.$transaction).mockImplementation(async (callback: any) => {
         return callback(mockTx as any)
       })
 

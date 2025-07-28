@@ -15,7 +15,7 @@ async function checkTokens() {
   } else {
     console.log(`Found ${tokens.length} verification token(s):\n`)
     
-    tokens.forEach((token, index) => {
+    tokens.forEach((token: any, index: number) => {
       const isExpired = new Date(token.expires) < new Date()
       console.log(`Token ${index + 1}:`)
       console.log(`  Email: ${token.identifier}`)
@@ -32,7 +32,7 @@ async function checkTokens() {
     select: { email: true, emailVerified: true, createdAt: true },
   })
   
-  users.forEach(user => {
+  users.forEach((user: any) => {
     console.log(`- ${user.email} (Verified: ${user.emailVerified ? 'Yes' : 'No'})`)
   })
 }

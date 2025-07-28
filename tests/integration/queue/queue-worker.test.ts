@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { spawn } from 'child_process'
 import { BullMQService } from '@/lib/queue/bullmq.service'
 import { prisma } from '@/lib/prisma'
-import type { User, Client, Invoice, LUT } from '@prisma/client'
+import type { User, Client, Invoice, LUT } from '@/types/prisma-temp'
 
 describe('Queue Worker Process', () => {
   let queueService: BullMQService

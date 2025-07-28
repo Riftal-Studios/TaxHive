@@ -259,7 +259,7 @@ describe('Exchange Rate Fetch Queue Integration', () => {
       orderBy: { date: 'asc' },
     })
 
-    expect(remainingRates.some(r => r.date.getTime() === oldDate.getTime())).toBe(false)
-    expect(remainingRates.some(r => r.date.getTime() === recentDate.getTime())).toBe(true)
+    expect(remainingRates.some((r: any) => r.date.getTime() === oldDate.getTime())).toBe(false)
+    expect(remainingRates.some((r: any) => r.date.getTime() === recentDate.getTime())).toBe(true)
   })
 })

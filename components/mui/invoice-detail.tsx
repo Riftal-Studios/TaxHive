@@ -276,7 +276,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {typedInvoice.lineItems.map((item) => (
+                {typedInvoice.lineItems.map((item: any) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.description}</TableCell>
                     <TableCell align="right">{item.quantity.toString()}</TableCell>
@@ -399,7 +399,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             <Box mt={4}>
               <Typography variant="h6" gutterBottom>Payment History</Typography>
               <Grid container spacing={2}>
-                {payments.map((payment) => (
+                {payments.map((payment: any) => (
                   <Grid size={12} key={payment.id}>
                     <Paper variant="outlined" sx={{ p: 3 }}>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">

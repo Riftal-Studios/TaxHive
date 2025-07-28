@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { InvoiceForm } from '@/components/invoices/invoice-form'
-import type { Client, LUT } from '@prisma/client'
+import type { Client, LUT } from '@/types/prisma-temp'
 
 // Mock data
 const mockClients: Client[] = [

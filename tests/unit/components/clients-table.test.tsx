@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ClientsTable } from '@/components/clients/clients-table'
-import type { Client } from '@prisma/client'
+import type { Client } from '@/types/prisma-temp'
 
 describe('ClientsTable', () => {
   const mockClients: Client[] = [

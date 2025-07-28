@@ -8,7 +8,7 @@ import {
   Grid,
   CircularProgress,
 } from '@mui/material'
-import type { Client } from '@prisma/client'
+import type { Client } from '@/types/prisma-temp'
 
 interface ClientFormProps {
   client?: Partial<Client>

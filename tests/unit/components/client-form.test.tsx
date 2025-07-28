@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ClientForm } from '@/components/clients/client-form'
-import type { Client } from '@prisma/client'
+import type { Client } from '@/types/prisma-temp'
 
 describe('ClientForm', () => {
   const mockOnSubmit = vi.fn()

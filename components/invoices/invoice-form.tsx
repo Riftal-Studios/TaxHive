@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { Client, LUT } from '@prisma/client'
+import type { Client, LUT } from '@/types/prisma-temp'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, getLUTExpiryStatus } from '@/lib/validations/gst'

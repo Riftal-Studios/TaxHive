@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
-import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
+import type { Invoice, InvoiceItem, User, Client, LUT } from '@/types/prisma-temp'
 import { Decimal } from '@prisma/client/runtime/library'
 
 // Create mock functions

@@ -266,7 +266,7 @@ export function MUILUTManagement() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {luts?.map((lut) => (
+                {luts?.map((lut: any) => (
                   <TableRow key={lut.id}>
                     <TableCell>{lut.lutNumber}</TableCell>
                     <TableCell>{format(new Date(lut.lutDate), 'dd MMM yyyy')}</TableCell>

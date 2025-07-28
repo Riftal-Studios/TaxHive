@@ -112,7 +112,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     paymentTerms: parseInt(invoice.paymentTerms || '30'),
     notes: invoice.notes || '',
     bankDetails: '',
-    lineItems: invoice.lineItems.map((item, index) => ({
+    lineItems: invoice.lineItems.map((item: any, index: number) => ({
       id: item.id || `item-${index}`,
       description: item.description,
       sacCode: item.serviceCode,

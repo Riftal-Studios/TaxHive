@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Client } from '@prisma/client'
+import type { Client } from '@/types/prisma-temp'
 
 interface ClientFormProps {
   client?: Partial<Client>

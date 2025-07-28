@@ -81,7 +81,7 @@ export const dashboardRouter = createTRPCRouter({
     })
 
     const overdueAmount = overdueInvoices.reduce(
-      (sum, inv) => sum + Number(inv.totalInINR),
+      (sum: number, inv: any) => sum + Number(inv.totalInINR),
       0
     )
 
@@ -155,7 +155,7 @@ export const dashboardRouter = createTRPCRouter({
         take: limit,
       })
 
-      return invoices.map(invoice => ({
+      return invoices.map(invoice: any => ({
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: invoice.invoiceDate,
@@ -178,7 +178,7 @@ export const dashboardRouter = createTRPCRouter({
       },
     })
 
-    return statusGroups.map(group => ({
+    return statusGroups.map(group: any => ({
       status: group.status,
       count: group._count.id,
       amount: Number(group._sum.totalInINR || 0),
@@ -212,7 +212,7 @@ export const dashboardRouter = createTRPCRouter({
       })
 
       // Get client details for the grouped results
-      const clientIds = clientGroups.map(g => g.clientId)
+      const clientIds = clientGroups.map(g: any => g.clientId)
       const clientDetails = await ctx.prisma.invoice.findMany({
         where: {
           userId: ctx.session.user.id,
@@ -231,10 +231,10 @@ export const dashboardRouter = createTRPCRouter({
       })
 
       const clientMap = new Map(
-        clientDetails.map(c => [c.clientId, c.client])
+        clientDetails.map(c: any => [c.clientId, c.client])
       )
 
-      return clientGroups.map(group => ({
+      return clientGroups.map(group: any => ({
         clientId: group.clientId,
         clientName: clientMap.get(group.clientId)?.name || 'Unknown',
         companyName: clientMap.get(group.clientId)?.company || null,
@@ -289,7 +289,7 @@ export const dashboardRouter = createTRPCRouter({
 
       // Convert to array and sort by month
       return Array.from(monthlyRevenue.entries())
-        .map(([month, data]) => ({
+        .map(([month, data]: [string, any]) => ({
           month,
           revenue: data.revenue,
           invoiceCount: data.invoiceCount,

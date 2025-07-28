@@ -56,7 +56,7 @@ async function testAuthFlow() {
   // 5. Check current tokens in database
   console.log('4. Current verification tokens:')
   const allTokens = await prisma.verificationToken.findMany()
-  allTokens.forEach(t => {
+  allTokens.forEach((t: any) => {
     console.log(`   - ${t.identifier} (expires: ${t.expires.toLocaleString()})`)
   })
   

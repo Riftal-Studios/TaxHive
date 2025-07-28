@@ -144,7 +144,7 @@ export function MUIPayments() {
                     label="Client"
                   >
                     <MenuItem value="">All Clients</MenuItem>
-                    {clients?.map((client) => (
+                    {clients?.map((client: any) => (
                       <MenuItem key={client.id} value={client.id}>
                         {client.name}
                       </MenuItem>

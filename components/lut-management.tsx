@@ -12,6 +12,7 @@ interface LUTFormData {
   lutDate: string
   validFrom: string
   validTill: string
+  [key: string]: unknown
 }
 
 export default function LUTManagement() {

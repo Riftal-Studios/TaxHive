@@ -79,7 +79,7 @@ export function PaymentModal({
       amount: parseFloat(amount),
       currency,
       paymentDate: new Date(paymentDate),
-      paymentMethod: paymentMethod as any,
+      paymentMethod: paymentMethod as 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI' | 'PAYPAL' | 'PAYONEER' | 'WISE' | 'OTHER',
       reference: reference || undefined,
       notes: notes || undefined,
     })

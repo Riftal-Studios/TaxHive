@@ -6,7 +6,7 @@ let queueService: QueueService | null = null
 export function getQueueService(): QueueService {
   if (!queueService) {
     // Parse Redis URL if available, otherwise use individual config
-    let redisConfig: any = {
+    let redisConfig: { host: string; port: number; password?: string } = {
       host: process.env.REDIS_HOST || 'redis',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD,

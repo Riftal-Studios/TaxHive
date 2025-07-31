@@ -2,7 +2,7 @@
 
 import { signIn } from 'next-auth/react'
 import { useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Box,
@@ -26,7 +26,6 @@ import {
 import { enqueueSnackbar } from 'notistack'
 
 export default function SignInPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
   
@@ -53,7 +52,8 @@ export default function SignInPage() {
         setError(result.error)
       } else if (result?.ok) {
         enqueueSnackbar('Signed in successfully!', { variant: 'success' })
-        router.push(callbackUrl as any)
+        // Use window.location for dynamic callback URL to avoid typed routes issue
+        window.location.href = callbackUrl
       }
     } catch {
       setError('An unexpected error occurred')

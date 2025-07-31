@@ -39,6 +39,23 @@ import { formatCurrency } from '@/lib/invoice-utils'
 import { format } from 'date-fns'
 import { enqueueSnackbar } from 'notistack'
 
+interface Invoice {
+  id: string
+  invoiceNumber: string
+  invoiceDate: Date | string
+  dueDate: Date | string
+  status: string
+  paymentStatus: string
+  totalAmount: string | number
+  totalInINR?: string | number
+  currency: string
+  pdfUrl?: string | null
+  client: {
+    name: string
+    company?: string | null
+  }
+}
+
 interface StatusChipProps {
   status: string
 }
@@ -127,7 +144,7 @@ export function InvoiceList() {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
 
   const { data: invoices, isLoading } = api.invoices.list.useQuery()
 
@@ -140,9 +157,45 @@ export function InvoiceList() {
     setPage(0)
   }
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: any) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: { 
+    id: string
+    invoiceNumber: string
+    invoiceDate: Date | string
+    dueDate: Date | string
+    status: string
+    paymentStatus: string
+    totalAmount: { toNumber?: () => number } | string | number
+    totalInINR?: { toNumber?: () => number } | string | number
+    currency: string
+    pdfUrl?: string | null
+    client: {
+      name: string
+      company?: string | null
+    }
+  }) => {
     setAnchorEl(event.currentTarget)
-    setSelectedInvoice(invoice)
+    // Convert invoice data to match the Invoice interface
+    const formattedInvoice: Invoice = {
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate,
+      dueDate: invoice.dueDate,
+      status: invoice.status,
+      paymentStatus: invoice.paymentStatus,
+      totalAmount: typeof invoice.totalAmount === 'object' && invoice.totalAmount !== null && 'toNumber' in invoice.totalAmount && typeof invoice.totalAmount.toNumber === 'function'
+        ? invoice.totalAmount.toNumber() 
+        : Number(invoice.totalAmount),
+      totalInINR: invoice.totalInINR ? (typeof invoice.totalInINR === 'object' && invoice.totalInINR !== null && 'toNumber' in invoice.totalInINR && typeof invoice.totalInINR.toNumber === 'function'
+        ? invoice.totalInINR.toNumber() 
+        : Number(invoice.totalInINR)) : undefined,
+      currency: invoice.currency,
+      pdfUrl: invoice.pdfUrl,
+      client: {
+        name: invoice.client.name,
+        company: invoice.client.company,
+      }
+    }
+    setSelectedInvoice(formattedInvoice)
   }
 
   const handleMenuClose = () => {

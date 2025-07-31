@@ -159,7 +159,16 @@ export const paymentRouter = createTRPCRouter({
       const userId = session.user.id
       const limit = input.limit ?? 50
 
-      const where: any = {
+      const where: {
+        invoice: {
+          userId: string
+          clientId?: string
+        }
+        paymentDate?: {
+          gte?: Date
+          lte?: Date
+        }
+      } = {
         invoice: {
           userId,
         },
@@ -424,7 +433,7 @@ export const paymentRouter = createTRPCRouter({
       const { prisma, session } = ctx
       const userId = session.user.id
 
-      const dateFilter = {} as any
+      const dateFilter: { gte?: Date; lte?: Date } = {}
       if (input.dateFrom) {
         dateFilter.gte = input.dateFrom
       }

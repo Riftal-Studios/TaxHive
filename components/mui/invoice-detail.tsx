@@ -173,13 +173,20 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   }
 
   // Type guard to check if invoice has required relations
-  const isInvoiceWithRelations = (invoice: any): invoice is InvoiceWithRelations => {
+  const isInvoiceWithRelations = (invoice: unknown): invoice is InvoiceWithRelations => {
     return (
-      invoice &&
+      invoice !== null &&
+      typeof invoice === 'object' &&
+      'id' in invoice &&
       typeof invoice.id === 'string' &&
+      'invoiceNumber' in invoice &&
       typeof invoice.invoiceNumber === 'string' &&
-      invoice.client &&
+      'client' in invoice &&
+      invoice.client !== null &&
+      typeof invoice.client === 'object' &&
+      'id' in invoice.client &&
       typeof invoice.client.id === 'string' &&
+      'lineItems' in invoice &&
       Array.isArray(invoice.lineItems)
     )
   }
@@ -205,7 +212,9 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   const typedInvoice = invoice
 
-  const getStatusColor = (status: string) => {
+  type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
+
+  const getStatusColor = (status: string): ChipColor => {
     switch (status) {
       case 'PAID':
         return 'success'
@@ -218,7 +227,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     }
   }
 
-  const getPaymentStatusColor = (status: string) => {
+  const getPaymentStatusColor = (status: string): ChipColor => {
     switch (status) {
       case 'PAID':
         return 'success'
@@ -327,7 +336,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                   <Grid size={{ xs: 6, md: 4 }} textAlign="right">
                     <Chip
                       label={typedInvoice.status}
-                      color={getStatusColor(typedInvoice.status) as any}
+                      color={getStatusColor(typedInvoice.status)}
                       size="small"
                     />
                   </Grid>
@@ -340,7 +349,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                         typedInvoice.paymentStatus === 'PARTIALLY_PAID' ? 'Partially Paid' :
                         typedInvoice.paymentStatus === 'UNPAID' ? 'Unpaid' : 'Paid'
                       }
-                      color={getPaymentStatusColor(typedInvoice.paymentStatus) as any}
+                      color={getPaymentStatusColor(typedInvoice.paymentStatus)}
                       size="small"
                     />
                   </Grid>
@@ -523,7 +532,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             <Box mt={4}>
               <Typography variant="h6" gutterBottom>Payment History</Typography>
               <Grid container spacing={2}>
-                {payments?.map((payment: any) => (
+                {payments?.map((payment) => (
                   <Grid size={12} key={payment.id}>
                     <Paper variant="outlined" sx={{ p: 3 }}>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">

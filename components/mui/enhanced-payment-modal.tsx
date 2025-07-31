@@ -38,6 +38,8 @@ import { api } from '@/lib/trpc/client'
 import { enqueueSnackbar } from 'notistack'
 import { FileUpload } from './file-upload'
 
+type PaymentMethod = 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI' | 'PAYPAL' | 'PAYONEER' | 'WISE' | 'OTHER'
+
 interface PaymentModalProps {
   invoiceId: string
   invoiceNumber: string
@@ -229,7 +231,7 @@ export function EnhancedPaymentModal({
       amount: parseFloat(amount),
       currency,
       paymentDate: paymentDate!,
-      paymentMethod: paymentMethod as any,
+      paymentMethod: paymentMethod as PaymentMethod,
       reference: reference || undefined,
       notes: notes || undefined,
       amountReceivedBeforeFees: amountReceivedBeforeFees ? parseFloat(amountReceivedBeforeFees) : undefined,

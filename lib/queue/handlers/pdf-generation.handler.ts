@@ -1,4 +1,4 @@
-import type { Job } from '../types'
+import type { Job, PdfGenerationJobData } from '../types'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { uploadPDF } from '@/lib/pdf-uploader'
 import { db } from '@/lib/prisma'
@@ -9,11 +9,11 @@ interface PdfGenerationResult {
   invoiceId: string
 }
 
-export async function pdfGenerationHandler(job: Job): Promise<PdfGenerationResult> {
+export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Promise<PdfGenerationResult> {
   const { invoiceId, userId } = job.data
 
   // Update progress if available
-  const updateProgress = (job as any).updateProgress
+  const updateProgress = (job as { updateProgress?: (progress: number) => Promise<void> }).updateProgress
   if (updateProgress) {
     await updateProgress(25)
   }

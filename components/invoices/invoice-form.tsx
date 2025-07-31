@@ -657,11 +657,11 @@ export function InvoiceForm({
                       aria-required="true"
                       aria-invalid={!!errors.lineItems?.[item.id]?.sacCode}
                       aria-describedby={errors.lineItems?.[item.id]?.sacCode ? `sacCode-${item.id}-error` : undefined}
-                      aria-expanded={showSacDropdown[item.id]}
-                      aria-haspopup="listbox"
+                      aria-autocomplete="list"
+                      aria-controls={showSacDropdown[item.id] ? `sacCode-${item.id}-listbox` : undefined}
                     />
                     {showSacDropdown[item.id] && (
-                      <div className={`${dropdownContainerClassName} max-h-60 overflow-auto`} role="listbox">
+                      <div id={`sacCode-${item.id}-listbox`} className={`${dropdownContainerClassName} max-h-60 overflow-auto`} role="listbox">
                         {getFilteredSacCodes(item.id).map(sac => (
                           <button
                             key={sac.code}
@@ -674,6 +674,7 @@ export function InvoiceForm({
                             }}
                             className={`${dropdownItemClassName} text-sm`}
                             role="option"
+                            aria-selected={item.sacCode === sac.code}
                           >
                             <div className="font-medium text-gray-900 dark:text-white">{sac.code}</div>
                             <div className="text-gray-500 dark:text-gray-400 text-xs">{sac.description}</div>

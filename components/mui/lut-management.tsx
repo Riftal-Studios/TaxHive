@@ -39,11 +39,21 @@ import { format } from 'date-fns'
 import { zodErrorsToFormErrors } from '@/lib/utils/zod-error-handler'
 import { enqueueSnackbar } from 'notistack'
 
+interface LUT {
+  id: string
+  lutNumber: string
+  lutDate: Date | string
+  validFrom: Date | string
+  validTill: Date | string
+  isActive: boolean
+}
+
 interface LUTFormData {
   lutNumber: string
   lutDate: Date | null
   validFrom: Date | null
   validTill: Date | null
+  [key: string]: unknown
 }
 
 export function MUILUTManagement() {
@@ -123,7 +133,7 @@ export function MUILUTManagement() {
     setErrors({})
   }
 
-  const handleEdit = (lut: any) => {
+  const handleEdit = (lut: LUT) => {
     setEditingLUT(lut.id)
     setFormData({
       lutNumber: lut.lutNumber,
@@ -199,7 +209,7 @@ export function MUILUTManagement() {
     )
   }
 
-  const getStatusColor = (lut: any) => {
+  const getStatusColor = (lut: LUT) => {
     const now = new Date()
     const validFrom = new Date(lut.validFrom)
     const validTill = new Date(lut.validTill)
@@ -209,7 +219,7 @@ export function MUILUTManagement() {
     return 'success' // Active
   }
 
-  const getStatusLabel = (lut: any) => {
+  const getStatusLabel = (lut: LUT) => {
     const now = new Date()
     const validFrom = new Date(lut.validFrom)
     const validTill = new Date(lut.validTill)

@@ -20,6 +20,7 @@ import {
   Stepper,
   Step,
   StepLabel,
+  Theme,
 } from '@mui/material'
 import {
   Visibility,
@@ -294,21 +295,21 @@ export default function SignUpPage() {
                 inputProps={{
                   sx: {
                     '&:-webkit-autofill': {
-                      WebkitBoxShadow: (theme: any) => 
+                      WebkitBoxShadow: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme: any) => 
+                      WebkitTextFillColor: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',
                     },
                     '&:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
-                      WebkitBoxShadow: (theme: any) => 
+                      WebkitBoxShadow: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme: any) => 
+                      WebkitTextFillColor: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',
@@ -347,21 +348,21 @@ export default function SignUpPage() {
                 inputProps={{
                   sx: {
                     '&:-webkit-autofill': {
-                      WebkitBoxShadow: (theme: any) => 
+                      WebkitBoxShadow: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme: any) => 
+                      WebkitTextFillColor: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',
                     },
                     '&:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
-                      WebkitBoxShadow: (theme: any) => 
+                      WebkitBoxShadow: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme: any) => 
+                      WebkitTextFillColor: (theme: Theme) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',

@@ -5,6 +5,7 @@ import {
   type Job, 
   type JobType, 
   type JobStatus,
+  type JobProgress,
   type JobOptions, 
   type JobProcessor,
   type ProcessorOptions,
@@ -74,7 +75,7 @@ export class BullMQService implements QueueService {
     return this.queues.get(type)!
   }
 
-  private validateJobData(type: JobType, data: any): void {
+  private validateJobData(type: JobType, data: unknown): void {
     switch (type) {
       case 'PDF_GENERATION':
         PdfGenerationJobSchema.parse(data)
@@ -93,7 +94,7 @@ export class BullMQService implements QueueService {
     }
   }
 
-  async enqueue<T = any>(
+  async enqueue<T = unknown>(
     type: JobType, 
     data: T, 
     options?: JobOptions
@@ -123,7 +124,7 @@ export class BullMQService implements QueueService {
     return this.bullMQJobToJob<T>(bullMQJob)
   }
 
-  async process<T = any>(
+  async process<T = unknown>(
     type: JobType, 
     processor: JobProcessor<T>, 
     options?: ProcessorOptions
@@ -246,15 +247,15 @@ export class BullMQService implements QueueService {
   }
 
   // Alias methods for backward compatibility
-  async enqueueJob<T = any>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>> {
+  async enqueueJob<T = unknown>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>> {
     return this.enqueue(type, data, options)
   }
 
-  async registerHandler<T = any>(type: JobType, handler: JobProcessor<T>, options?: ProcessorOptions): Promise<void> {
+  async registerHandler<T = unknown>(type: JobType, handler: JobProcessor<T>, options?: ProcessorOptions): Promise<void> {
     return this.process(type, handler, options)
   }
 
-  private bullMQJobToJob<T = any>(bullMQJob: BullMQJob): Job<T> {
+  private bullMQJobToJob<T = unknown>(bullMQJob: BullMQJob): Job<T> {
     const status = this.getBullMQJobStatus(bullMQJob)
     
     return {
@@ -265,7 +266,7 @@ export class BullMQService implements QueueService {
       attempts: bullMQJob.attemptsMade ?? 0,
       maxAttempts: bullMQJob.opts.attempts ?? 3,
       priority: bullMQJob.opts.priority,
-      progress: bullMQJob.progress as any,
+      progress: bullMQJob.progress as JobProgress | undefined,
       error: bullMQJob.failedReason ? {
         message: bullMQJob.failedReason,
         stack: bullMQJob.stacktrace?.join('\n'),

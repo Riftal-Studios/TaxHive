@@ -79,7 +79,6 @@ export default function OnboardingPage() {
     return null
   }
 
-
   const handleComplete = async () => {
     console.log('handleComplete clicked')
     try {
@@ -95,6 +94,24 @@ export default function OnboardingPage() {
       await skipOnboardingMutation.mutateAsync()
     } catch (error) {
       console.error('Error skipping onboarding:', error)
+    }
+  }
+
+  const handleNavigate = (step: OnboardingStepWithData) => {
+    // Use proper Next.js router.push instead of window.location.href
+    switch (step) {
+      case 'profile':
+        router.push('/settings')
+        break
+      case 'client':
+        router.push('/clients')
+        break
+      case 'lut':
+        router.push('/settings?tab=lut')
+        break
+      case 'invoice':
+        router.push('/invoices/new')
+        break
     }
   }
 
@@ -136,7 +153,6 @@ export default function OnboardingPage() {
             const isCurrentStep = step === status.currentStep
             const isPastStep = index < currentStepIndex
             const isOptional = !stepStatus.required
-            
 
             return (
               <div
@@ -194,21 +210,7 @@ export default function OnboardingPage() {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            // Use window.location for more reliable navigation
-                            switch (step) {
-                              case 'profile':
-                                window.location.href = '/settings'
-                                break
-                              case 'client':
-                                window.location.href = '/clients'
-                                break
-                              case 'lut':
-                                window.location.href = '/settings?tab=lut'
-                                break
-                              case 'invoice':
-                                window.location.href = '/invoices/new'
-                                break
-                            }
+                            handleNavigate(step)
                           }}
                           className="ml-4 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800"
                         >

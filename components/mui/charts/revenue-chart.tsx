@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -21,41 +21,49 @@ interface RevenueChartProps {
   loading?: boolean
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+// Memoize currency formatting function
+const useCurrencyFormatter = () => {
+  return useMemo(() => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+  }, [])
 }
 
-function formatMonth(monthStr: string): string {
-  try {
-    if (!monthStr || typeof monthStr !== 'string') {
-      return 'Invalid Date'
+// Memoize month formatting function
+const useMonthFormatter = () => {
+  return useMemo(() => {
+    return (monthStr: string): string => {
+      try {
+        if (!monthStr || typeof monthStr !== 'string') {
+          return 'Invalid Date'
+        }
+        const parts = monthStr.split('-')
+        if (parts.length !== 2) {
+          return monthStr
+        }
+        const [year, month] = parts
+        const yearNum = parseInt(year)
+        const monthNum = parseInt(month)
+        
+        if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
+          return monthStr
+        }
+        
+        const date = new Date(yearNum, monthNum - 1)
+        if (isNaN(date.getTime())) {
+          return monthStr
+        }
+        return format(date, 'MMM yyyy')
+      } catch (error) {
+        console.error('Error formatting month:', error)
+        return monthStr || 'Invalid Date'
+      }
     }
-    const parts = monthStr.split('-')
-    if (parts.length !== 2) {
-      return monthStr
-    }
-    const [year, month] = parts
-    const yearNum = parseInt(year)
-    const monthNum = parseInt(month)
-    
-    if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
-      return monthStr
-    }
-    
-    const date = new Date(yearNum, monthNum - 1)
-    if (isNaN(date.getTime())) {
-      return monthStr
-    }
-    return format(date, 'MMM yyyy')
-  } catch (error) {
-    console.error('Error formatting month:', error)
-    return monthStr || 'Invalid Date'
-  }
+  }, [])
 }
 
 interface TooltipProps {
@@ -71,6 +79,8 @@ interface TooltipProps {
 
 const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
   const theme = useTheme()
+  const formatCurrency = useCurrencyFormatter()
+  const formatMonth = useMonthFormatter()
   
   if (active && payload && payload.length && payload[0]) {
     const formattedMonth = label ? formatMonth(label) : ''
@@ -92,7 +102,7 @@ const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
           {formattedMonth}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Revenue: {formatCurrency(revenue)}
+          Revenue: {formatCurrency.format(revenue)}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Invoices: {invoiceCount}
@@ -107,6 +117,8 @@ CustomTooltip.displayName = 'CustomTooltip'
 
 export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
   const theme = useTheme()
+  const formatCurrency = useCurrencyFormatter()
+  const formatMonth = useMonthFormatter()
   
   if (loading) {
     return (
@@ -119,12 +131,15 @@ export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
     )
   }
 
-  const chartData = data.map(item => ({
-    ...item,
-    displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
-    revenue: item.revenue || 0,
-    invoiceCount: item.invoiceCount || 0,
-  }))
+  // Memoize chart data transformation
+  const chartData = useMemo(() => {
+    return data.map(item => ({
+      ...item,
+      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
+      revenue: item.revenue || 0,
+      invoiceCount: item.invoiceCount || 0,
+    }))
+  }, [data, formatMonth])
 
   return (
     <Card>

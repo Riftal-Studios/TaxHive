@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -53,19 +53,27 @@ export function MUIPayments() {
   const [dateFrom, setDateFrom] = useState<Date | null>(null)
   const [dateTo, setDateTo] = useState<Date | null>(null)
   const [clientFilter, setClientFilter] = useState<string>('')
+  const [isFetchingMore, setIsFetchingMore] = useState(false)
 
-  const { data: payments, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = 
-    api.payments.getHistory.useInfiniteQuery(
-      {
-        limit: 20,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        clientId: clientFilter || undefined,
-      },
-      {
-        getNextPageParam: (lastPage) => lastPage.nextCursor,
-      }
-    )
+  const {
+    data: payments,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch
+  } = api.payments.getHistory.useInfiniteQuery(
+    {
+      limit: 20,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      clientId: clientFilter || undefined,
+    },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      keepPreviousData: true, // Keep previous data while fetching new data
+    }
+  )
 
   const { data: clients } = api.clients.list.useQuery()
   const { data: summary } = api.payments.getSummary.useQuery({
@@ -73,7 +81,34 @@ export function MUIPayments() {
     dateTo: dateTo || undefined,
   })
 
-  const allPayments = payments?.pages.flatMap(page => page.items) ?? []
+  // Memoize all payments to prevent unnecessary re-renders
+  const allPayments = React.useMemo(() => {
+    return payments?.pages.flatMap(page => page.items) ?? []
+  }, [payments?.pages])
+
+  // Handle infinite scroll with proper cleanup
+  const handleScroll = useCallback(() => {
+    if (isFetchingMore || !hasNextPage || isFetchingNextPage) return
+
+    const scrollPosition = window.innerHeight + document.documentElement.scrollTop
+    const threshold = document.documentElement.offsetHeight - 1000
+
+    if (scrollPosition >= threshold) {
+      setIsFetchingMore(true)
+      fetchNextPage().finally(() => setIsFetchingMore(false))
+    }
+  }, [isFetchingMore, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  // Add scroll event listener with proper cleanup
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
+  // Refetch data when filters change
+  useEffect(() => {
+    refetch()
+  }, [dateFrom, dateTo, clientFilter, refetch])
 
   if (isLoading) {
     return (
@@ -221,7 +256,7 @@ export function MUIPayments() {
                           <Button
                             size="small"
                             color="primary"
-                            onClick={() => router.push(`/invoices/${payment.invoice.id}` as any)}
+                            onClick={() => router.push(`/invoices/${payment.invoice.id}`)}
                             sx={{ textTransform: 'none', fontWeight: 500 }}
                           >
                             {payment.invoice.invoiceNumber}
@@ -253,7 +288,7 @@ export function MUIPayments() {
                           <Tooltip title="View Invoice">
                             <IconButton
                               size="small"
-                              onClick={() => router.push(`/invoices/${payment.invoice.id}` as any)}
+                              onClick={() => router.push(`/invoices/${payment.invoice.id}`)}
                             >
                               <ViewIcon fontSize="small" />
                             </IconButton>

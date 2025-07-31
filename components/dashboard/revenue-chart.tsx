@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { format } from 'date-fns'
 
@@ -13,42 +13,50 @@ interface RevenueChartProps {
   loading?: boolean
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+// Memoize currency formatting function
+const useCurrencyFormatter = () => {
+  return useMemo(() => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+  }, [])
 }
 
-function formatMonth(monthStr: string): string {
-  try {
-    if (!monthStr || typeof monthStr !== 'string') {
-      return 'Invalid Date'
+// Memoize month formatting function
+const useMonthFormatter = () => {
+  return useMemo(() => {
+    return (monthStr: string): string => {
+      try {
+        if (!monthStr || typeof monthStr !== 'string') {
+          return 'Invalid Date'
+        }
+        const parts = monthStr.split('-')
+        if (parts.length !== 2) {
+          return monthStr // Return original if not in expected format
+        }
+        const [year, month] = parts
+        const yearNum = parseInt(year)
+        const monthNum = parseInt(month)
+        
+        // Validate year and month
+        if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
+          return monthStr // Return original if invalid
+        }
+        
+        const date = new Date(yearNum, monthNum - 1)
+        if (isNaN(date.getTime())) {
+          return monthStr
+        }
+        return format(date, 'MMM yyyy')
+      } catch (error) {
+        console.error('Error formatting month:', error)
+        return monthStr || 'Invalid Date'
+      }
     }
-    const parts = monthStr.split('-')
-    if (parts.length !== 2) {
-      return monthStr // Return original if not in expected format
-    }
-    const [year, month] = parts
-    const yearNum = parseInt(year)
-    const monthNum = parseInt(month)
-    
-    // Validate year and month
-    if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
-      return monthStr // Return original if invalid
-    }
-    
-    const date = new Date(yearNum, monthNum - 1)
-    if (isNaN(date.getTime())) {
-      return monthStr
-    }
-    return format(date, 'MMM yyyy')
-  } catch (error) {
-    console.error('Error formatting month:', error)
-    return monthStr || 'Invalid Date'
-  }
+  }, [])
 }
 
 interface TooltipProps {
@@ -63,6 +71,9 @@ interface TooltipProps {
 }
 
 const CustomTooltip = React.memo(function CustomTooltip({ active, payload, label }: TooltipProps) {
+  const formatCurrency = useCurrencyFormatter()
+  const formatMonth = useMonthFormatter()
+  
   if (active && payload && payload.length && payload[0]) {
     const formattedMonth = label ? formatMonth(label) : ''
     const revenue = payload[0].value || 0
@@ -80,7 +91,7 @@ const CustomTooltip = React.memo(function CustomTooltip({ active, payload, label
           {formattedMonth}
         </p>
         <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '2px' }}>
-          Revenue: {formatCurrency(revenue)}
+          Revenue: {formatCurrency.format(revenue)}
         </p>
         <p style={{ fontSize: '14px', color: '#6b7280' }}>
           Invoices: {invoiceCount}
@@ -91,7 +102,12 @@ const CustomTooltip = React.memo(function CustomTooltip({ active, payload, label
   return null
 })
 
+CustomTooltip.displayName = 'CustomTooltip'
+
 export default function RevenueChart({ data, loading = false }: RevenueChartProps) {
+  const formatCurrency = useCurrencyFormatter()
+  const formatMonth = useMonthFormatter()
+  
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow animate-pulse">
@@ -101,12 +117,15 @@ export default function RevenueChart({ data, loading = false }: RevenueChartProp
     )
   }
 
-  const chartData = data.map(item => ({
-    ...item,
-    displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
-    revenue: item.revenue || 0,
-    invoiceCount: item.invoiceCount || 0,
-  }))
+  // Memoize chart data transformation
+  const chartData = useMemo(() => {
+    return data.map(item => ({
+      ...item,
+      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
+      revenue: item.revenue || 0,
+      invoiceCount: item.invoiceCount || 0,
+    }))
+  }, [data, formatMonth])
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">

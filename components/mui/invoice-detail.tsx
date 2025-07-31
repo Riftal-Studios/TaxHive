@@ -30,6 +30,77 @@ import { MUIInvoiceActions } from './invoice-actions'
 import { EnhancedPaymentModal as MUIPaymentModal } from './enhanced-payment-modal'
 import { format } from 'date-fns'
 
+// Define proper types for the invoice with relations
+interface InvoiceWithRelations {
+  id: string
+  invoiceNumber: string
+  createdAt: Date
+  invoiceDate: Date
+  dueDate: Date
+  status: string
+  paymentStatus: string
+  pdfUrl: string | null
+  currency: string
+  exchangeRate: number
+  exchangeSource: string
+  subtotal: number
+  igstAmount: number
+  totalAmount: number
+  amountPaid: number
+  balanceDue: number
+  notes: string | null
+  placeOfSupply: string
+  serviceCode: string
+  igstRate: number
+  client: {
+    id: string
+    name: string
+    email: string
+    company: string | null
+    address: string
+    country: string
+    taxId: string | null
+  }
+  lineItems: Array<{
+    id: string
+    description: string
+    quantity: {
+      toNumber: () => number
+    }
+    rate: {
+      toNumber: () => number
+    }
+    amount: {
+      toNumber: () => number
+    }
+    serviceCode: string
+  }>
+  lut: {
+    id: string
+    lutNumber: string
+    validTill: Date
+  } | null
+}
+
+interface PaymentWithDetails {
+  id: string
+  amount: number
+  currency: string
+  paymentDate: Date
+  paymentMethod: string
+  reference: string | null
+  notes: string | null
+  createdAt: Date
+  amountReceivedBeforeFees?: number
+  platformFeesInCurrency?: number
+  creditedAmount?: number
+  actualExchangeRate?: number
+  bankChargesInr?: number
+  fircNumber?: string
+  fircDate?: Date
+  fircDocumentUrl?: string
+}
+
 interface InvoiceDetailProps {
   invoiceId: string
 }
@@ -75,31 +146,38 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     )
   }
 
-  // Type assertion to include relations
-  const typedInvoice = invoice as typeof invoice & {
-    client: {
-      id: string
-      name: string
-      email: string
-      company: string | null
-      address: string
-      country: string
-      taxId: string | null
-    }
-    lineItems: Array<{
-      id: string
-      description: string
-      quantity: any
-      rate: any
-      amount: any
-      serviceCode: string
-    }>
-    lut: {
-      id: string
-      lutNumber: string
-      validTill: Date
-    } | null
+  // Type guard to check if invoice has required relations
+  const isInvoiceWithRelations = (invoice: any): invoice is InvoiceWithRelations => {
+    return (
+      invoice &&
+      typeof invoice.id === 'string' &&
+      typeof invoice.invoiceNumber === 'string' &&
+      invoice.client &&
+      typeof invoice.client.id === 'string' &&
+      Array.isArray(invoice.lineItems)
+    )
   }
+
+  if (!isInvoiceWithRelations(invoice)) {
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>Invalid invoice data</Typography>
+          <Button
+            variant="contained"
+            color="error"
+            size="small"
+            onClick={() => router.push('/invoices')}
+            sx={{ mt: 1 }}
+          >
+            Back to Invoices
+          </Button>
+        </Alert>
+      </Box>
+    )
+  }
+
+  const typedInvoice = invoice
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -143,7 +221,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
           <Button
             variant="outlined"
             startIcon={<EditIcon />}
-            onClick={() => router.push(`/invoices/${typedInvoice.id}/edit` as any)}
+            onClick={() => router.push(`/invoices/${typedInvoice.id}/edit`)}
           >
             Edit
           </Button>
@@ -279,15 +357,15 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                 {typedInvoice.lineItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.description}</TableCell>
-                    <TableCell align="right">{item.quantity.toString()}</TableCell>
+                    <TableCell align="right">{item.quantity.toNumber()}</TableCell>
                     <TableCell align="right">
-                      {formatCurrency(Number(item.rate), typedInvoice.currency)}
+                      {formatCurrency(Number(item.rate.toNumber()), typedInvoice.currency)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(Number(item.amount), typedInvoice.currency)}
+                      {formatCurrency(Number(item.amount.toNumber()), typedInvoice.currency)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatINR(Number(item.amount) * Number(typedInvoice.exchangeRate))}
+                      {formatINR(Number(item.amount.toNumber()) * Number(typedInvoice.exchangeRate))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -399,7 +477,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             <Box mt={4}>
               <Typography variant="h6" gutterBottom>Payment History</Typography>
               <Grid container spacing={2}>
-                {payments.map((payment) => (
+                {(payments as PaymentWithDetails[]).map((payment) => (
                   <Grid size={12} key={payment.id}>
                     <Paper variant="outlined" sx={{ p: 3 }}>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
@@ -417,40 +495,40 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                           )}
                           
                           {/* Payment Flow Details */}
-                          {(payment as any).amountReceivedBeforeFees && (
+                          {payment.amountReceivedBeforeFees && (
                             <Box mt={1} p={1.5} bgcolor="background.default" borderRadius={1}>
                               <Typography variant="body2" color="text.secondary">
-                                <strong>Amount Received:</strong> {formatCurrency(Number((payment as any).amountReceivedBeforeFees), payment.currency)}
-                                {(payment as any).platformFeesInCurrency && ` (Platform fees: ${payment.currency} ${Number((payment as any).platformFeesInCurrency).toFixed(2)})`}
+                                <strong>Amount Received:</strong> {formatCurrency(Number(payment.amountReceivedBeforeFees), payment.currency)}
+                                {payment.platformFeesInCurrency && ` (Platform fees: ${payment.currency} ${Number(payment.platformFeesInCurrency).toFixed(2)})`}
                               </Typography>
                             </Box>
                           )}
                           
                           {/* Bank Credit Details */}
-                          {(payment as any).creditedAmount && (
+                          {payment.creditedAmount && (
                             <Box mt={1} p={1.5} bgcolor="background.default" borderRadius={1}>
                               <Typography variant="body2" color="text.secondary">
-                                <strong>Bank Credit:</strong> {formatINR(Number((payment as any).creditedAmount))}
+                                <strong>Bank Credit:</strong> {formatINR(Number(payment.creditedAmount))}
                               </Typography>
-                              {(payment as any).actualExchangeRate && (
+                              {payment.actualExchangeRate && (
                                 <Typography variant="body2" color="text.secondary">
-                                  <strong>Exchange Rate Applied:</strong> 1 {payment.currency} = ₹{Number((payment as any).actualExchangeRate).toFixed(4)}
+                                  <strong>Exchange Rate Applied:</strong> 1 {payment.currency} = ₹{Number(payment.actualExchangeRate).toFixed(4)}
                                 </Typography>
                               )}
-                              {(payment as any).bankChargesInr && (
+                              {payment.bankChargesInr && (
                                 <Typography variant="body2" color="text.secondary">
-                                  <strong>Bank Charges:</strong> {formatINR(Number((payment as any).bankChargesInr))}
+                                  <strong>Bank Charges:</strong> {formatINR(Number(payment.bankChargesInr))}
                                 </Typography>
                               )}
-                              {(payment as any).fircNumber && (
+                              {payment.fircNumber && (
                                 <Typography variant="body2" color="text.secondary">
-                                  <strong>FIRC:</strong> {(payment as any).fircNumber}
-                                  {(payment as any).fircDate && ` (${format(new Date((payment as any).fircDate), 'dd MMM yyyy')})`}
-                                  {(payment as any).fircDocumentUrl && (
+                                  <strong>FIRC:</strong> {payment.fircNumber}
+                                  {payment.fircDate && ` (${format(new Date(payment.fircDate), 'dd MMM yyyy')})`}
+                                  {payment.fircDocumentUrl && (
                                     <Button
                                       size="small"
                                       variant="text"
-                                      href={(payment as any).fircDocumentUrl}
+                                      href={payment.fircDocumentUrl}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       sx={{ ml: 1, py: 0, minHeight: 'auto' }}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { Client, LUT } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
@@ -79,27 +79,31 @@ interface FormErrors {
 }
 
 export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChange, exchangeRate, manualExchangeRate, onManualExchangeRateChange, initialData }: InvoiceFormProps) {
-  const [formData, setFormData] = useState<InvoiceFormData>({
-    clientId: initialData?.clientId || '',
-    lutId: initialData?.lutId || '',
-    issueDate: initialData?.issueDate || new Date().toISOString().split('T')[0],
-    dueDate: initialData?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    currency: initialData?.currency || 'USD',
-    paymentTerms: initialData?.paymentTerms || 30,
-    lineItems: initialData?.lineItems || [
-      {
-        id: crypto.randomUUID(),
-        description: '',
-        sacCode: '',
-        quantity: 1,
-        rate: 0,
-        amount: 0,
-      },
-    ],
-    bankDetails: initialData?.bankDetails || '',
-    notes: initialData?.notes || '',
-  })
+  // Memoize initial form data to prevent unnecessary re-renders
+  const getInitialFormData = useCallback((): InvoiceFormData => {
+    return {
+      clientId: initialData?.clientId || '',
+      lutId: initialData?.lutId || '',
+      issueDate: initialData?.issueDate || new Date().toISOString().split('T')[0],
+      dueDate: initialData?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      currency: initialData?.currency || 'USD',
+      paymentTerms: initialData?.paymentTerms || 30,
+      lineItems: initialData?.lineItems || [
+        {
+          id: crypto.randomUUID(),
+          description: '',
+          sacCode: '',
+          quantity: 1,
+          rate: 0,
+          amount: 0,
+        },
+      ],
+      bankDetails: initialData?.bankDetails || '',
+      notes: initialData?.notes || '',
+    }
+  }, [initialData])
 
+  const [formData, setFormData] = useState<InvoiceFormData>(getInitialFormData())
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showClientDropdown, setShowClientDropdown] = useState(false)
@@ -107,32 +111,43 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
   const [showSacDropdown, setShowSacDropdown] = useState<Record<string, boolean>>({})
   const [sacSearchTerm, setSacSearchTerm] = useState<Record<string, string>>({})
 
-  const selectedClient = clients.find(c => c.id === formData.clientId)
-  const selectedLut = luts.find(l => l.id === formData.lutId)
-  const paymentTermOptions = getPaymentTermOptions()
-  const currencyOptions = getSupportedCurrencies()
+  // Memoize derived values
+  const selectedClient = useMemo(() => clients.find(c => c.id === formData.clientId), [clients, formData.clientId])
+  const selectedLut = useMemo(() => luts.find(l => l.id === formData.lutId), [luts, formData.lutId])
+  const paymentTermOptions = useMemo(() => getPaymentTermOptions(), [])
+  const currencyOptions = useMemo(() => getSupportedCurrencies(), [])
 
-  // Calculate totals
-  const subtotal = calculateSubtotal(formData.lineItems)
-  const gstAmount = 0 // Always 0 for exports under LUT
-  const total = calculateTotal(subtotal, gstAmount)
+  // Calculate totals with memoization
+  const { subtotal, gstAmount, total } = useMemo(() => {
+    const subtotal = calculateSubtotal(formData.lineItems)
+    const gstAmount = 0 // Always 0 for exports under LUT
+    const total = calculateTotal(subtotal, gstAmount)
+    return { subtotal, gstAmount, total }
+  }, [formData.lineItems])
 
-  // GST validation
-  const gstValidation = formData.lineItems.length > 0 && (exchangeRate || manualExchangeRate) ? validateGSTInvoice({
-    placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
-    serviceCode: formData.lineItems[0].sacCode,
-    igstRate: 0,
-    lutId: formData.lutId || null,
-    currency: formData.currency,
-    exchangeRate: manualExchangeRate || exchangeRate?.rate || 0,
-    exchangeSource: exchangeRate ? exchangeRate.source : 'Manual',
-  }) : null
+  // GST validation with memoization
+  const gstValidation = useMemo(() => {
+    if (formData.lineItems.length === 0 || (!exchangeRate && !manualExchangeRate)) {
+      return null
+    }
+    return validateGSTInvoice({
+      placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
+      serviceCode: formData.lineItems[0].sacCode,
+      igstRate: 0,
+      lutId: formData.lutId || null,
+      currency: formData.currency,
+      exchangeRate: manualExchangeRate || exchangeRate?.rate || 0,
+      exchangeSource: exchangeRate ? exchangeRate.source : 'Manual',
+    })
+  }, [formData.lineItems, formData.lutId, formData.currency, exchangeRate, manualExchangeRate])
 
-  // LUT expiry status
-  const lutExpiryStatus = selectedLut ? getLUTExpiryStatus(new Date(selectedLut.validTill)) : null
+  // LUT expiry status with memoization
+  const lutExpiryStatus = useMemo(() => {
+    return selectedLut ? getLUTExpiryStatus(new Date(selectedLut.validTill)) : null
+  }, [selectedLut])
 
-  // Filter SAC codes based on search term
-  const getFilteredSacCodes = (itemId: string) => {
+  // Memoize SAC code filtering
+  const getFilteredSacCodes = useCallback((itemId: string) => {
     const searchTerm = sacSearchTerm[itemId]?.toLowerCase() || ''
     if (!searchTerm) return SAC_HSN_CODES
     
@@ -141,7 +156,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
         sac.code.toLowerCase().includes(searchTerm) ||
         sac.description.toLowerCase().includes(searchTerm)
     )
-  }
+  }, [sacSearchTerm])
 
   // Update due date when payment terms change
   useEffect(() => {
@@ -153,7 +168,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
     }))
   }, [formData.issueDate, formData.paymentTerms])
 
-  const handleAddLineItem = () => {
+  const handleAddLineItem = useCallback(() => {
     setFormData(prev => ({
       ...prev,
       lineItems: [
@@ -168,16 +183,16 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
         },
       ],
     }))
-  }
+  }, [])
 
-  const handleRemoveLineItem = (id: string) => {
+  const handleRemoveLineItem = useCallback((id: string) => {
     setFormData(prev => ({
       ...prev,
       lineItems: prev.lineItems.filter(item => item.id !== id),
     }))
-  }
+  }, [])
 
-  const handleLineItemChange = (id: string, field: keyof LineItem, value: string | number) => {
+  const handleLineItemChange = useCallback((id: string, field: keyof LineItem, value: string | number) => {
     setFormData(prev => {
       const updatedItems = prev.lineItems.map(item => {
         if (item.id === id) {
@@ -209,9 +224,9 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
         return { ...prev, lineItems: updatedLineItems }
       })
     }
-  }
+  }, [errors])
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {}
     
     if (!formData.clientId) {
@@ -252,9 +267,9 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [formData])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!validateForm()) {
@@ -275,7 +290,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [formData, onSubmit, validateForm])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

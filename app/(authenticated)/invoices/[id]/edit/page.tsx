@@ -1,17 +1,30 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, use, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { InvoiceForm } from '@/components/invoices/invoice-form'
 
 export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+  // Properly unwrap params with error handling
+  let id: string
+  try {
+    const resolvedParams = use(params)
+    id = resolvedParams.id
+  } catch (error) {
+    console.error('Error resolving params:', error)
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-red-500">Invalid invoice ID</div>
+      </div>
+    )
+  }
+
   const router = useRouter()
   const utils = api.useUtils()
   
-  // Fetch invoice data
-  const { data: invoice, isLoading: invoiceLoading } = api.invoices.getById.useQuery({ id })
+  // Fetch invoice data with error handling
+  const { data: invoice, isLoading: invoiceLoading, error: invoiceError } = api.invoices.getById.useQuery({ id })
   
   // Fetch clients and LUTs
   const { data: clients, isLoading: clientsLoading } = api.clients.list.useQuery()
@@ -26,7 +39,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     enabled: !!selectedCurrency && selectedCurrency !== 'INR',
   })
   
-  // Update invoice mutation
+  // Update invoice mutation with better error handling
   const updateInvoiceMutation = api.invoices.update.useMutation({
     onSuccess: (updatedInvoice) => {
       utils.invoices.list.invalidate()
@@ -78,7 +91,8 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
           amount: parseFloat(item.amount),
         })),
       })
-    } catch {
+    } catch (error) {
+      console.error('Error in handleSubmit:', error)
       // Error is handled by the mutation onError
     }
   }
@@ -87,10 +101,20 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     router.push(`/invoices/${id}`)
   }
   
+  // Handle loading states
   if (invoiceLoading || clientsLoading || lutsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+      </div>
+    )
+  }
+  
+  // Handle error states
+  if (invoiceError) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-red-500">Error loading invoice: {invoiceError.message}</div>
       </div>
     )
   }
@@ -103,6 +127,7 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     )
   }
   
+  // Initialize form data with proper type checking
   const formData = {
     clientId: invoice.clientId,
     lutId: invoice.lutId || '',

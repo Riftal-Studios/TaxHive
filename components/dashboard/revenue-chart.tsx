@@ -109,8 +109,18 @@ const CustomTooltip = React.memo(function CustomTooltip({ active, payload, label
 CustomTooltip.displayName = 'CustomTooltip'
 
 export default function RevenueChart({ data, loading = false, error = null }: RevenueChartProps) {
-  const formatCurrency = useCurrencyFormatter()
   const formatMonth = useMonthFormatter()
+  
+  // Memoize chart data transformation
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return []
+    return data.map(item => ({
+      ...item,
+      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
+      revenue: item.revenue || 0,
+      invoiceCount: item.invoiceCount || 0,
+    }))
+  }, [data, formatMonth])
   
   if (error) {
     return (
@@ -160,16 +170,6 @@ export default function RevenueChart({ data, loading = false, error = null }: Re
       </div>
     )
   }
-
-  // Memoize chart data transformation
-  const chartData = useMemo(() => {
-    return data.map(item => ({
-      ...item,
-      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
-      revenue: item.revenue || 0,
-      invoiceCount: item.invoiceCount || 0,
-    }))
-  }, [data, formatMonth])
 
   return (
     <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">

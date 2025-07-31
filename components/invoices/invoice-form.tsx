@@ -127,7 +127,7 @@ export function InvoiceForm({
   const [sacSearchTerm, setSacSearchTerm] = useState<Record<string, string>>({})
   
   // Auto-save debounce
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Memoize derived values
   const selectedClient = useMemo(() => clients.find(c => c.id === formData.clientId), [clients, formData.clientId])

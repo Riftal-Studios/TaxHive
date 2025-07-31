@@ -86,24 +86,6 @@ interface InvoiceWithRelations {
   } | null
 }
 
-interface PaymentWithDetails {
-  id: string
-  amount: number
-  currency: string
-  paymentDate: Date
-  paymentMethod: string
-  reference: string | null
-  notes: string | null
-  createdAt: Date
-  amountReceivedBeforeFees?: number
-  platformFeesInCurrency?: number
-  creditedAmount?: number
-  actualExchangeRate?: number
-  bankChargesInr?: number
-  fircNumber?: string
-  fircDate?: Date
-  fircDocumentUrl?: string
-}
 
 interface InvoiceDetailProps {
   invoiceId: string
@@ -541,7 +523,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             <Box mt={4}>
               <Typography variant="h6" gutterBottom>Payment History</Typography>
               <Grid container spacing={2}>
-                {(payments as PaymentWithDetails[]).map((payment) => (
+                {payments?.map((payment: any) => (
                   <Grid size={12} key={payment.id}>
                     <Paper variant="outlined" sx={{ p: 3 }}>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">

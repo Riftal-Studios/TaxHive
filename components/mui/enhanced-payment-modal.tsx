@@ -24,14 +24,12 @@ import {
   Tabs,
   Tab,
   Divider,
-  CircularProgress,
 } from '@mui/material'
 import { Stack } from '@mui/material'
 import {
   Info as InfoIcon,
   AccountBalance as BankIcon,
   Receipt as ReceiptIcon,
-  Warning as WarningIcon,
 } from '@mui/icons-material'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -110,7 +108,7 @@ export function EnhancedPaymentModal({
   const [fircDate, setFircDate] = useState<Date | null>(null)
   const [fircDocumentUrl, setFircDocumentUrl] = useState<string>('')
   
-  const [errors, setErrors] = useStateRecord<string, string>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const recordPaymentMutation = api.payments.create.useMutation({
     onSuccess: () => {
@@ -293,7 +291,7 @@ export function EnhancedPaymentModal({
         }}
       >
         <DialogTitle>
-          <Typography variant="h6">Record PaymentTypography>
+          <Typography variant="h6">Record Payment</Typography>
           <Typography variant="body2" color="text.secondary">
             Invoice {invoiceNumber}
           </Typography>
@@ -313,19 +311,19 @@ export function EnhancedPaymentModal({
           >
             <Grid container spacing={2} alignItems="center">
               <Grid size={4}>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>Total AmountTypography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>Total Amount</Typography>
                 <Typography variant="h6" fontWeight={600}>
                   {currency} {totalAmount.toFixed(2)}
                 </Typography>
               </Grid>
               <Grid size={4}>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>Amount PaidTypography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>Amount Paid</Typography>
                 <Typography variant="h6" fontWeight={600}>
                   {currency} {amountPaid.toFixed(2)}
                 </Typography>
               </Grid>
               <Grid size={4}>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>Balance DueTypography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>Balance Due</Typography>
                 <Typography variant="h6" fontWeight={600}>
                   {currency} {balanceDue.toFixed(2)}
                 </Typography>
@@ -388,7 +386,7 @@ export function EnhancedPaymentModal({
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <FormControl fullWidth error={!!errors.paymentMethod} required size="medium">
-                      <InputLabel>Payment MethodInputLabel>
+                      <InputLabel>Payment Method</InputLabel>
                       <Select
                         value={paymentMethod}
                         onChange={(e) => setPaymentMethod(e.target.value)}
@@ -509,7 +507,7 @@ export function EnhancedPaymentModal({
                       error={!!errors.creditedAmount}
                       helperText={errors.creditedAmount || 'Actual INR amount received in your bank'}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">₹InputAdornment>,
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                       }}
                       inputProps={{ step: '0.01', min: '0' }}
                       size="medium"
@@ -529,8 +527,8 @@ export function EnhancedPaymentModal({
                         (effectiveRate ? `Effective rate: ${effectiveRate}` : 'Exchange rate you received')
                       }
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">1 {currency} =InputAdornment>,
-                        endAdornment: <InputAdornment position="end">₹InputAdornment>,
+                        startAdornment: <InputAdornment position="start">1 {currency} =</InputAdornment>,
+                        endAdornment: <InputAdornment position="end">₹</InputAdornment>,
                       }}
                       inputProps={{ step: '0.0001', min: '0' }}
                       size="medium"
@@ -549,7 +547,7 @@ export function EnhancedPaymentModal({
                       error={!!errors.bankChargesInr}
                       helperText={errors.bankChargesInr || 'Additional charges deducted by your bank in INR'}
                       InputProps={{
-                        startAdornment: <InputAdornment position="start">₹InputAdornment>,
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                       }}
                       inputProps={{ step: '0.01', min: '0' }}
                       size="medium"

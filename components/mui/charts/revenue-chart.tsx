@@ -121,8 +121,18 @@ CustomTooltip.displayName = 'CustomTooltip'
 
 export function MUIRevenueChart({ data, loading = false, error = null }: RevenueChartProps) {
   const theme = useTheme()
-  const formatCurrency = useCurrencyFormatter()
   const formatMonth = useMonthFormatter()
+  
+  // Memoize chart data transformation
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return []
+    return data.map(item => ({
+      ...item,
+      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
+      revenue: item.revenue || 0,
+      invoiceCount: item.invoiceCount || 0,
+    }))
+  }, [data, formatMonth])
   
   if (error) {
     return (
@@ -154,7 +164,7 @@ export function MUIRevenueChart({ data, loading = false, error = null }: Revenue
         <CardContent>
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Box sx={{ color: 'text.disabled', mb: 2 }}>
-              <svg sx={{ width: 48, height: 48 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </Box>
@@ -169,16 +179,6 @@ export function MUIRevenueChart({ data, loading = false, error = null }: Revenue
       </Card>
     )
   }
-
-  // Memoize chart data transformation
-  const chartData = useMemo(() => {
-    return data.map(item => ({
-      ...item,
-      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
-      revenue: item.revenue || 0,
-      invoiceCount: item.invoiceCount || 0,
-    }))
-  }, [data, formatMonth])
 
   return (
     <Card>

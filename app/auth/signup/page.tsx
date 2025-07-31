@@ -25,7 +25,6 @@ import {
   Visibility,
   VisibilityOff,
   Email as EmailIcon,
-  Lock as LockIcon,
   Person as PersonIcon,
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
@@ -295,21 +294,21 @@ export default function SignUpPage() {
                 inputProps={{
                   sx: {
                     '&:-webkit-autofill': {
-                      WebkitBoxShadow: (theme) => 
+                      WebkitBoxShadow: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme) => 
+                      WebkitTextFillColor: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',
                     },
                     '&:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
-                      WebkitBoxShadow: (theme) => 
+                      WebkitBoxShadow: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme) => 
+                      WebkitTextFillColor: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',
@@ -348,21 +347,21 @@ export default function SignUpPage() {
                 inputProps={{
                   sx: {
                     '&:-webkit-autofill': {
-                      WebkitBoxShadow: (theme) => 
+                      WebkitBoxShadow: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme) => 
+                      WebkitTextFillColor: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',
                     },
                     '&:-webkit-autofill:hover, &:-webkit-autofill:focus, &:-webkit-autofill:active': {
-                      WebkitBoxShadow: (theme) => 
+                      WebkitBoxShadow: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '0 0 0 100px #1e1e1e inset !important'
                           : '0 0 0 100px #fff inset !important',
-                      WebkitTextFillColor: (theme) => 
+                      WebkitTextFillColor: (theme: any) => 
                         theme.palette.mode === 'dark' 
                           ? '#fff !important' 
                           : '#000 !important',

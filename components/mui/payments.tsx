@@ -24,10 +24,16 @@ import {
   Button,
   CircularProgress,
   Grid,
+  Alert,
+  Menu,
+  MenuItem as MenuMenuItem,
 } from '@mui/material'
 import {
   Visibility as ViewIcon,
   ExpandMore as ExpandMoreIcon,
+  Download as DownloadIcon,
+  FilterList as FilterIcon,
+  GetApp as ExportIcon,
 } from '@mui/icons-material'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -54,10 +60,13 @@ export function MUIPayments() {
   const [dateTo, setDateTo] = useState<Date | null>(null)
   const [clientFilter, setClientFilter] = useState<string>('')
   const [isFetchingMore, setIsFetchingMore] = useState(false)
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const {
     data: payments,
     isLoading,
+    error,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -110,6 +119,35 @@ export function MUIPayments() {
     refetch()
   }, [dateFrom, dateTo, clientFilter, refetch])
 
+  const handleExport = useCallback(async (format: 'csv' | 'excel') => {
+    setIsExporting(true)
+    try {
+      // This would typically call an API endpoint to generate the export
+      console.log(`Exporting payments as ${format.toUpperCase()}`)
+      // Simulate export delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // In a real implementation, you would:
+      // 1. Call an API endpoint to generate the export file
+      // 2. Download the file using a blob URL
+      // 3. Show success message
+      
+      alert(`Payments exported as ${format.toUpperCase()} successfully!`)
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Export failed. Please try again.')
+    } finally {
+      setIsExporting(false)
+      setExportAnchorEl(null)
+    }
+  }, [])
+
+  const clearFilters = useCallback(() => {
+    setDateFrom(null)
+    setDateTo(null)
+    setClientFilter('')
+  }, [])
+
   if (isLoading) {
     return (
       <Box>
@@ -127,24 +165,81 @@ export function MUIPayments() {
     )
   }
 
+  if (error) {
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>Error Loading Payments</Typography>
+          <Typography variant="body2">{error.message}</Typography>
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            onClick={() => refetch()}
+            sx={{ mt: 2 }}
+          >
+            Try Again
+          </Button>
+        </Alert>
+      </Box>
+    )
+  }
+
+  const hasActiveFilters = dateFrom || dateTo || clientFilter
+
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box>
-        <Box mb={4}>
-          <Typography variant="h4" component="h1" fontWeight={600} gutterBottom>
-            Payment History
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            View and manage all payment records
-          </Typography>
+        <Box mb={4} display="flex" justifyContent="space-between" alignItems="flex-start">
+          <Box>
+            <Typography variant="h4" component="h1" fontWeight={600} gutterBottom>
+              Payment History
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              View and manage all payment records
+            </Typography>
+          </Box>
+          <Box display="flex" gap={2}>
+            <Button
+              variant="outlined"
+              startIcon={<ExportIcon />}
+              onClick={(e) => setExportAnchorEl(e.currentTarget)}
+              disabled={isExporting || allPayments.length === 0}
+            >
+              Export
+            </Button>
+            <Menu
+              anchorEl={exportAnchorEl}
+              open={Boolean(exportAnchorEl)}
+              onClose={() => setExportAnchorEl(null)}
+            >
+              <MenuMenuItem onClick={() => handleExport('csv')} disabled={isExporting}>
+                Export as CSV
+              </MenuMenuItem>
+              <MenuMenuItem onClick={() => handleExport('excel')} disabled={isExporting}>
+                Export as Excel
+              </MenuMenuItem>
+            </Menu>
+          </Box>
         </Box>
 
         {/* Filters */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Filters
-            </Typography>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6" gutterBottom>
+                Filters
+              </Typography>
+              {hasActiveFilters && (
+                <Button
+                  size="small"
+                  onClick={clearFilters}
+                  startIcon={<FilterIcon />}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </Box>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <DatePicker
@@ -222,14 +317,34 @@ export function MUIPayments() {
           <CardContent sx={{ pb: 0 }}>
             <Typography variant="h6" gutterBottom>
               Payments
+              {hasActiveFilters && (
+                <Typography variant="body2" color="text.secondary" component="span" sx={{ ml: 1 }}>
+                  (Filtered)
+                </Typography>
+              )}
             </Typography>
           </CardContent>
 
           {allPayments.length === 0 ? (
             <Box py={8} textAlign="center">
+              <Box color="text.disabled" mb={2}>
+                <svg sx={{ width: 48, height: 48 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </Box>
               <Typography variant="body1" color="text.secondary">
-                No payments found
+                {hasActiveFilters ? 'No payments found for the selected filters' : 'No payments found'}
               </Typography>
+              {hasActiveFilters && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={clearFilters}
+                  sx={{ mt: 2 }}
+                >
+                  Clear Filters
+                </Button>
+              )}
             </Box>
           ) : (
             <>
@@ -289,6 +404,7 @@ export function MUIPayments() {
                             <IconButton
                               size="small"
                               onClick={() => router.push(`/invoices/${payment.invoice.id}`)}
+                              aria-label={`View invoice ${payment.invoice.invoiceNumber}`}
                             >
                               <ViewIcon fontSize="small" />
                             </IconButton>

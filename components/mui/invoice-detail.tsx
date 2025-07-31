@@ -18,10 +18,14 @@ import {
   Alert,
   Skeleton,
   Divider,
+  IconButton,
+  Tooltip,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import {
   Edit as EditIcon,
+  Print as PrintIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
@@ -108,8 +112,28 @@ interface InvoiceDetailProps {
 export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   const router = useRouter()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const { data: invoice, isLoading, refetch } = api.invoices.getById.useQuery({ id: invoiceId })
+  const { 
+    data: invoice, 
+    isLoading, 
+    error, 
+    refetch 
+  } = api.invoices.getById.useQuery({ id: invoiceId })
   const { data: payments } = api.payments.getByInvoice.useQuery({ invoiceId })
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const handleDownloadPDF = () => {
+    if (invoice?.pdfUrl) {
+      const link = document.createElement('a')
+      link.href = invoice.pdfUrl
+      link.download = `invoice-${invoice.invoiceNumber}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -123,6 +147,26 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             <Skeleton variant="rectangular" height={600} />
           </CardContent>
         </Card>
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>Error Loading Invoice</Typography>
+          <Typography variant="body2">{error.message}</Typography>
+          <Button
+            variant="contained"
+            color="error"
+            size="small"
+            onClick={() => router.push('/invoices')}
+            sx={{ mt: 2 }}
+          >
+            Back to Invoices
+          </Button>
+        </Alert>
       </Box>
     )
   }
@@ -222,9 +266,28 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             variant="outlined"
             startIcon={<EditIcon />}
             onClick={() => router.push(`/invoices/${typedInvoice.id}/edit`)}
+            aria-label="Edit invoice"
           >
             Edit
           </Button>
+          <Tooltip title="Print invoice">
+            <IconButton
+              onClick={handlePrint}
+              aria-label="Print invoice"
+            >
+              <PrintIcon />
+            </IconButton>
+          </Tooltip>
+          {typedInvoice.pdfUrl && (
+            <Tooltip title="Download PDF">
+              <IconButton
+                onClick={handleDownloadPDF}
+                aria-label="Download PDF"
+              >
+                <DownloadIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           <MUIInvoiceActions
             invoiceId={typedInvoice.id}
             invoiceNumber={typedInvoice.invoiceNumber}
@@ -452,6 +515,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                         color="success"
                         onClick={() => setShowPaymentModal(true)}
                         sx={{ mt: 2 }}
+                        aria-label="Record payment"
                       >
                         Record Payment
                       </Button>

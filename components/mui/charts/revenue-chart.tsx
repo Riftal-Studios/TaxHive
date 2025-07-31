@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   Card,
   CardContent,
@@ -8,6 +8,8 @@ import {
   Box,
   Skeleton,
   useTheme,
+  Alert,
+  AlertTitle,
 } from '@mui/material'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { format } from 'date-fns'
@@ -19,43 +21,52 @@ interface RevenueChartProps {
     invoiceCount: number
   }>
   loading?: boolean
+  error?: string | null
 }
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+// Memoize currency formatting function
+const useCurrencyFormatter = () => {
+  return useMemo(() => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })
+  }, [])
 }
 
-function formatMonth(monthStr: string): string {
-  try {
-    if (!monthStr || typeof monthStr !== 'string') {
-      return 'Invalid Date'
+// Memoize month formatting function
+const useMonthFormatter = () => {
+  return useMemo(() => {
+    return (monthStr: string): string => {
+      try {
+        if (!monthStr || typeof monthStr !== 'string') {
+          return 'Invalid Date'
+        }
+        const parts = monthStr.split('-')
+        if (parts.length !== 2) {
+          return monthStr
+        }
+        const [year, month] = parts
+        const yearNum = parseInt(year)
+        const monthNum = parseInt(month)
+        
+        if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
+          return monthStr
+        }
+        
+        const date = new Date(yearNum, monthNum - 1)
+        if (isNaN(date.getTime())) {
+          return monthStr
+        }
+        return format(date, 'MMM yyyy')
+      } catch (error) {
+        console.error('Error formatting month:', error)
+        return monthStr || 'Invalid Date'
+      }
     }
-    const parts = monthStr.split('-')
-    if (parts.length !== 2) {
-      return monthStr
-    }
-    const [year, month] = parts
-    const yearNum = parseInt(year)
-    const monthNum = parseInt(month)
-    
-    if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12 || yearNum < 1900 || yearNum > 2100) {
-      return monthStr
-    }
-    
-    const date = new Date(yearNum, monthNum - 1)
-    if (isNaN(date.getTime())) {
-      return monthStr
-    }
-    return format(date, 'MMM yyyy')
-  } catch (error) {
-    console.error('Error formatting month:', error)
-    return monthStr || 'Invalid Date'
-  }
+  }, [])
 }
 
 interface TooltipProps {
@@ -71,6 +82,8 @@ interface TooltipProps {
 
 const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
   const theme = useTheme()
+  const formatCurrency = useCurrencyFormatter()
+  const formatMonth = useMonthFormatter()
   
   if (active && payload && payload.length && payload[0]) {
     const formattedMonth = label ? formatMonth(label) : ''
@@ -87,12 +100,13 @@ const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
           borderColor: 'divider',
           boxShadow: theme.shadows[4],
         }}
+        role="tooltip"
       >
         <Typography variant="body2" fontWeight={600} gutterBottom>
           {formattedMonth}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Revenue: {formatCurrency(revenue)}
+          Revenue: {formatCurrency.format(revenue)}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Invoices: {invoiceCount}
@@ -105,8 +119,33 @@ const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
 
 CustomTooltip.displayName = 'CustomTooltip'
 
-export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
+export function MUIRevenueChart({ data, loading = false, error = null }: RevenueChartProps) {
   const theme = useTheme()
+  const formatMonth = useMonthFormatter()
+  
+  // Memoize chart data transformation
+  const chartData = useMemo(() => {
+    if (!data || data.length === 0) return []
+    return data.map(item => ({
+      ...item,
+      displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
+      revenue: item.revenue || 0,
+      invoiceCount: item.invoiceCount || 0,
+    }))
+  }, [data, formatMonth])
+  
+  if (error) {
+    return (
+      <Card>
+        <CardContent>
+          <Alert severity="error">
+            <AlertTitle>Error Loading Data</AlertTitle>
+            {error}
+          </Alert>
+        </CardContent>
+      </Card>
+    )
+  }
   
   if (loading) {
     return (
@@ -119,12 +158,27 @@ export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
     )
   }
 
-  const chartData = data.map(item => ({
-    ...item,
-    displayMonth: item.month ? formatMonth(item.month) : 'Invalid',
-    revenue: item.revenue || 0,
-    invoiceCount: item.invoiceCount || 0,
-  }))
+  if (!data || data.length === 0) {
+    return (
+      <Card>
+        <CardContent>
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Box sx={{ color: 'text.disabled', mb: 2 }}>
+              <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </Box>
+            <Typography variant="h6" gutterBottom>
+              No Revenue Data
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Start creating invoices to see your revenue trend
+            </Typography>
+          </Box>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -132,7 +186,7 @@ export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
         <Typography variant="h6" fontWeight={600} gutterBottom>
           Revenue Trend
         </Typography>
-        <Box sx={{ width: '100%', height: 300, mt: 2 }}>
+        <Box sx={{ width: '100%', height: 300, mt: 2 }} role="img" aria-label="Revenue trend chart">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={chartData}
@@ -147,17 +201,18 @@ export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
               <CartesianGrid 
                 strokeDasharray="3 3" 
                 stroke={theme.palette.divider}
+                strokeOpacity={0.3}
               />
               <XAxis
                 dataKey="displayMonth"
                 tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-                axisLine={{ stroke: theme.palette.divider }}
-                tickLine={{ stroke: theme.palette.divider }}
+                axisLine={{ stroke: theme.palette.divider, opacity: 0.3 }}
+                tickLine={{ stroke: theme.palette.divider, opacity: 0.3 }}
               />
               <YAxis
                 tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-                axisLine={{ stroke: theme.palette.divider }}
-                tickLine={{ stroke: theme.palette.divider }}
+                axisLine={{ stroke: theme.palette.divider, opacity: 0.3 }}
+                tickLine={{ stroke: theme.palette.divider, opacity: 0.3 }}
                 tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
               />
               <Tooltip content={<CustomTooltip />} />
@@ -167,6 +222,9 @@ export function MUIRevenueChart({ data, loading = false }: RevenueChartProps) {
                 stroke={theme.palette.primary.main}
                 fillOpacity={1}
                 fill="url(#colorRevenue)"
+                strokeWidth={2}
+                dot={{ fill: theme.palette.primary.main, strokeWidth: 2, r: 4 }}
+                activeDot={{ r: 6, stroke: theme.palette.primary.main, strokeWidth: 2, fill: '#fff' }}
               />
             </AreaChart>
           </ResponsiveContainer>

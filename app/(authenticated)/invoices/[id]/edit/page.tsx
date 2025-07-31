@@ -1,17 +1,20 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, use, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { InvoiceForm } from '@/components/invoices/invoice-form'
+import { enqueueSnackbar } from 'notistack'
 
-export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+function EditInvoiceContent({ id }: { id: string }) {
   const router = useRouter()
-  const utils = api.useUtils()
   
-  // Fetch invoice data
-  const { data: invoice, isLoading: invoiceLoading } = api.invoices.getById.useQuery({ id })
+  // Fetch invoice data with error handling
+  const { 
+    data: invoice, 
+    isLoading,
+    error
+  } = api.invoices.getById.useQuery({ id })
   
   // Fetch clients and LUTs
   const { data: clients, isLoading: clientsLoading } = api.clients.list.useQuery()
@@ -26,71 +29,40 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     enabled: !!selectedCurrency && selectedCurrency !== 'INR',
   })
   
-  // Update invoice mutation
-  const updateInvoiceMutation = api.invoices.update.useMutation({
-    onSuccess: (updatedInvoice) => {
-      utils.invoices.list.invalidate()
-      utils.invoices.getById.invalidate({ id })
-      router.push(`/invoices/${updatedInvoice.id}`)
+  // Update mutation
+  const updateMutation = api.invoices.update.useMutation({
+    onSuccess: () => {
+      enqueueSnackbar('Invoice updated successfully', { variant: 'success' })
+      router.push(`/invoices/${id}`)
     },
     onError: (error) => {
-      console.error('Failed to update invoice:', error)
-      alert(`Failed to update invoice: ${error.message}`)
+      enqueueSnackbar(error.message, { variant: 'error' })
     },
   })
   
-  const handleSubmit = async (data: any) => {
-    try {
-      const lineItems = data.lineItems.filter((item: any) => 
-        item.description && item.quantity > 0 && item.rate > 0
-      )
-      
-      if (lineItems.length === 0) {
-        alert('Please add at least one valid line item')
-        return
-      }
-      
-      // Use manual exchange rate if provided, otherwise use fetched rate
-      const exchangeRate = manualExchangeRate || exchangeRateData?.rate || invoice?.exchangeRate || 1
-      const exchangeRateSource = exchangeRateData?.source || (manualExchangeRate ? 'Manual' : invoice?.exchangeSource || 'Manual')
-      
-      if (!exchangeRate && data.currency !== 'INR') {
-        alert('Please enter an exchange rate before updating the invoice')
-        return
-      }
-      
-      await updateInvoiceMutation.mutateAsync({
-        id: id,
-        clientId: data.clientId,
-        lutId: data.lutId || undefined,
-        issueDate: new Date(data.issueDate),
-        dueDate: new Date(data.dueDate),
-        currency: data.currency,
-        exchangeRate: data.currency === 'INR' ? 1 : Number(exchangeRate),
-        exchangeRateSource: data.currency === 'INR' ? 'Not applicable' : exchangeRateSource,
-        paymentTerms: data.paymentTerms,
-        notes: data.notes || undefined,
-        lineItems: lineItems.map((item: any) => ({
-          description: item.description,
-          hsn: item.hsn || '99719000',
-          quantity: parseInt(item.quantity),
-          rate: parseFloat(item.rate),
-          amount: parseFloat(item.amount),
-        })),
-      })
-    } catch {
-      // Error is handled by the mutation onError
-    }
-  }
+  // Add submit handler
+  const handleSubmit = useCallback((formData: any) => {
+    if (!invoice?.id) return
+    
+    updateMutation.mutate({
+      id: invoice.id,
+      ...formData,
+      exchangeRate: formData.currency !== 'INR' ? (manualExchangeRate || exchangeRateData?.rate || formData.exchangeRate) : 1,
+    })
+  }, [invoice?.id, updateMutation, manualExchangeRate, exchangeRateData?.rate])
   
-  const handleCancel = () => {
-    router.push(`/invoices/${id}`)
-  }
-  
-  if (invoiceLoading || clientsLoading || lutsLoading) {
+  if (isLoading || clientsLoading || lutsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+        <div className="text-gray-500">Loading invoice...</div>
+      </div>
+    )
+  }
+  
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-red-500">Error loading invoice: {error.message}</div>
       </div>
     )
   }
@@ -103,37 +75,66 @@ export default function EditInvoicePage({ params }: { params: Promise<{ id: stri
     )
   }
   
-  const formData = {
+  // Extract line items properly
+  const lineItems = invoice.lineItems.map((item: any) => ({
+    id: item.id,
+    description: item.description,
+    sacCode: item.serviceCode,
+    quantity: Number(item.quantity),
+    rate: Number(item.rate),
+    amount: Number(item.amount),
+  }))
+  
+  const initialData = {
     clientId: invoice.clientId,
     lutId: invoice.lutId || '',
     issueDate: invoice.invoiceDate.toISOString().split('T')[0],
     dueDate: invoice.dueDate.toISOString().split('T')[0],
     currency: invoice.currency,
-    paymentTerms: parseInt(invoice.paymentTerms || '30'),
+    paymentTerms: 30, // Default to 30 days
+    lineItems,
+    bankDetails: invoice.bankDetails || '',
     notes: invoice.notes || '',
-    bankDetails: '',
-    lineItems: invoice.lineItems.map((item, index) => ({
-      id: item.id || `item-${index}`,
-      description: item.description,
-      sacCode: item.serviceCode,
-      hsn: item.serviceCode,
-      quantity: item.quantity.toNumber(),
-      rate: item.rate.toNumber(),
-      amount: item.amount.toNumber(),
-    })),
   }
   
+  const exchangeRateInfo = selectedCurrency !== 'INR' && (manualExchangeRate || exchangeRateData?.rate) ? {
+    rate: manualExchangeRate || exchangeRateData?.rate || 1,
+    source: manualExchangeRate ? 'manual' : exchangeRateData?.source || 'manual',
+    date: exchangeRateData?.date || new Date(),
+  } : null
+  
   return (
-    <InvoiceForm
-      initialData={formData}
-      clients={clients || []}
-      luts={luts || []}
-      onSubmit={handleSubmit}
-      onCancel={handleCancel}
-      onCurrencyChange={setSelectedCurrency}
-      exchangeRate={exchangeRateData}
-      manualExchangeRate={manualExchangeRate}
-      onManualExchangeRateChange={setManualExchangeRate}
-    />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <h1 className="text-2xl font-bold mb-6">Edit Invoice</h1>
+      <InvoiceForm
+        initialData={initialData}
+        clients={clients || []}
+        luts={luts || []}
+        onSubmit={handleSubmit}
+        onCancel={() => router.push(`/invoices/${id}`)}
+        onCurrencyChange={setSelectedCurrency}
+        exchangeRate={exchangeRateInfo}
+        manualExchangeRate={manualExchangeRate}
+        onManualExchangeRateChange={setManualExchangeRate}
+      />
+    </div>
   )
+}
+
+export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  // Properly unwrap params with error handling
+  let id: string
+  try {
+    const resolvedParams = use(params)
+    id = resolvedParams.id
+  } catch (error) {
+    console.error('Error resolving params:', error)
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-red-500">Invalid invoice ID</div>
+      </div>
+    )
+  }
+  
+  return <EditInvoiceContent id={id} />
 }

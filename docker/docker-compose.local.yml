@@ -53,10 +53,13 @@ services:
   app:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-      target: development
+      dockerfile: docker/Dockerfile.dev
     container_name: gsthive-dev-app
     restart: unless-stopped
+    volumes:
+      - ../:/app
+      - /app/node_modules
+      - /app/.next
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
       DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
@@ -105,10 +108,13 @@ services:
   queue-worker:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
-      target: development
+      dockerfile: docker/Dockerfile.dev
     container_name: gsthive-dev-queue-worker
     command: npm run worker
+    volumes:
+      - ../:/app
+      - /app/node_modules
+      - /app/.next
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public
       DATABASE_DB_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-gsthive_dev}?schema=public

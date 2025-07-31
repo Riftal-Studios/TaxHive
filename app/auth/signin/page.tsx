@@ -2,68 +2,165 @@
 
 import { signIn } from 'next-auth/react'
 import { useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import {
+  Box,
+  Container,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Alert,
+  IconButton,
+  InputAdornment,
+  LinearProgress,
+  Link as MuiLink,
+} from '@mui/material'
+import {
+  Visibility,
+  VisibilityOff,
+  Email as EmailIcon,
+  Lock as LockIcon,
+} from '@mui/icons-material'
+import { enqueueSnackbar } from 'notistack'
 
-export default function SignIn() {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
+export default function SignInPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
     
     try {
-      await signIn('email', { 
-        email, 
+      const result = await signIn('credentials', {
+        email,
+        password,
         redirect: false,
-        callbackUrl 
+        callbackUrl,
       })
-      // Redirect to verify request page
-      window.location.href = '/auth/verify-request'
-    } catch (error) {
-      console.error('Sign in error:', error)
+      
+      if (result?.error) {
+        setError(result.error)
+      } else if (result?.ok) {
+        enqueueSnackbar('Signed in successfully!', { variant: 'success' })
+        router.push(callbackUrl as any)
+      }
+    } catch {
+      setError('An unexpected error occurred')
+    } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Sign in to GSTHive</h1>
-          <p className="mt-2 text-gray-600">Enter your email to receive a magic link</p>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email address
-            </label>
-            <input
-              id="email"
-              name="email"
+    <Container component="main" maxWidth="sm">
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Typography component="h1" variant="h5" align="center" gutterBottom>
+            Sign in to GSTHive
+          </Typography>
+          
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          
+          <Box component="form" onSubmit={handleSignIn} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Email Address"
               type="email"
-              autoComplete="email"
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
+              autoComplete="email"
+              required
+              autoFocus
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <EmailIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 2 }}
             />
-          </div>
+            
+            <TextField
+              fullWidth
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              required
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <LockIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ mb: 1 }}
+            />
+            
+            <Box sx={{ textAlign: 'right', mb: 2 }}>
+              <MuiLink href="/auth/forgot-password" variant="body2" component={Link}>
+                Forgot password?
+              </MuiLink>
+            </Box>
+            
+            <Button
+              fullWidth
+              type="submit"
+              variant="contained"
+              disabled={loading}
+              sx={{ mb: 2 }}
+            >
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </Box>
           
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            {loading ? 'Sending...' : 'Send Magic Link'}
-          </button>
-        </form>
-      </div>
-    </div>
+          {loading && <LinearProgress sx={{ mt: 2 }} />}
+          
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Don&apos;t have an account?{' '}
+              <MuiLink href="/auth/signup" component={Link} color="inherit">
+                Sign up
+              </MuiLink>
+            </Typography>
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   )
 }

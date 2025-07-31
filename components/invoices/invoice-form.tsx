@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type { Client, LUT } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
@@ -68,6 +68,8 @@ interface InvoiceFormProps {
   manualExchangeRate?: number | null
   onManualExchangeRateChange?: (rate: number | null) => void
   initialData?: Partial<InvoiceFormData>
+  autoSave?: boolean
+  onAutoSave?: (data: Partial<InvoiceFormData>) => void | Promise<void>
 }
 
 interface FormErrors {
@@ -78,86 +80,29 @@ interface FormErrors {
   lineItems?: Record<string, Record<string, string>>
 }
 
-export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChange, exchangeRate, manualExchangeRate, onManualExchangeRateChange, initialData }: InvoiceFormProps) {
-  const [formData, setFormData] = useState<InvoiceFormData>({
-    clientId: initialData?.clientId || '',
-    lutId: initialData?.lutId || '',
-    issueDate: initialData?.issueDate || new Date().toISOString().split('T')[0],
-    dueDate: initialData?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    currency: initialData?.currency || 'USD',
-    paymentTerms: initialData?.paymentTerms || 30,
-    lineItems: initialData?.lineItems || [
-      {
-        id: crypto.randomUUID(),
-        description: '',
-        sacCode: '',
-        quantity: 1,
-        rate: 0,
-        amount: 0,
-      },
-    ],
-    bankDetails: initialData?.bankDetails || '',
-    notes: initialData?.notes || '',
-  })
-
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showClientDropdown, setShowClientDropdown] = useState(false)
-  const [showLutDropdown, setShowLutDropdown] = useState(false)
-  const [showSacDropdown, setShowSacDropdown] = useState<Record<string, boolean>>({})
-  const [sacSearchTerm, setSacSearchTerm] = useState<Record<string, string>>({})
-
-  const selectedClient = clients.find(c => c.id === formData.clientId)
-  const selectedLut = luts.find(l => l.id === formData.lutId)
-  const paymentTermOptions = getPaymentTermOptions()
-  const currencyOptions = getSupportedCurrencies()
-
-  // Calculate totals
-  const subtotal = calculateSubtotal(formData.lineItems)
-  const gstAmount = 0 // Always 0 for exports under LUT
-  const total = calculateTotal(subtotal, gstAmount)
-
-  // GST validation
-  const gstValidation = formData.lineItems.length > 0 && (exchangeRate || manualExchangeRate) ? validateGSTInvoice({
-    placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
-    serviceCode: formData.lineItems[0].sacCode,
-    igstRate: 0,
-    lutId: formData.lutId || null,
-    currency: formData.currency,
-    exchangeRate: manualExchangeRate || exchangeRate?.rate || 0,
-    exchangeSource: exchangeRate ? exchangeRate.source : 'Manual',
-  }) : null
-
-  // LUT expiry status
-  const lutExpiryStatus = selectedLut ? getLUTExpiryStatus(new Date(selectedLut.validTill)) : null
-
-  // Filter SAC codes based on search term
-  const getFilteredSacCodes = (itemId: string) => {
-    const searchTerm = sacSearchTerm[itemId]?.toLowerCase() || ''
-    if (!searchTerm) return SAC_HSN_CODES
-    
-    return SAC_HSN_CODES.filter(
-      sac => 
-        sac.code.toLowerCase().includes(searchTerm) ||
-        sac.description.toLowerCase().includes(searchTerm)
-    )
-  }
-
-  // Update due date when payment terms change
-  useEffect(() => {
-    const issueDate = new Date(formData.issueDate)
-    const dueDate = new Date(issueDate.getTime() + formData.paymentTerms * 24 * 60 * 60 * 1000)
-    setFormData(prev => ({
-      ...prev,
-      dueDate: dueDate.toISOString().split('T')[0],
-    }))
-  }, [formData.issueDate, formData.paymentTerms])
-
-  const handleAddLineItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      lineItems: [
-        ...prev.lineItems,
+export function InvoiceForm({ 
+  clients, 
+  luts, 
+  onSubmit, 
+  onCancel, 
+  onCurrencyChange, 
+  exchangeRate, 
+  manualExchangeRate, 
+  onManualExchangeRateChange, 
+  initialData,
+  autoSave = false,
+  onAutoSave
+}: InvoiceFormProps) {
+  // Memoize initial form data to prevent unnecessary re-renders
+  const getInitialFormData = useCallback((): InvoiceFormData => {
+    return {
+      clientId: initialData?.clientId || '',
+      lutId: initialData?.lutId || '',
+      issueDate: initialData?.issueDate || new Date().toISOString().split('T')[0],
+      dueDate: initialData?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      currency: initialData?.currency || 'USD',
+      paymentTerms: initialData?.paymentTerms || 30,
+      lineItems: initialData?.lineItems || [
         {
           id: crypto.randomUUID(),
           description: '',
@@ -167,17 +112,137 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
           amount: 0,
         },
       ],
-    }))
-  }
+      bankDetails: initialData?.bankDetails || '',
+      notes: initialData?.notes || '',
+    }
+  }, [initialData])
 
-  const handleRemoveLineItem = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      lineItems: prev.lineItems.filter(item => item.id !== id),
-    }))
-  }
+  const [formData, setFormData] = useState<InvoiceFormData>(getInitialFormData())
+  const [errors, setErrors] = useState<FormErrors>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const [showLutDropdown, setShowLutDropdown] = useState(false)
+  const [showSacDropdown, setShowSacDropdown] = useState<Record<string, boolean>>({})
+  const [sacSearchTerm, setSacSearchTerm] = useState<Record<string, string>>({})
+  
+  // Auto-save debounce
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const handleLineItemChange = (id: string, field: keyof LineItem, value: string | number) => {
+  // Memoize derived values
+  const selectedClient = useMemo(() => clients.find(c => c.id === formData.clientId), [clients, formData.clientId])
+  const selectedLut = useMemo(() => luts.find(l => l.id === formData.lutId), [luts, formData.lutId])
+  const paymentTermOptions = useMemo(() => getPaymentTermOptions(), [])
+  const currencyOptions = useMemo(() => getSupportedCurrencies(), [])
+
+  // Calculate totals with memoization
+  const { subtotal, gstAmount, total } = useMemo(() => {
+    const subtotal = calculateSubtotal(formData.lineItems)
+    const gstAmount = 0 // Always 0 for exports under LUT
+    const total = calculateTotal(subtotal, gstAmount)
+    return { subtotal, gstAmount, total }
+  }, [formData.lineItems])
+
+  // GST validation with memoization
+  const gstValidation = useMemo(() => {
+    if (formData.lineItems.length === 0 || (!exchangeRate && !manualExchangeRate)) {
+      return null
+    }
+    return validateGSTInvoice({
+      placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
+      serviceCode: formData.lineItems[0].sacCode,
+      igstRate: 0,
+      lutId: formData.lutId || null,
+      currency: formData.currency,
+      exchangeRate: manualExchangeRate || exchangeRate?.rate || 0,
+      exchangeSource: exchangeRate ? exchangeRate.source : 'Manual',
+    })
+  }, [formData.lineItems, formData.lutId, formData.currency, exchangeRate, manualExchangeRate])
+
+  // LUT expiry status with memoization
+  const lutExpiryStatus = useMemo(() => {
+    return selectedLut ? getLUTExpiryStatus(new Date(selectedLut.validTill)) : null
+  }, [selectedLut])
+
+  // Memoize SAC code filtering
+  const getFilteredSacCodes = useCallback((itemId: string) => {
+    const searchTerm = sacSearchTerm[itemId]?.toLowerCase() || ''
+    if (!searchTerm) return SAC_HSN_CODES
+    
+    return SAC_HSN_CODES.filter(
+      sac => 
+        sac.code.toLowerCase().includes(searchTerm) ||
+        sac.description.toLowerCase().includes(searchTerm)
+    )
+  }, [sacSearchTerm])
+
+  // Auto-save functionality
+  const triggerAutoSave = useCallback((data: InvoiceFormData) => {
+    if (!autoSave || !onAutoSave) return
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsAutoSaving(true)
+        await onAutoSave(data)
+      } catch (error) {
+        console.error('Auto-save failed:', error)
+      } finally {
+        setIsAutoSaving(false)
+      }
+    }, 2000) // 2 second debounce
+  }, [autoSave, onAutoSave])
+
+  // Update due date when payment terms change
+  useEffect(() => {
+    const issueDate = new Date(formData.issueDate)
+    const dueDate = new Date(issueDate.getTime() + formData.paymentTerms * 24 * 60 * 60 * 1000)
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        dueDate: dueDate.toISOString().split('T')[0],
+      }
+      triggerAutoSave(newData)
+      return newData
+    })
+  }, [formData.issueDate, formData.paymentTerms, triggerAutoSave])
+
+  const handleAddLineItem = useCallback(() => {
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        lineItems: [
+          ...prev.lineItems,
+          {
+            id: crypto.randomUUID(),
+            description: '',
+            sacCode: '',
+            quantity: 1,
+            rate: 0,
+            amount: 0,
+          },
+        ],
+      }
+      triggerAutoSave(newData)
+      return newData
+    })
+  }, [triggerAutoSave])
+
+  const handleRemoveLineItem = useCallback((id: string) => {
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        lineItems: prev.lineItems.filter(item => item.id !== id),
+      }
+      triggerAutoSave(newData)
+      return newData
+    })
+  }, [triggerAutoSave])
+
+  const handleLineItemChange = useCallback((id: string, field: keyof LineItem, value: string | number) => {
     setFormData(prev => {
       const updatedItems = prev.lineItems.map(item => {
         if (item.id === id) {
@@ -193,7 +258,9 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
         }
         return item
       })
-      return { ...prev, lineItems: updatedItems }
+      const newData = { ...prev, lineItems: updatedItems }
+      triggerAutoSave(newData)
+      return newData
     })
 
     // Clear field-specific error when user starts typing
@@ -209,9 +276,9 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
         return { ...prev, lineItems: updatedLineItems }
       })
     }
-  }
+  }, [errors, triggerAutoSave])
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: FormErrors = {}
     
     if (!formData.clientId) {
@@ -252,9 +319,9 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [formData])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!validateForm()) {
@@ -275,15 +342,35 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
     } finally {
       setIsSubmitting(false)
     }
-  }
+  }, [formData, onSubmit, validateForm])
+
+  // Cleanup auto-save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      {/* Auto-save indicator */}
+      {isAutoSaving && (
+        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center">
+          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Auto-saving...
+        </div>
+      )}
+
       {/* Client and LUT Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="client" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Client
+            Client <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <div className="relative">
             <button
@@ -291,11 +378,13 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               id="client"
               onClick={() => setShowClientDropdown(!showClientDropdown)}
               className={getDropdownButtonClassName(!!errors.clientId)}
+              aria-expanded={showClientDropdown}
+              aria-haspopup="listbox"
             >
               {selectedClient ? selectedClient.name : 'Select a client'}
             </button>
             {showClientDropdown && (
-              <div className={dropdownContainerClassName}>
+              <div className={dropdownContainerClassName} role="listbox">
                 {clients.map(client => (
                   <button
                     key={client.id}
@@ -305,6 +394,8 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       setShowClientDropdown(false)
                     }}
                     className={dropdownItemClassName}
+                    role="option"
+                    aria-selected={formData.clientId === client.id}
                   >
                     {client.name}
                   </button>
@@ -313,7 +404,9 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             )}
           </div>
           {errors.clientId && (
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.clientId}</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
+              {errors.clientId}
+            </p>
           )}
         </div>
 
@@ -327,11 +420,13 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               id="lut"
               onClick={() => setShowLutDropdown(!showLutDropdown)}
               className={getDropdownButtonClassName(!!errors.lutId)}
+              aria-expanded={showLutDropdown}
+              aria-haspopup="listbox"
             >
               {selectedLut ? selectedLut.lutNumber : 'Select a LUT'}
             </button>
             {showLutDropdown && (
-              <div className={dropdownContainerClassName}>
+              <div className={dropdownContainerClassName} role="listbox">
                 {luts.map(lut => (
                   <button
                     key={lut.id}
@@ -341,6 +436,8 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       setShowLutDropdown(false)
                     }}
                     className={dropdownItemClassName}
+                    role="option"
+                    aria-selected={formData.lutId === lut.id}
                   >
                     {lut.lutNumber}
                   </button>
@@ -355,7 +452,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div>
           <label htmlFor="issueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Issue Date
+            Issue Date <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             type="date"
@@ -363,12 +460,14 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             value={formData.issueDate}
             onChange={(e) => setFormData(prev => ({ ...prev, issueDate: e.target.value }))}
             className={getInputClassName()}
+            required
+            aria-required="true"
           />
         </div>
 
         <div>
           <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Due Date
+            Due Date <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             type="date"
@@ -376,12 +475,14 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             value={formData.dueDate}
             onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
             className={getInputClassName()}
+            required
+            aria-required="true"
           />
         </div>
 
         <div>
           <label htmlFor="currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Currency
+            Currency <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <select
             id="currency"
@@ -392,6 +493,8 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
               onCurrencyChange?.(newCurrency)
             }}
             className={selectClassName}
+            required
+            aria-required="true"
           >
             {currencyOptions.map(currency => (
               <option key={currency.code} value={currency.code}>
@@ -403,13 +506,15 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
 
         <div>
           <label htmlFor="paymentTerms" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Payment Terms
+            Payment Terms <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <select
             id="paymentTerms"
             value={formData.paymentTerms}
             onChange={(e) => setFormData(prev => ({ ...prev, paymentTerms: Number(e.target.value) }))}
             className={selectClassName}
+            required
+            aria-required="true"
           >
             {paymentTermOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -484,6 +589,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     }}
                     placeholder="Enter rate"
                     className={exchangeRateInputClassName}
+                    aria-label="Manual exchange rate"
                   />
                   <span className="text-xs text-yellow-600 dark:text-yellow-400">
                     (Manual entry)
@@ -497,14 +603,16 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
 
       {/* Line Items */}
       <div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Line Items</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Line Items <span className="text-red-500" aria-hidden="true">*</span>
+        </h3>
         <div className="space-y-4">
           {formData.lineItems.map((item) => (
             <div key={item.id} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
               <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div className="md:col-span-2">
                   <label htmlFor={`description-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Description
+                    Description <span className="text-red-500" aria-hidden="true">*</span>
                   </label>
                   <input
                     type="text"
@@ -512,9 +620,17 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     value={item.description}
                     onChange={(e) => handleLineItemChange(item.id, 'description', e.target.value)}
                     className={getInputClassName(!!errors.lineItems?.[item.id]?.description)}
+                    required
+                    aria-required="true"
+                    aria-invalid={!!errors.lineItems?.[item.id]?.description}
+                    aria-describedby={errors.lineItems?.[item.id]?.description ? `description-${item.id}-error` : undefined}
                   />
                   {errors.lineItems?.[item.id]?.description && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    <p 
+                      id={`description-${item.id}-error`}
+                      className="mt-1 text-sm text-red-600 dark:text-red-400" 
+                      role="alert"
+                    >
                       {errors.lineItems[item.id].description}
                     </p>
                   )}
@@ -522,7 +638,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
 
                 <div>
                   <label htmlFor={`sacCode-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    SAC/HSN Code
+                    SAC/HSN Code <span className="text-red-500" aria-hidden="true">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -537,9 +653,15 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                       onBlur={() => setTimeout(() => setShowSacDropdown(prev => ({ ...prev, [item.id]: false })), 200)}
                       placeholder="Search or enter code"
                       className={getInputClassName(!!errors.lineItems?.[item.id]?.sacCode)}
+                      required
+                      aria-required="true"
+                      aria-invalid={!!errors.lineItems?.[item.id]?.sacCode}
+                      aria-describedby={errors.lineItems?.[item.id]?.sacCode ? `sacCode-${item.id}-error` : undefined}
+                      aria-expanded={showSacDropdown[item.id]}
+                      aria-haspopup="listbox"
                     />
                     {showSacDropdown[item.id] && (
-                      <div className={`${dropdownContainerClassName} max-h-60 overflow-auto`}>
+                      <div className={`${dropdownContainerClassName} max-h-60 overflow-auto`} role="listbox">
                         {getFilteredSacCodes(item.id).map(sac => (
                           <button
                             key={sac.code}
@@ -551,6 +673,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                               setShowSacDropdown(prev => ({ ...prev, [item.id]: false }))
                             }}
                             className={`${dropdownItemClassName} text-sm`}
+                            role="option"
                           >
                             <div className="font-medium text-gray-900 dark:text-white">{sac.code}</div>
                             <div className="text-gray-500 dark:text-gray-400 text-xs">{sac.description}</div>
@@ -565,7 +688,11 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     )}
                   </div>
                   {errors.lineItems?.[item.id]?.sacCode && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                    <p 
+                      id={`sacCode-${item.id}-error`}
+                      className="mt-1 text-sm text-red-600 dark:text-red-400" 
+                      role="alert"
+                    >
                       {errors.lineItems[item.id].sacCode}
                     </p>
                   )}
@@ -573,7 +700,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
 
                 <div>
                   <label htmlFor={`quantity-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Quantity
+                    Quantity <span className="text-red-500" aria-hidden="true">*</span>
                   </label>
                   <input
                     type="number"
@@ -581,12 +708,27 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     value={item.quantity}
                     onChange={(e) => handleLineItemChange(item.id, 'quantity', e.target.value)}
                     className={getInputClassName(!!errors.lineItems?.[item.id]?.quantity)}
+                    required
+                    aria-required="true"
+                    min="1"
+                    step="1"
+                    aria-invalid={!!errors.lineItems?.[item.id]?.quantity}
+                    aria-describedby={errors.lineItems?.[item.id]?.quantity ? `quantity-${item.id}-error` : undefined}
                   />
+                  {errors.lineItems?.[item.id]?.quantity && (
+                    <p 
+                      id={`quantity-${item.id}-error`}
+                      className="mt-1 text-sm text-red-600 dark:text-red-400" 
+                      role="alert"
+                    >
+                      {errors.lineItems[item.id].quantity}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <label htmlFor={`rate-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Rate
+                    Rate <span className="text-red-500" aria-hidden="true">*</span>
                   </label>
                   <input
                     type="number"
@@ -594,7 +736,22 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     value={item.rate}
                     onChange={(e) => handleLineItemChange(item.id, 'rate', e.target.value)}
                     className={getInputClassName(!!errors.lineItems?.[item.id]?.rate)}
+                    required
+                    aria-required="true"
+                    min="0.01"
+                    step="0.01"
+                    aria-invalid={!!errors.lineItems?.[item.id]?.rate}
+                    aria-describedby={errors.lineItems?.[item.id]?.rate ? `rate-${item.id}-error` : undefined}
                   />
+                  {errors.lineItems?.[item.id]?.rate && (
+                    <p 
+                      id={`rate-${item.id}-error`}
+                      className="mt-1 text-sm text-red-600 dark:text-red-400" 
+                      role="alert"
+                    >
+                      {errors.lineItems[item.id].rate}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-end justify-between">
@@ -610,7 +767,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
                     <button
                       type="button"
                       onClick={() => handleRemoveLineItem(item.id)}
-                      aria-label="Remove line item"
+                      aria-label={`Remove line item ${item.id}`}
                       className="ml-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                     >
                       ×
@@ -713,6 +870,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             value={formData.bankDetails}
             onChange={(e) => setFormData(prev => ({ ...prev, bankDetails: e.target.value }))}
             className={textareaClassName}
+            aria-label="Bank details"
           />
         </div>
 
@@ -726,6 +884,7 @@ export function InvoiceForm({ clients, luts, onSubmit, onCancel, onCurrencyChang
             value={formData.notes}
             onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
             className={textareaClassName}
+            aria-label="Additional notes"
           />
         </div>
       </div>

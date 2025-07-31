@@ -30,8 +30,9 @@ export default function OnboardingPage() {
   const router = useRouter()
   const { update } = useSession()
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
   
-  const { data: status, isLoading } = api.users.getOnboardingStatus.useQuery()
+  const { data: status, isLoading, error } = api.users.getOnboardingStatus.useQuery()
   const completeOnboardingMutation = api.users.completeOnboarding.useMutation({
     onSuccess: async () => {
       console.log('Complete onboarding success - updating session and navigating')
@@ -40,6 +41,7 @@ export default function OnboardingPage() {
       // Use router.refresh() to ensure middleware re-evaluates
       router.refresh()
       // Navigate to dashboard
+      setIsNavigating(true)
       router.push('/dashboard')
     },
     onError: (error) => {
@@ -54,6 +56,7 @@ export default function OnboardingPage() {
       // Use router.refresh() to ensure middleware re-evaluates
       router.refresh()
       // Navigate to dashboard
+      setIsNavigating(true)
       router.push('/dashboard')
     },
     onError: (error) => {
@@ -63,6 +66,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (status?.completed && status.currentStep !== 'complete') {
+      setIsNavigating(true)
       router.push('/dashboard')
     }
   }, [status, router])
@@ -70,7 +74,33 @@ export default function OnboardingPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" aria-label="Loading"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Error Loading Onboarding
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            {error.message}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     )
   }
@@ -78,7 +108,6 @@ export default function OnboardingPage() {
   if (!status) {
     return null
   }
-
 
   const handleComplete = async () => {
     console.log('handleComplete clicked')
@@ -98,10 +127,39 @@ export default function OnboardingPage() {
     }
   }
 
+  const handleNavigate = (step: OnboardingStepWithData) => {
+    // Use proper Next.js router.push instead of window.location.href
+    switch (step) {
+      case 'profile':
+        router.push('/settings')
+        break
+      case 'client':
+        router.push('/clients')
+        break
+      case 'lut':
+        router.push('/settings?tab=lut')
+        break
+      case 'invoice':
+        router.push('/invoices/new')
+        break
+    }
+  }
+
   const orderedSteps: OnboardingStepWithData[] = ['profile', 'client', 'lut', 'invoice']
   const currentStepIndex = status.currentStep === 'complete' 
     ? orderedSteps.length 
     : orderedSteps.indexOf(status.currentStep as OnboardingStepWithData)
+
+  if (isNavigating) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4" aria-label="Loading"></div>
+          <p className="text-gray-600 dark:text-gray-400">Setting up your account...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -122,6 +180,11 @@ export default function OnboardingPage() {
             <div
               className="bg-indigo-600 h-3 rounded-full transition-all duration-500"
               style={{ width: `${status.progress}%` }}
+              role="progressbar"
+              aria-valuenow={status.progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Onboarding progress"
             />
           </div>
           <p className="text-center mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -136,7 +199,6 @@ export default function OnboardingPage() {
             const isCurrentStep = step === status.currentStep
             const isPastStep = index < currentStepIndex
             const isOptional = !stepStatus.required
-            
 
             return (
               <div
@@ -148,11 +210,12 @@ export default function OnboardingPage() {
                     ? 'border-indigo-500 bg-white dark:bg-gray-800 shadow-lg'
                     : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
                 }`}
+                role="listitem"
               >
                 <div className="flex items-start">
                   <div className="flex-shrink-0">
                     {stepStatus.completed ? (
-                      <CheckCircleSolidIcon className="h-8 w-8 text-green-500" />
+                      <CheckCircleSolidIcon className="h-8 w-8 text-green-500" aria-hidden="true" />
                     ) : (
                       <div
                         className={`h-8 w-8 rounded-full border-2 ${
@@ -160,6 +223,7 @@ export default function OnboardingPage() {
                             ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900'
                             : 'border-gray-300 dark:border-gray-600'
                         }`}
+                        aria-hidden="true"
                       >
                         <span
                           className={`flex h-full w-full items-center justify-center text-sm font-medium ${
@@ -194,23 +258,10 @@ export default function OnboardingPage() {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            // Use window.location for more reliable navigation
-                            switch (step) {
-                              case 'profile':
-                                window.location.href = '/settings'
-                                break
-                              case 'client':
-                                window.location.href = '/clients'
-                                break
-                              case 'lut':
-                                window.location.href = '/settings?tab=lut'
-                                break
-                              case 'invoice':
-                                window.location.href = '/invoices/new'
-                                break
-                            }
+                            handleNavigate(step)
                           }}
                           className="ml-4 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800"
+                          aria-label={`${isCurrentStep ? 'Start' : 'Continue'} ${STEP_TITLES[step]}`}
                         >
                           {isCurrentStep ? 'Start' : 'Continue'}
                         </button>
@@ -228,6 +279,7 @@ export default function OnboardingPage() {
           <button
             onClick={() => setShowSkipConfirm(true)}
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            aria-label="Skip onboarding"
           >
             Skip onboarding
           </button>
@@ -241,6 +293,7 @@ export default function OnboardingPage() {
                 ? 'bg-green-600 hover:bg-green-700'
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
+            aria-label="Complete setup"
           >
             {completeOnboardingMutation.isPending ? 'Completing...' : 'Complete Setup'}
           </button>
@@ -248,15 +301,16 @@ export default function OnboardingPage() {
 
         {/* Skip Confirmation Modal */}
         {showSkipConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true" aria-labelledby="skip-modal-title">
             <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                <h3 id="skip-modal-title" className="text-lg font-medium text-gray-900 dark:text-white">
                   Skip Onboarding?
                 </h3>
                 <button
                   onClick={() => setShowSkipConfirm(false)}
                   className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
+                  aria-label="Close dialog"
                 >
                   <XMarkIcon className="h-5 w-5" />
                 </button>

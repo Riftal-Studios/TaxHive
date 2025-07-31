@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import "@/styles/autofill-dark-mode.css"
 import { TRPCReactProvider } from "@/lib/trpc/client"
 import { SessionProvider } from "@/components/providers/SessionProvider"
 import { getServerSession } from "next-auth"

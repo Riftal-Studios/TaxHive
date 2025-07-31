@@ -52,7 +52,11 @@ prisma/*.db-journal
 /playwright/.cache/
 
 # uploads
-/uploads/.secrets
+/uploads/
+
+# secrets
+.secrets
+.secrets.*
 .vars
-.secrets.staging
-.vars.staging
+.vars.*
+.aider*

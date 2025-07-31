@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -121,9 +121,11 @@ export function EnhancedPaymentModal({
     },
   })
 
-  const validateForm = () => {
+  // Memoize validation function
+  const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {}
 
+    // Validate amount
     const parsedAmount = parseFloat(amount)
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       newErrors.amount = 'Please enter a valid amount'
@@ -131,10 +133,21 @@ export function EnhancedPaymentModal({
       newErrors.amount = `Amount cannot exceed balance due (${currency} ${balanceDue.toFixed(2)})`
     }
 
+    // Validate payment date
     if (!paymentDate) {
       newErrors.paymentDate = 'Payment date is required'
+    } else {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const paymentDateCopy = new Date(paymentDate)
+      paymentDateCopy.setHours(0, 0, 0, 0)
+      
+      if (paymentDateCopy > today) {
+        newErrors.paymentDate = 'Payment date cannot be in the future'
+      }
     }
 
+    // Validate payment method
     if (!paymentMethod) {
       newErrors.paymentMethod = 'Payment method is required'
     }
@@ -158,6 +171,11 @@ export function EnhancedPaymentModal({
       const parsedFees = parseFloat(platformFeesInCurrency)
       if (isNaN(parsedFees) || parsedFees < 0) {
         newErrors.platformFeesInCurrency = 'Please enter a valid fee amount'
+      } else if (amount && parseFloat(amount) > 0) {
+        const parsedAmountValue = parseFloat(amount)
+        if (parsedFees > parsedAmountValue) {
+          newErrors.platformFeesInCurrency = 'Platform fees cannot exceed payment amount'
+        }
       }
     }
 
@@ -168,11 +186,42 @@ export function EnhancedPaymentModal({
       }
     }
 
+    // Validate FIRC date if provided
+    if (fircDate) {
+      const today = new Date()
+      if (fircDate > today) {
+        newErrors.fircDate = 'FIRC date cannot be in the future'
+      }
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [
+    amount, 
+    balanceDue, 
+    currency, 
+    paymentDate, 
+    paymentMethod, 
+    creditedAmount, 
+    actualExchangeRate, 
+    platformFeesInCurrency, 
+    bankChargesInr, 
+    fircDate
+  ])
 
-  const handleSubmit = async () => {
+  // Memoize effective exchange rate calculation
+  const effectiveRate = useMemo(() => {
+    if (creditedAmount && amountReceivedBeforeFees && currency !== 'INR') {
+      const credited = parseFloat(creditedAmount)
+      const received = parseFloat(amountReceivedBeforeFees)
+      if (credited > 0 && received > 0) {
+        return (credited / received).toFixed(4)
+      }
+    }
+    return null
+  }, [creditedAmount, amountReceivedBeforeFees, currency])
+
+  const handleSubmit = useCallback(async () => {
     if (!validateForm()) return
 
     await recordPaymentMutation.mutateAsync({
@@ -192,18 +241,40 @@ export function EnhancedPaymentModal({
       fircDate: fircDate || undefined,
       fircDocumentUrl: fircDocumentUrl || undefined,
     })
-  }
+  }, [
+    validateForm,
+    recordPaymentMutation,
+    invoiceId,
+    amount,
+    currency,
+    paymentDate,
+    paymentMethod,
+    reference,
+    notes,
+    amountReceivedBeforeFees,
+    platformFeesInCurrency,
+    creditedAmount,
+    actualExchangeRate,
+    bankChargesInr,
+    fircNumber,
+    fircDate,
+    fircDocumentUrl
+  ])
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (!recordPaymentMutation.isPending) {
       onClose()
     }
-  }
+  }, [recordPaymentMutation.isPending, onClose])
 
-  // Calculate effective exchange rate if amounts are provided
-  const effectiveRate = creditedAmount && amountReceivedBeforeFees && currency !== 'INR' 
-    ? (parseFloat(creditedAmount) / parseFloat(amountReceivedBeforeFees)).toFixed(4)
-    : null
+  // Auto-calculate platform fees when amount received changes
+  const handleAmountReceivedChange = useCallback((value: string) => {
+    setAmountReceivedBeforeFees(value)
+    if (value && amount) {
+      const fees = parseFloat(amount) - parseFloat(value)
+      setPlatformFeesInCurrency(fees > 0 ? fees.toFixed(2) : '')
+    }
+  }, [amount])
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -359,14 +430,7 @@ export function EnhancedPaymentModal({
                           label="Amount Received (Before Fees)"
                           type="number"
                           value={amountReceivedBeforeFees}
-                          onChange={(e) => {
-                            setAmountReceivedBeforeFees(e.target.value)
-                            // Auto-calculate platform fees
-                            if (e.target.value && amount) {
-                              const fees = parseFloat(amount) - parseFloat(e.target.value)
-                              setPlatformFeesInCurrency(fees > 0 ? fees.toFixed(2) : '')
-                            }
-                          }}
+                          onChange={(e) => handleAmountReceivedChange(e.target.value)}
                           helperText="Amount that reached your payment platform"
                           InputProps={{
                             startAdornment: <InputAdornment position="start">{currency}</InputAdornment>,
@@ -383,7 +447,8 @@ export function EnhancedPaymentModal({
                           type="number"
                           value={platformFeesInCurrency}
                           onChange={(e) => setPlatformFeesInCurrency(e.target.value)}
-                          helperText="Transfer/platform fees in original currency"
+                          error={!!errors.platformFeesInCurrency}
+                          helperText={errors.platformFeesInCurrency || 'Transfer/platform fees in original currency'}
                           InputProps={{
                             startAdornment: <InputAdornment position="start">{currency}</InputAdornment>,
                           }}
@@ -545,6 +610,8 @@ export function EnhancedPaymentModal({
                       slotProps={{
                         textField: {
                           fullWidth: true,
+                          error: !!errors.fircDate,
+                          helperText: errors.fircDate,
                           placeholder: 'FIRC issue date',
                           size: 'medium',
                         },

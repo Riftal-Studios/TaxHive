@@ -143,6 +143,72 @@ const baseStyles = `
   </style>
 `
 
+interface EmailTemplate {
+  subject: string
+  html: string
+  text: string
+}
+
+export function generateOTPEmail(otp: string, purpose: 'SIGNUP' | 'PASSWORD_RESET'): EmailTemplate {
+  const action = purpose === 'SIGNUP' ? 'verify your email' : 'reset your password'
+  const subject = purpose === 'SIGNUP' ? 'Verify your email' : 'Reset your password'
+  
+  return {
+    subject: `${subject} - GSTHive`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        ${baseStyles}
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header">
+            <h1>Your verification code</h1>
+          </div>
+          
+          <div class="content">
+            <p>You requested to ${action}. Use the following code:</p>
+            
+            <div style="background-color: #f4f4f4; padding: 30px; text-align: center; margin: 30px 0; border-radius: 8px;">
+              <h2 style="color: #4F46E5; font-size: 36px; letter-spacing: 8px; margin: 0; font-family: monospace;">${otp}</h2>
+            </div>
+            
+            <p>This code will expire in <strong>10 minutes</strong>.</p>
+            
+            <p>If you didn't request this, please ignore this email. Your account remains secure.</p>
+            
+            <p>Best regards,<br>
+            GSTHive Team</p>
+          </div>
+          
+          <div class="footer">
+            <p><strong>GSTHive</strong></p>
+            <p>GST-Compliant Invoice Management for Indian Freelancers</p>
+            <p style="margin-top: 20px; font-size: 12px;">
+              This is an automated email. Please do not reply directly to this message.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `Your verification code: ${otp}
+
+This code will expire in 10 minutes.
+
+If you didn't request this, please ignore this email. Your account remains secure.
+
+Best regards,
+GSTHive Team
+
+This is an automated email. Please do not reply directly to this message.`,
+  }
+}
+
+
 export const emailTemplates = {
   invoice: (data: EmailTemplateData) => {
     const formattedAmount = data.amount && data.currency 

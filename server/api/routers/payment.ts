@@ -20,7 +20,7 @@ const PaymentInputSchema = z.object({
   bankChargesInr: z.number().min(0).optional(),
   fircNumber: z.string().optional(),
   fircDate: z.date().optional(),
-  fircDocumentUrl: z.string().url().optional(),
+  fircDocumentUrl: z.string().optional(),
 })
 
 export const paymentRouter = createTRPCRouter({
@@ -233,7 +233,7 @@ export const paymentRouter = createTRPCRouter({
         bankChargesInr: z.number().min(0).optional(),
         fircNumber: z.string().optional(),
         fircDate: z.date().optional(),
-        fircDocumentUrl: z.string().url().optional(),
+        fircDocumentUrl: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

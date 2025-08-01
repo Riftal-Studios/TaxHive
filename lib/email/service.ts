@@ -51,6 +51,23 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   // Send email
   const info = await transporter.sendMail(mailOptions)
 
+  // Log email to console in development mode
+  if (process.env.EMAIL_PROVIDER === 'console') {
+    console.log('\n📧 EMAIL SENT (Console Mode)')
+    console.log('=====================================')
+    console.log(`From: ${mailOptions.from}`)
+    console.log(`To: ${mailOptions.to}`)
+    if (mailOptions.cc) console.log(`CC: ${mailOptions.cc}`)
+    if (mailOptions.bcc) console.log(`BCC: ${mailOptions.bcc}`)
+    console.log(`Subject: ${mailOptions.subject}`)
+    console.log('=====================================')
+    console.log('\n--- EMAIL CONTENT (HTML) ---')
+    console.log(mailOptions.html)
+    console.log('\n--- EMAIL CONTENT (TEXT) ---')
+    console.log(mailOptions.text)
+    console.log('=====================================\n')
+  }
+
   return {
     messageId: info.messageId,
     accepted: info.accepted as string[],

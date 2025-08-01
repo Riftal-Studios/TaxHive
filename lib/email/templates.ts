@@ -31,6 +31,9 @@ export interface EmailTemplateData {
   expiryDate?: string
   daysRemaining?: number
   
+  // Bank details for email
+  bankDetails?: string
+  
   // Custom message
   customMessage?: string
 }
@@ -268,6 +271,13 @@ export const emailTemplates = {
             
             <p>If you have any questions regarding this invoice, please don't hesitate to reach out.</p>
             
+            ${data.bankDetails ? `
+              <div style="background-color: #f0f9ff; border-left: 4px solid #0891b2; padding: 20px; margin: 30px 0; border-radius: 4px;">
+                <h3 style="margin: 0 0 15px 0; color: #0891b2;">Payment Instructions</h3>
+                <div style="white-space: pre-line; line-height: 1.6;">${data.bankDetails}</div>
+              </div>
+            ` : ''}
+            
             <p>Thank you for your business!</p>
             
             <p>Best regards,<br>
@@ -309,7 +319,7 @@ Download PDF: ${data.downloadUrl}
 
 If you have any questions regarding this invoice, please don't hesitate to reach out.
 
-Thank you for your business!
+${data.bankDetails ? 'PAYMENT INSTRUCTIONS:\n' + data.bankDetails + '\n\n' : ''}Thank you for your business!
 
 Best regards,
 ${data.senderName}
@@ -395,6 +405,13 @@ This is an automated email. Please do not reply directly to this message.`
             
             <p>If you have already made the payment, please disregard this reminder. If you have any questions or concerns, please contact me immediately.</p>
             
+            ${data.bankDetails ? `
+              <div style="background-color: #f0f9ff; border-left: 4px solid #0891b2; padding: 20px; margin: 30px 0; border-radius: 4px;">
+                <h3 style="margin: 0 0 15px 0; color: #0891b2;">Payment Instructions</h3>
+                <div style="white-space: pre-line; line-height: 1.6;">${data.bankDetails}</div>
+              </div>
+            ` : ''}
+            
             <p>Thank you for your prompt attention to this matter.</p>
             
             <p>Best regards,<br>
@@ -440,7 +457,7 @@ Download PDF: ${data.downloadUrl}
 
 If you have already made the payment, please disregard this reminder. If you have any questions or concerns, please contact me immediately.
 
-Thank you for your prompt attention to this matter.
+${data.bankDetails ? 'PAYMENT INSTRUCTIONS:\n' + data.bankDetails + '\n\n' : ''}Thank you for your prompt attention to this matter.
 
 Best regards,
 ${data.senderName}

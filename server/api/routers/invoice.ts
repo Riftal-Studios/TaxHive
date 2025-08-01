@@ -9,6 +9,7 @@ import {
   calculateTotal, 
   validateHSNCode 
 } from '@/lib/invoice-utils'
+import { generateSecureToken, getTokenExpirationDate } from '@/lib/utils/token'
 import { getNextInvoiceSequence } from '@/lib/invoice-number-utils'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { GST_CONSTANTS } from '@/lib/constants'
@@ -89,7 +90,7 @@ export const invoiceRouter = createTRPCRouter({
           })
         }
         
-        // Create invoice
+        // Create invoice with public access token
         const invoice = await tx.invoice.create({
           data: {
             userId,
@@ -116,6 +117,9 @@ export const invoiceRouter = createTRPCRouter({
             paymentStatus: 'UNPAID',
             amountPaid: 0,
             balanceDue: totalAmount, // Set balance due to total amount for new invoice
+            // Generate public access token
+            publicAccessToken: generateSecureToken(),
+            tokenExpiresAt: getTokenExpirationDate(90), // 90 days expiration
           },
         })
         
@@ -560,14 +564,58 @@ export const invoiceRouter = createTRPCRouter({
         })
       }
 
-      // Queue email notification
+      // Get user details for the email
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+      })
+      
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        })
+      }
+
+      // Generate new public access token if not exists or expired
+      if (!invoice.publicAccessToken || !invoice.tokenExpiresAt || new Date() > invoice.tokenExpiresAt) {
+        await ctx.prisma.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            publicAccessToken: generateSecureToken(),
+            tokenExpiresAt: getTokenExpirationDate(90), // 90 days expiration
+          },
+        })
+        // Refetch invoice to get updated token
+        const updatedInvoice = await ctx.prisma.invoice.findUnique({
+          where: { id: invoice.id },
+        })
+        if (updatedInvoice) {
+          invoice.publicAccessToken = updatedInvoice.publicAccessToken
+        }
+      }
+      
+      // Queue invoice email
       const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
-        type: 'invoice',
         to: input.to || invoice.client.email,
-        cc: input.cc,
-        bcc: input.bcc,
-        invoiceId: invoice.id,
-        customMessage: input.customMessage,
+        subject: `Invoice ${invoice.invoiceNumber} from ${user.name || 'Your Service Provider'}`,
+        template: 'invoice',
+        data: {
+          clientName: invoice.client.name,
+          senderName: user.name || 'Your Service Provider',
+          senderEmail: user.email,
+          companyName: user.name,
+          companyGSTIN: user.gstin,
+          companyAddress: user.address,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: new Date(invoice.invoiceDate).toLocaleDateString('en-IN'),
+          dueDate: new Date(invoice.dueDate).toLocaleDateString('en-IN'),
+          amount: Number(invoice.totalAmount),
+          currency: invoice.currency,
+          viewUrl: `${process.env.NEXTAUTH_URL}/invoice/${invoice.publicAccessToken}`,
+          downloadUrl: `${process.env.NEXTAUTH_URL}/api/invoices/public/${invoice.publicAccessToken}/download`,
+          bankDetails: invoice.bankDetails || undefined,
+          customMessage: input.customMessage,
+        },
         userId: ctx.session.user.id,
       })
 
@@ -625,6 +673,24 @@ export const invoiceRouter = createTRPCRouter({
         })
       }
       
+      // Generate new public access token if not exists or expired
+      if (!invoice.publicAccessToken || !invoice.tokenExpiresAt || new Date() > invoice.tokenExpiresAt) {
+        await ctx.prisma.invoice.update({
+          where: { id: invoice.id },
+          data: {
+            publicAccessToken: generateSecureToken(),
+            tokenExpiresAt: getTokenExpirationDate(90), // 90 days expiration
+          },
+        })
+        // Refetch invoice to get updated token
+        const updatedInvoice = await ctx.prisma.invoice.findUnique({
+          where: { id: invoice.id },
+        })
+        if (updatedInvoice) {
+          invoice.publicAccessToken = updatedInvoice.publicAccessToken
+        }
+      }
+      
       // Calculate days overdue
       const dueDate = new Date(invoice.dueDate)
       const today = new Date()
@@ -647,8 +713,9 @@ export const invoiceRouter = createTRPCRouter({
           dueDate: new Date(invoice.dueDate).toLocaleDateString('en-IN'),
           amount: Number(invoice.balanceDue),
           currency: invoice.currency,
-          viewUrl: `${process.env.NEXTAUTH_URL}/invoices/${invoice.id}`,
-          downloadUrl: `${process.env.NEXTAUTH_URL}/api/invoices/${invoice.id}/download`,
+          viewUrl: `${process.env.NEXTAUTH_URL}/invoice/${invoice.publicAccessToken}`,
+          downloadUrl: `${process.env.NEXTAUTH_URL}/api/invoices/public/${invoice.publicAccessToken}/download`,
+          bankDetails: invoice.bankDetails || undefined,
           daysOverdue: daysOverdue,
           customMessage: input.customMessage,
         },
@@ -738,5 +805,39 @@ export const invoiceRouter = createTRPCRouter({
       })
       
       return updated
+    }),
+
+  // Regenerate public access token for an invoice
+  regeneratePublicToken: protectedProcedure
+    .input(z.object({ 
+      id: z.string(),
+      expirationDays: z.number().optional().default(90),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.id, userId: ctx.session.user.id },
+      })
+      
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+      
+      // Generate new token
+      const updated = await ctx.prisma.invoice.update({
+        where: { id: input.id },
+        data: {
+          publicAccessToken: generateSecureToken(),
+          tokenExpiresAt: getTokenExpirationDate(input.expirationDays),
+        }
+      })
+      
+      return {
+        publicAccessToken: updated.publicAccessToken,
+        tokenExpiresAt: updated.tokenExpiresAt,
+        publicUrl: `${process.env.NEXTAUTH_URL}/invoice/${updated.publicAccessToken}`,
+      }
     }),
 })

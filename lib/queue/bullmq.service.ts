@@ -37,11 +37,6 @@ export class BullMQService implements QueueService {
 
   constructor(config: BullMQConfig) {
     this.config = config
-    console.log('[BullMQ] Initializing with config:', {
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password ? `***${config.redis.password.slice(-5)}` : 'not set'
-    })
     this.connection = new Redis({
       ...config.redis,
       maxRetriesPerRequest: null, // Required by BullMQ

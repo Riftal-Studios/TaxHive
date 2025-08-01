@@ -613,14 +613,45 @@ export const invoiceRouter = createTRPCRouter({
         })
       }
 
+      // Get user details for the email
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+      })
+      
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        })
+      }
+      
+      // Calculate days overdue
+      const dueDate = new Date(invoice.dueDate)
+      const today = new Date()
+      const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
+      
       // Queue payment reminder email
       const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
-        type: 'payment-reminder',
         to: input.to || invoice.client.email,
-        cc: input.cc,
-        bcc: input.bcc,
-        invoiceId: invoice.id,
-        customMessage: input.customMessage,
+        subject: `Payment Reminder: Invoice ${invoice.invoiceNumber}`,
+        template: 'payment-reminder',
+        data: {
+          clientName: invoice.client.name,
+          senderName: user.name || 'Your Service Provider',
+          senderEmail: user.email,
+          companyName: user.name,
+          companyGSTIN: user.gstin,
+          companyAddress: user.address,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: new Date(invoice.invoiceDate).toLocaleDateString('en-IN'),
+          dueDate: new Date(invoice.dueDate).toLocaleDateString('en-IN'),
+          amount: Number(invoice.balanceDue),
+          currency: invoice.currency,
+          viewUrl: `${process.env.NEXTAUTH_URL}/invoices/${invoice.id}`,
+          downloadUrl: `${process.env.NEXTAUTH_URL}/api/invoices/${invoice.id}/download`,
+          daysOverdue: daysOverdue,
+          customMessage: input.customMessage,
+        },
         userId: ctx.session.user.id,
       })
 

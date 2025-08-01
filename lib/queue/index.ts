@@ -27,7 +27,7 @@ export function getQueueService(): QueueService {
           redisConfig = {
             host: url.hostname,
             port: parseInt(url.port || '6379', 10),
-            password: match[1],
+            password: decodeURIComponent(match[1]),
           }
         }
       } else {

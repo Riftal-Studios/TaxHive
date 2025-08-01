@@ -38,7 +38,7 @@ if (process.env.REDIS_URL) {
       redisConfig = {
         host: url.hostname,
         port: parseInt(url.port || '6379', 10),
-        password: match[1],
+        password: decodeURIComponent(match[1]),
       }
     }
   } else {

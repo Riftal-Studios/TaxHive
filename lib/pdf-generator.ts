@@ -250,6 +250,22 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
           margin-bottom: 10px;
         }
         
+        .bank-details {
+          margin-top: 30px;
+          padding: 15px;
+          background-color: #f0f8ff;
+          border: 1px solid #b0d4ff;
+        }
+        
+        .bank-details h3 {
+          margin-bottom: 10px;
+          color: #0066cc;
+        }
+        
+        .bank-details p {
+          white-space: pre-line;
+        }
+        
         .footer {
           margin-top: 50px;
           text-align: center;
@@ -373,6 +389,13 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
           <div class="notes">
             <h3>Notes</h3>
             <p>${invoice.notes.replace(/\n/g, '<br>')}</p>
+          </div>
+        ` : ''}
+
+        ${invoice.bankDetails ? `
+          <div class="bank-details">
+            <h3>Bank Details</h3>
+            <p>${invoice.bankDetails.replace(/\n/g, '<br>')}</p>
           </div>
         ` : ''}
 

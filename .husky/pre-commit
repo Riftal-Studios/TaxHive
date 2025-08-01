@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# Run lint first (fast)
+echo "🔍 Running ESLint..."
+npm run lint
+if [ $? -ne 0 ]; then
+  echo "❌ ESLint failed. Please fix linting errors before committing."
+  exit 1
+fi
+
+# Run build (includes type checking)
+echo "🏗️  Running build..."
+npm run build
+if [ $? -ne 0 ]; then
+  echo "❌ Build failed. Please fix build errors before committing."
+  exit 1
+fi
+
+echo "✅ All checks passed! Proceeding with commit..."

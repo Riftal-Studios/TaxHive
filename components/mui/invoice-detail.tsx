@@ -620,9 +620,9 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
         invoiceId={typedInvoice.id}
         invoiceNumber={typedInvoice.invoiceNumber}
         currency={typedInvoice.currency}
-        totalAmount={Number(typedInvoice.totalAmount)}
-        amountPaid={Number(typedInvoice.amountPaid)}
-        balanceDue={Number(typedInvoice.balanceDue)}
+        totalAmount={toSafeNumber(typedInvoice.totalAmount)}
+        amountPaid={toSafeNumber(typedInvoice.amountPaid)}
+        balanceDue={toSafeNumber(typedInvoice.balanceDue)}
         open={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onSuccess={() => {

@@ -157,13 +157,11 @@ function EditInvoiceContent({ id }: { id: string }) {
 }
 
 export default function EditInvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  // Properly unwrap params with error handling
-  let id: string
-  try {
-    const resolvedParams = use(params)
-    id = resolvedParams.id
-  } catch (error) {
-    console.error('Error resolving params:', error)
+  // Use the params promise - this will suspend if needed
+  const resolvedParams = use(params)
+  const id = resolvedParams.id
+  
+  if (!id) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-red-500">Invalid invoice ID</div>

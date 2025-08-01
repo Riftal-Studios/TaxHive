@@ -23,7 +23,6 @@ interface BullMQConfig {
   redis: {
     host: string
     port: number
-    username?: string
     password?: string
   }
   defaultJobOptions?: JobOptions

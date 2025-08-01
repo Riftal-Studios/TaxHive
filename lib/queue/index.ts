@@ -6,10 +6,9 @@ let queueService: QueueService | null = null
 export function getQueueService(): QueueService {
   if (!queueService) {
     // Parse Redis URL if available, otherwise use individual config
-    let redisConfig: { host: string; port: number; username?: string; password?: string } = {
+    let redisConfig: { host: string; port: number; password?: string } = {
       host: process.env.REDIS_HOST || 'redis',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      username: 'default',
       password: process.env.REDIS_PASSWORD,
     }
     
@@ -20,7 +19,6 @@ export function getQueueService(): QueueService {
       redisConfig = {
         host: url.hostname,
         port: parseInt(url.port || '6379', 10),
-        username: 'default',
         password: process.env.REDIS_PASSWORD, // Use password directly, not from URL
       }
       console.log('[Queue] Using REDIS_PASSWORD directly, password ends with:', process.env.REDIS_PASSWORD.slice(-5))
@@ -39,16 +37,14 @@ export function getQueueService(): QueueService {
           redisConfig = {
             host: url.hostname,
             port: parseInt(url.port || '6379', 10),
-            username: 'default',
-            password: match[1], // Don't decode - regex gives us raw password
+            password: decodeURIComponent(match[1]),
           }
         }
       } else {
         redisConfig = {
           host: url.hostname,
           port: parseInt(url.port || '6379', 10),
-          username: 'default',
-          password: password ? decodeURIComponent(password) : undefined,
+          password: password || undefined,
         }
       }
     }

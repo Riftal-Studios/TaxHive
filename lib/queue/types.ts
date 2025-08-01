@@ -36,7 +36,7 @@ export interface JobError {
 }
 
 // Base Job Interface
-export interface Job<T = any> {
+export interface Job<T = unknown> {
   id: string
   type: JobType
   data: T
@@ -46,7 +46,7 @@ export interface Job<T = any> {
   priority?: number
   progress?: JobProgress
   error?: JobError
-  result?: any
+  result?: unknown
   createdAt: Date
   updatedAt: Date
   processedAt?: Date
@@ -99,13 +99,13 @@ export interface ProcessorOptions {
 }
 
 // Job Processor Function
-export type JobProcessor<T = any> = (job: Job<T>) => Promise<any>
+export type JobProcessor<T = unknown> = (job: Job<T>) => Promise<unknown>
 
 // Queue Service Interface
 export interface QueueService {
   // Job Management
-  enqueue<T = any>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>>
-  process<T = any>(type: JobType, processor: JobProcessor<T>, options?: ProcessorOptions): Promise<void>
+  enqueue<T = unknown>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>>
+  process<T = unknown>(type: JobType, processor: JobProcessor<T>, options?: ProcessorOptions): Promise<void>
   
   // Job Queries
   getJob(jobId: string): Promise<Job | null>
@@ -157,7 +157,7 @@ export interface QueueEvents {
   'job:created': (job: Job) => void
   'job:active': (job: Job) => void
   'job:progress': (job: Job, progress: JobProgress) => void
-  'job:completed': (job: Job, result: any) => void
+  'job:completed': (job: Job, result: unknown) => void
   'job:failed': (job: Job, error: JobError) => void
   'job:retrying': (job: Job, attempt: number) => void
   'queue:paused': () => void

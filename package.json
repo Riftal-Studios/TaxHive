@@ -23,7 +23,8 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "deploy": "./scripts/deploy.sh"
+    "deploy": "./scripts/deploy.sh",
+    "prepare": "husky"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
@@ -77,6 +78,7 @@
     "bcryptjs": "^3.0.2",
     "eslint": "^9.32.0",
     "eslint-config-next": "15.4.4",
+    "husky": "^9.1.7",
     "jsdom": "^26.1.0",
     "postcss": "^8.4.49",
     "prettier": "^3.4.2",

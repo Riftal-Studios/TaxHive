@@ -1,4 +1,4 @@
-import type { Job } from '../types'
+import type { Job, ExchangeRateFetchJobData } from '../types'
 import { fetchRBIRates, fetchFallbackRates } from '@/lib/exchange-rates'
 import { db } from '@/lib/prisma'
 
@@ -11,15 +11,15 @@ interface ExchangeRateFetchResult {
   missingCurrencies?: string[]
 }
 
-export async function exchangeRateFetchHandler(job: Job): Promise<ExchangeRateFetchResult> {
-  const { date: jobDate, currencies, cleanOldRates, cleanOlderThan } = job.data
+export async function exchangeRateFetchHandler(job: Job<ExchangeRateFetchJobData>): Promise<ExchangeRateFetchResult> {
+  const { date: jobDate, currencies } = job.data
 
   // Use current date if not specified
   const date = jobDate ? new Date(jobDate) : new Date()
   date.setHours(0, 0, 0, 0) // Normalize to start of day
 
   // Update progress if available
-  const updateProgress = (job as any).updateProgress
+  const updateProgress = (job as { updateProgress?: (progress: number) => Promise<void> }).updateProgress
   if (updateProgress) {
     await updateProgress(25)
   }
@@ -81,19 +81,6 @@ export async function exchangeRateFetchHandler(job: Job): Promise<ExchangeRateFe
     }
   }
 
-  // Clean old rates if requested
-  if (cleanOldRates && cleanOlderThan) {
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - cleanOlderThan)
-    
-    await db.exchangeRate.deleteMany({
-      where: {
-        date: {
-          lt: cutoffDate,
-        },
-      },
-    })
-  }
 
   if (updateProgress) {
     await updateProgress(100)

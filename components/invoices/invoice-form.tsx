@@ -5,6 +5,7 @@ import type { Client, LUT } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, getLUTExpiryStatus } from '@/lib/validations/gst'
+import { generateUUID } from '@/lib/utils/uuid'
 import { 
   getInputClassName, 
   selectClassName, 
@@ -60,6 +61,7 @@ interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormSubmitData) => void | Promise<void>
   onCancel: () => void
   onCurrencyChange?: (currency: string) => void
+  onIssueDateChange?: (date: string) => void
   exchangeRate?: {
     rate: number
     source: string
@@ -85,7 +87,8 @@ export function InvoiceForm({
   luts, 
   onSubmit, 
   onCancel, 
-  onCurrencyChange, 
+  onCurrencyChange,
+  onIssueDateChange,
   exchangeRate, 
   manualExchangeRate, 
   onManualExchangeRateChange, 
@@ -104,7 +107,7 @@ export function InvoiceForm({
       paymentTerms: initialData?.paymentTerms || 30,
       lineItems: initialData?.lineItems || [
         {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           description: '',
           sacCode: '',
           quantity: 1,
@@ -217,7 +220,7 @@ export function InvoiceForm({
         lineItems: [
           ...prev.lineItems,
           {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             description: '',
             sacCode: '',
             quantity: 1,
@@ -458,7 +461,11 @@ export function InvoiceForm({
             type="date"
             id="issueDate"
             value={formData.issueDate}
-            onChange={(e) => setFormData(prev => ({ ...prev, issueDate: e.target.value }))}
+            onChange={(e) => {
+              const newDate = e.target.value
+              setFormData(prev => ({ ...prev, issueDate: newDate }))
+              onIssueDateChange?.(newDate)
+            }}
             className={getInputClassName()}
             required
             aria-required="true"
@@ -657,11 +664,11 @@ export function InvoiceForm({
                       aria-required="true"
                       aria-invalid={!!errors.lineItems?.[item.id]?.sacCode}
                       aria-describedby={errors.lineItems?.[item.id]?.sacCode ? `sacCode-${item.id}-error` : undefined}
-                      aria-expanded={showSacDropdown[item.id]}
-                      aria-haspopup="listbox"
+                      aria-autocomplete="list"
+                      aria-controls={showSacDropdown[item.id] ? `sacCode-${item.id}-listbox` : undefined}
                     />
                     {showSacDropdown[item.id] && (
-                      <div className={`${dropdownContainerClassName} max-h-60 overflow-auto`} role="listbox">
+                      <div id={`sacCode-${item.id}-listbox`} className={`${dropdownContainerClassName} max-h-60 overflow-auto`} role="listbox">
                         {getFilteredSacCodes(item.id).map(sac => (
                           <button
                             key={sac.code}
@@ -674,6 +681,7 @@ export function InvoiceForm({
                             }}
                             className={`${dropdownItemClassName} text-sm`}
                             role="option"
+                            aria-selected={item.sacCode === sac.code}
                           >
                             <div className="font-medium text-gray-900 dark:text-white">{sac.code}</div>
                             <div className="text-gray-500 dark:text-gray-400 text-xs">{sac.description}</div>

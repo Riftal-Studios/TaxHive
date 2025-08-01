@@ -106,7 +106,7 @@ export function MUILayout({ children, user }: MUILayoutProps) {
           <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
             <ListItemButton
               onClick={() => {
-                router.push(item.href as any)
+                router.push(item.href)
                 if (isMobile) {
                   setMobileOpen(false)
                 }
@@ -142,7 +142,7 @@ export function MUILayout({ children, user }: MUILayoutProps) {
           <ListItem key={item.text} disablePadding>
             <ListItemButton
               onClick={() => {
-                router.push(item.href as any)
+                router.push(item.href)
                 if (isMobile) {
                   setMobileOpen(false)
                 }

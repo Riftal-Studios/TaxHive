@@ -98,7 +98,7 @@ export function MUIRecentInvoices({ invoices, loading = false }: RecentInvoicesP
             <Button
               variant="contained"
               sx={{ mt: 2 }}
-              onClick={() => router.push('/invoices/new' as any)}
+              onClick={() => router.push('/invoices/new')}
             >
               Create First Invoice
             </Button>
@@ -117,7 +117,7 @@ export function MUIRecentInvoices({ invoices, loading = false }: RecentInvoicesP
           </Typography>
           <Button
             size="small"
-            onClick={() => router.push('/invoices' as any)}
+            onClick={() => router.push('/invoices')}
           >
             View All
           </Button>
@@ -175,7 +175,7 @@ export function MUIRecentInvoices({ invoices, loading = false }: RecentInvoicesP
                       <Tooltip title="View Invoice">
                         <IconButton
                           size="small"
-                          onClick={() => router.push(`/invoices/${invoice.id}` as any)}
+                          onClick={() => router.push(`/invoices/${invoice.id}`)}
                         >
                           <Visibility fontSize="small" />
                         </IconButton>
@@ -184,7 +184,7 @@ export function MUIRecentInvoices({ invoices, loading = false }: RecentInvoicesP
                         <Tooltip title="Record Payment">
                           <IconButton
                             size="small"
-                            onClick={() => router.push(`/invoices/${invoice.id}#payment` as any)}
+                            onClick={() => router.push(`/invoices/${invoice.id}#payment`)}
                           >
                             <Payment fontSize="small" />
                           </IconButton>

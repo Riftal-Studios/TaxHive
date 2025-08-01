@@ -5,6 +5,27 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { InvoiceForm } from '@/components/invoices/invoice-form'
 import { enqueueSnackbar } from 'notistack'
+import type { InvoiceItem } from '@prisma/client'
+
+// Type for the form data that matches what InvoiceForm expects
+interface InvoiceFormData {
+  clientId: string
+  lutId: string
+  issueDate: string
+  dueDate: string
+  currency: string
+  paymentTerms: number
+  lineItems: Array<{
+    description: string
+    sacCode: string
+    quantity: number
+    rate: number
+  }>
+  bankDetails: string
+  notes: string
+  exchangeRate?: number
+}
+
 
 function EditInvoiceContent({ id }: { id: string }) {
   const router = useRouter()
@@ -22,9 +43,13 @@ function EditInvoiceContent({ id }: { id: string }) {
   
   // Get exchange rate query
   const [selectedCurrency, setSelectedCurrency] = useState(invoice?.currency || 'USD')
+  const [selectedIssueDate, setSelectedIssueDate] = useState(
+    invoice?.invoiceDate ? invoice.invoiceDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  )
   const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(null)
   const { data: exchangeRateData } = api.invoices.getCurrentExchangeRate.useQuery({
     currency: selectedCurrency,
+    date: selectedIssueDate,
   }, {
     enabled: !!selectedCurrency && selectedCurrency !== 'INR',
   })
@@ -41,12 +66,20 @@ function EditInvoiceContent({ id }: { id: string }) {
   })
   
   // Add submit handler
-  const handleSubmit = useCallback((formData: any) => {
+  const handleSubmit = useCallback((formData: InvoiceFormData) => {
     if (!invoice?.id) return
     
     updateMutation.mutate({
       id: invoice.id,
-      ...formData,
+      clientId: formData.clientId,
+      lutId: formData.lutId,
+      issueDate: new Date(formData.issueDate),
+      dueDate: new Date(formData.dueDate),
+      currency: formData.currency,
+      paymentTerms: formData.paymentTerms,
+      lineItems: formData.lineItems,
+      bankDetails: formData.bankDetails,
+      notes: formData.notes,
       exchangeRate: formData.currency !== 'INR' ? (manualExchangeRate || exchangeRateData?.rate || formData.exchangeRate) : 1,
     })
   }, [invoice?.id, updateMutation, manualExchangeRate, exchangeRateData?.rate])
@@ -76,13 +109,13 @@ function EditInvoiceContent({ id }: { id: string }) {
   }
   
   // Extract line items properly
-  const lineItems = invoice.lineItems.map((item: any) => ({
+  const lineItems = invoice.lineItems.map((item: InvoiceItem) => ({
     id: item.id,
     description: item.description,
     sacCode: item.serviceCode,
-    quantity: Number(item.quantity),
-    rate: Number(item.rate),
-    amount: Number(item.amount),
+    quantity: typeof item.quantity === 'object' && 'toNumber' in item.quantity ? item.quantity.toNumber() : Number(item.quantity),
+    rate: typeof item.rate === 'object' && 'toNumber' in item.rate ? item.rate.toNumber() : Number(item.rate),
+    amount: typeof item.amount === 'object' && 'toNumber' in item.amount ? item.amount.toNumber() : Number(item.amount),
   }))
   
   const initialData = {
@@ -113,6 +146,7 @@ function EditInvoiceContent({ id }: { id: string }) {
         onSubmit={handleSubmit}
         onCancel={() => router.push(`/invoices/${id}`)}
         onCurrencyChange={setSelectedCurrency}
+        onIssueDateChange={setSelectedIssueDate}
         exchangeRate={exchangeRateInfo}
         manualExchangeRate={manualExchangeRate}
         onManualExchangeRateChange={setManualExchangeRate}

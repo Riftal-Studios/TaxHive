@@ -1,8 +1,10 @@
+import { z } from 'zod'
+
 /**
  * Extract field errors from Zod error in a backwards-compatible way
  * Works with both Zod v3 and v4 error structures
  */
-export function extractZodFieldErrors(zodError: any): Record<string, string[]> {
+export function extractZodFieldErrors(zodError: z.ZodError | { format?: () => unknown; fieldErrors?: Record<string, unknown> }): Record<string, string[]> {
   if (!zodError) return {}
 
   // Zod v4 uses a different structure for fieldErrors
@@ -10,7 +12,7 @@ export function extractZodFieldErrors(zodError: any): Record<string, string[]> {
   // v4: zodError.fieldErrors might be nested or formatted differently
   
   // Try v3 format first
-  if (zodError.fieldErrors && typeof zodError.fieldErrors === 'object') {
+  if ('fieldErrors' in zodError && zodError.fieldErrors && typeof zodError.fieldErrors === 'object') {
     const result: Record<string, string[]> = {}
     
     for (const [field, value] of Object.entries(zodError.fieldErrors)) {
@@ -20,7 +22,7 @@ export function extractZodFieldErrors(zodError: any): Record<string, string[]> {
         result[field] = value
       } else if (value && typeof value === 'object' && '_errors' in value) {
         // v4 format
-        result[field] = (value as any)._errors || []
+        result[field] = (value as { _errors?: string[] })._errors || []
       } else if (value) {
         // Fallback - try to extract any array
         result[field] = [String(value)]
@@ -31,7 +33,7 @@ export function extractZodFieldErrors(zodError: any): Record<string, string[]> {
   }
 
   // Try alternative format (formatted errors)
-  if (zodError.format && typeof zodError.format === 'function') {
+  if ('format' in zodError && zodError.format && typeof zodError.format === 'function') {
     try {
       const formatted = zodError.format()
       return extractFormattedErrors(formatted)
@@ -43,7 +45,7 @@ export function extractZodFieldErrors(zodError: any): Record<string, string[]> {
   return {}
 }
 
-function extractFormattedErrors(formatted: any, prefix = ''): Record<string, string[]> {
+function extractFormattedErrors(formatted: unknown, prefix = ''): Record<string, string[]> {
   const result: Record<string, string[]> = {}
   
   if (!formatted || typeof formatted !== 'object') {
@@ -75,8 +77,8 @@ function extractFormattedErrors(formatted: any, prefix = ''): Record<string, str
  * @param zodError - The Zod error object from tRPC
  * @returns Object with field names as keys and first error message as values
  */
-export function zodErrorsToFormErrors<T extends Record<string, any>>(
-  zodError: any
+export function zodErrorsToFormErrors<T extends Record<string, unknown>>(
+  zodError: z.ZodError | { format?: () => unknown; fieldErrors?: Record<string, unknown> }
 ): Partial<Record<keyof T, string>> {
   const fieldErrors = extractZodFieldErrors(zodError)
   const result: Partial<Record<keyof T, string>> = {}

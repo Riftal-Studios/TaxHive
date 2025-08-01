@@ -22,7 +22,7 @@ console.log('REDIS_PORT:', process.env.REDIS_PORT)
 console.log('REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'not set')
 
 // Initialize queue service
-let redisConfig: any = {
+let redisConfig: { host: string; port: number; password?: string } = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD,

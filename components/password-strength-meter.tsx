@@ -1,7 +1,7 @@
 import { Tooltip, Box, styled } from '@mui/material'
 import { Lock as LockIcon, LockOpen as LockOpenIcon } from '@mui/icons-material'
 
-const DarkModeTooltip = styled(({ className, ...props }: any) => (
+const DarkModeTooltip = styled(({ className, ...props }: { className?: string } & React.ComponentProps<typeof Tooltip>) => (
   <Tooltip {...props} classes={{ popper: className }} />
 ))(({ theme }) => ({
   [`& .MuiTooltip-tooltip`]: {

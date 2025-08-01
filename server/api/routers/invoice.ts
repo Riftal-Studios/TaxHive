@@ -108,6 +108,10 @@ export const invoiceRouter = createTRPCRouter({
             paymentTerms: input.paymentTerms?.toString(),
             bankDetails: input.bankDetails,
             notes: input.notes,
+            // Set payment fields for new invoice
+            paymentStatus: 'UNPAID',
+            amountPaid: 0,
+            balanceDue: totalAmount, // Set balance due to total amount for new invoice
           },
         })
         
@@ -230,12 +234,14 @@ export const invoiceRouter = createTRPCRouter({
           const subtotal = calculateSubtotal(lineItems)
           const totalAmount = calculateTotal(subtotal, 0)
           
-          // Get the current invoice to get the exchange rate
+          // Get the current invoice to get the exchange rate and amount paid
           const currentInvoice = await tx.invoice.findUnique({
             where: { id },
           })
           
           const exchangeRate = updateData.exchangeRate || Number(currentInvoice?.exchangeRate || 1)
+          const amountPaid = Number(currentInvoice?.amountPaid || 0)
+          const balanceDue = totalAmount - amountPaid
           
           await tx.invoice.update({
             where: { id },
@@ -243,6 +249,7 @@ export const invoiceRouter = createTRPCRouter({
               subtotal,
               totalAmount,
               totalInINR: totalAmount * exchangeRate,
+              balanceDue, // Update balance due based on new total
             },
           })
         }

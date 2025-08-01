@@ -32,6 +32,7 @@ import { api } from '@/lib/trpc/client'
 import { formatCurrency, formatINR } from '@/lib/invoice-utils'
 import { MUIInvoiceActions } from './invoice-actions'
 import { EnhancedPaymentModal as MUIPaymentModal } from './enhanced-payment-modal'
+import { EditPaymentModal } from './edit-payment-modal'
 import { format } from 'date-fns'
 import { toSafeNumber } from '@/lib/utils/decimal'
 
@@ -95,6 +96,25 @@ interface InvoiceDetailProps {
 export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   const router = useRouter()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState<{
+    id: string
+    amount: number | { toNumber: () => number }
+    currency: string
+    paymentDate: string | Date
+    paymentMethod: string
+    reference?: string | null
+    notes?: string | null
+    amountReceivedBeforeFees?: number | { toNumber: () => number } | null
+    platformFeesInCurrency?: number | { toNumber: () => number } | null
+    creditedAmount?: number | { toNumber: () => number } | null
+    actualExchangeRate?: number | { toNumber: () => number } | null
+    bankChargesInr?: number | { toNumber: () => number } | null
+    fircNumber?: string | null
+    fircDate?: string | Date | null
+    fircDocumentUrl?: string | null
+    createdAt: string | Date
+  } | null>(null)
   const { 
     data: invoice, 
     isLoading, 
@@ -116,6 +136,28 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
       link.click()
       document.body.removeChild(link)
     }
+  }
+
+  const handleEditPayment = (payment: {
+    id: string
+    amount: number | { toNumber: () => number }
+    currency: string
+    paymentDate: string | Date
+    paymentMethod: string
+    reference?: string | null
+    notes?: string | null
+    amountReceivedBeforeFees?: number | { toNumber: () => number } | null
+    platformFeesInCurrency?: number | { toNumber: () => number } | null
+    creditedAmount?: number | { toNumber: () => number } | null
+    actualExchangeRate?: number | { toNumber: () => number } | null
+    bankChargesInr?: number | { toNumber: () => number } | null
+    fircNumber?: string | null
+    fircDate?: string | Date | null
+    fircDocumentUrl?: string | null
+    createdAt: string | Date
+  }) => {
+    setSelectedPayment(payment)
+    setShowEditPaymentModal(true)
   }
 
   if (isLoading) {
@@ -597,9 +639,19 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                             </Box>
                           )}
                         </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                          Recorded on {format(new Date(payment.createdAt), 'dd MMM yyyy')}
-                        </Typography>
+                        <Box display="flex" flexDirection="column" alignItems="flex-end" sx={{ ml: 2 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Recorded on {format(new Date(payment.createdAt), 'dd MMM yyyy')}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditPayment(payment)}
+                            sx={{ mt: 1 }}
+                            aria-label="Edit payment"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </Box>
                       {payment.notes && (
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
@@ -620,9 +672,9 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
         invoiceId={typedInvoice.id}
         invoiceNumber={typedInvoice.invoiceNumber}
         currency={typedInvoice.currency}
-        totalAmount={Number(typedInvoice.totalAmount)}
-        amountPaid={Number(typedInvoice.amountPaid)}
-        balanceDue={Number(typedInvoice.balanceDue)}
+        totalAmount={toSafeNumber(typedInvoice.totalAmount)}
+        amountPaid={toSafeNumber(typedInvoice.amountPaid)}
+        balanceDue={toSafeNumber(typedInvoice.balanceDue)}
         open={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onSuccess={() => {
@@ -630,6 +682,25 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
           setShowPaymentModal(false)
         }}
       />
+
+      {/* Edit Payment Modal */}
+      {selectedPayment && (
+        <EditPaymentModal
+          payment={selectedPayment}
+          invoiceNumber={typedInvoice.invoiceNumber}
+          currency={typedInvoice.currency}
+          open={showEditPaymentModal}
+          onClose={() => {
+            setShowEditPaymentModal(false)
+            setSelectedPayment(null)
+          }}
+          onSuccess={() => {
+            refetch()
+            setShowEditPaymentModal(false)
+            setSelectedPayment(null)
+          }}
+        />
+      )}
     </Box>
   )
 }

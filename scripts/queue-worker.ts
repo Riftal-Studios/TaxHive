@@ -59,6 +59,12 @@ if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
   }
 }
 
+console.log('Initializing BullMQService with config:', {
+  host: redisConfig.host,
+  port: redisConfig.port,
+  password: redisConfig.password ? `***${redisConfig.password.slice(-5)}` : 'not set'
+})
+
 const queueService = new BullMQService({
   redis: redisConfig,
 })

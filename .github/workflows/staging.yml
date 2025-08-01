@@ -72,7 +72,6 @@ jobs:
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}
             NEXTAUTH_URL=${{ vars.NEXTAUTH_URL }}
-            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
 
   prepare-deployment:
     needs: build-and-push

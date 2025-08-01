@@ -6,6 +6,7 @@ import { api } from '@/lib/trpc/client'
 import { InvoiceForm } from '@/components/invoices/invoice-form'
 import { enqueueSnackbar } from 'notistack'
 import type { InvoiceItem } from '@prisma/client'
+import { toSafeNumber } from '@/lib/utils/decimal'
 
 // Type for the form data that matches what InvoiceForm expects
 interface InvoiceFormData {
@@ -113,9 +114,9 @@ function EditInvoiceContent({ id }: { id: string }) {
     id: item.id,
     description: item.description,
     sacCode: item.serviceCode,
-    quantity: typeof item.quantity === 'object' && 'toNumber' in item.quantity ? item.quantity.toNumber() : Number(item.quantity),
-    rate: typeof item.rate === 'object' && 'toNumber' in item.rate ? item.rate.toNumber() : Number(item.rate),
-    amount: typeof item.amount === 'object' && 'toNumber' in item.amount ? item.amount.toNumber() : Number(item.amount),
+    quantity: toSafeNumber(item.quantity),
+    rate: toSafeNumber(item.rate),
+    amount: toSafeNumber(item.amount),
   }))
   
   const initialData = {

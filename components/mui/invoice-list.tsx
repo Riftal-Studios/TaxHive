@@ -38,6 +38,7 @@ import { api } from '@/lib/trpc/client'
 import { formatCurrency } from '@/lib/invoice-utils'
 import { format } from 'date-fns'
 import { enqueueSnackbar } from 'notistack'
+import { toSafeNumber } from '@/lib/utils/decimal'
 
 interface Invoice {
   id: string
@@ -182,12 +183,8 @@ export function InvoiceList() {
       dueDate: invoice.dueDate,
       status: invoice.status,
       paymentStatus: invoice.paymentStatus,
-      totalAmount: typeof invoice.totalAmount === 'object' && invoice.totalAmount !== null && 'toNumber' in invoice.totalAmount && typeof invoice.totalAmount.toNumber === 'function'
-        ? invoice.totalAmount.toNumber() 
-        : Number(invoice.totalAmount),
-      totalInINR: invoice.totalInINR ? (typeof invoice.totalInINR === 'object' && invoice.totalInINR !== null && 'toNumber' in invoice.totalInINR && typeof invoice.totalInINR.toNumber === 'function'
-        ? invoice.totalInINR.toNumber() 
-        : Number(invoice.totalInINR)) : undefined,
+      totalAmount: toSafeNumber(invoice.totalAmount),
+      totalInINR: invoice.totalInINR ? toSafeNumber(invoice.totalInINR) : undefined,
       currency: invoice.currency,
       pdfUrl: invoice.pdfUrl,
       client: {

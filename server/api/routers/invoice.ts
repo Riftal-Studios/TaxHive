@@ -9,6 +9,7 @@ import {
   calculateTotal, 
   validateHSNCode 
 } from '@/lib/invoice-utils'
+import { getNextInvoiceSequence } from '@/lib/invoice-number-utils'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
@@ -50,17 +51,20 @@ export const invoiceRouter = createTRPCRouter({
         // Get the current fiscal year
         const currentFY = getCurrentFiscalYear(input.issueDate)
         
-        // Get the next invoice number
-        const invoiceCount = await tx.invoice.count({
+        // Get the next invoice number by finding the highest existing number
+        const existingInvoices = await tx.invoice.findMany({
           where: {
             userId,
             invoiceNumber: {
               startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(-2)}/`,
             },
           },
+          select: { invoiceNumber: true },
         })
         
-        const invoiceNumber = generateInvoiceNumber(currentFY, invoiceCount + 1)
+        const invoiceNumbers = existingInvoices.map(inv => inv.invoiceNumber)
+        const nextSequence = getNextInvoiceSequence(invoiceNumbers)
+        const invoiceNumber = generateInvoiceNumber(currentFY, nextSequence)
         
         // Calculate totals
         const subtotal = calculateSubtotal(input.lineItems)
@@ -317,16 +321,19 @@ export const invoiceRouter = createTRPCRouter({
   getNextInvoiceNumber: protectedProcedure
     .query(async ({ ctx }) => {
       const currentFY = getCurrentFiscalYear()
-      const count = await ctx.prisma.invoice.count({
+      const existingInvoices = await ctx.prisma.invoice.findMany({
         where: {
           userId: ctx.session.user.id,
           invoiceNumber: {
             startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(-2)}/`,
           },
         },
+        select: { invoiceNumber: true },
       })
       
-      return generateInvoiceNumber(currentFY, count + 1)
+      const invoiceNumbers = existingInvoices.map(inv => inv.invoiceNumber)
+      const nextSequence = getNextInvoiceSequence(invoiceNumbers)
+      return generateInvoiceNumber(currentFY, nextSequence)
     }),
 
   generatePDF: protectedProcedure

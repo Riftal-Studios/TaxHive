@@ -22,9 +22,10 @@ console.log('REDIS_PORT:', process.env.REDIS_PORT)
 console.log('REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'not set')
 
 // Initialize queue service
-let redisConfig: { host: string; port: number; password?: string } = {
+let redisConfig: { host: string; port: number; username?: string; password?: string } = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
+  username: 'default',
   password: process.env.REDIS_PASSWORD,
 }
 
@@ -35,6 +36,7 @@ if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
   redisConfig = {
     host: url.hostname,
     port: parseInt(url.port || '6379', 10),
+    username: 'default',
     password: process.env.REDIS_PASSWORD, // Use password directly, not from URL
   }
 } else if (process.env.REDIS_URL) {
@@ -47,13 +49,15 @@ if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
       redisConfig = {
         host: url.hostname,
         port: parseInt(url.port || '6379', 10),
-        password: decodeURIComponent(match[1]),
+        username: 'default',
+        password: match[1], // Already not URL-encoded when extracted via regex
       }
     }
   } else {
     redisConfig = {
       host: url.hostname,
       port: parseInt(url.port || '6379', 10),
+      username: 'default',
       password: url.password || undefined,
     }
   }

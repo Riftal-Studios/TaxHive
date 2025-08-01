@@ -61,10 +61,12 @@ export const config = {
      * - api/auth (auth endpoints)
      * - api/trpc (tRPC endpoints need separate auth)
      * - api/health (health check endpoint)
+     * - api/invoices/public (public invoice API endpoints)
+     * - invoice (public invoice pages)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api/auth|api/trpc|api/health|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/auth|api/trpc|api/health|api/invoices/public|invoice|_next/static|_next/image|favicon.ico).*)',
   ],
 }

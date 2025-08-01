@@ -126,6 +126,10 @@ model Invoice {
   // PDF Storage
   pdfUrl         String?
   
+  // Public access fields
+  publicAccessToken String?   @unique
+  tokenExpiresAt    DateTime?
+  
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 

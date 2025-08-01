@@ -55,6 +55,7 @@ interface InvoiceWithRelations {
   amountPaid: number
   balanceDue: number
   notes: string | null
+  bankDetails: string | null
   placeOfSupply: string
   serviceCode: string
   igstRate: number
@@ -567,6 +568,18 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
               <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
                 {typedInvoice.notes}
               </Typography>
+            </Box>
+          )}
+
+          {/* Bank Details */}
+          {typedInvoice.bankDetails && (
+            <Box mt={4}>
+              <Paper variant="outlined" sx={{ p: 3, bgcolor: 'primary.50' }}>
+                <Typography variant="h6" gutterBottom color="primary.main">Bank Details</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                  {typedInvoice.bankDetails}
+                </Typography>
+              </Paper>
             </Box>
           )}
 

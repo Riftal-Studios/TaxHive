@@ -5,6 +5,7 @@ import type { Client, LUT } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, getLUTExpiryStatus } from '@/lib/validations/gst'
+import { generateUUID } from '@/lib/utils/uuid'
 import { 
   getInputClassName, 
   selectClassName, 
@@ -104,7 +105,7 @@ export function InvoiceForm({
       paymentTerms: initialData?.paymentTerms || 30,
       lineItems: initialData?.lineItems || [
         {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           description: '',
           sacCode: '',
           quantity: 1,
@@ -217,7 +218,7 @@ export function InvoiceForm({
         lineItems: [
           ...prev.lineItems,
           {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             description: '',
             sacCode: '',
             quantity: 1,

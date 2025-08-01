@@ -21,7 +21,6 @@ export function getQueueService(): QueueService {
         port: parseInt(url.port || '6379', 10),
         password: process.env.REDIS_PASSWORD, // Use password directly, not from URL
       }
-      console.log('[Queue] Using REDIS_PASSWORD directly, password ends with:', process.env.REDIS_PASSWORD.slice(-5))
     } else if (process.env.REDIS_URL) {
       // Fallback to parsing from URL if REDIS_PASSWORD not available
       const url = new URL(process.env.REDIS_URL)

@@ -10,10 +10,6 @@ import { verifyPassword } from './auth/password'
 const nextAuthUrl = process.env.NEXTAUTH_URL
 const nextAuthSecret = process.env.NEXTAUTH_SECRET
 
-console.log('NextAuth Configuration:')
-console.log('  NEXTAUTH_URL:', nextAuthUrl)
-console.log('  NEXTAUTH_SECRET:', nextAuthSecret ? '[SET]' : '[NOT SET]')
-
 if (!nextAuthUrl) {
   console.error('CRITICAL: NEXTAUTH_URL is not set, authentication will not work correctly')
 }
@@ -82,9 +78,7 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    async signIn({ user }) {
-      // Log successful sign in
-      console.log('User signing in:', user.email)
+    async signIn() {
       return true
     },
     async session({ token, session }) {

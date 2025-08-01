@@ -63,18 +63,28 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p uploads public/invoices && \
     chown -R node:node uploads public/invoices
 
-# Copy production dependencies
+# Copy production dependencies (includes tsx now that it's in dependencies)
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 
 # Copy built application
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 
+# Copy source files needed by queue worker
+COPY --from=builder --chown=node:node /app/lib ./lib
+COPY --from=builder --chown=node:node /app/server ./server
+
 # Copy Prisma schema and migrations
 COPY --chown=node:node prisma ./prisma
 
 # Copy scripts
 COPY --chown=node:node scripts ./scripts
+
+# Copy package.json for scripts
+COPY --chown=node:node package.json ./package.json
+
+# Copy tsconfig for tsx
+COPY --chown=node:node tsconfig.json ./tsconfig.json
 
 # Make start script executable
 RUN chmod +x scripts/start-server.sh

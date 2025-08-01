@@ -430,18 +430,20 @@ export const invoiceRouter = createTRPCRouter({
   getCurrentExchangeRate: protectedProcedure
     .input(z.object({
       currency: z.string(),
+      date: z.string().optional(), // Optional date in YYYY-MM-DD format
     }))
     .query(async ({ ctx, input }) => {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      // Use provided date or today
+      const targetDate = input.date ? new Date(input.date) : new Date()
+      targetDate.setHours(0, 0, 0, 0)
       
-      // First check if we have today's rate
+      // First check if we have the rate for the target date
       const exchangeRate = await ctx.prisma.exchangeRate.findFirst({
         where: {
           currency: input.currency,
           date: {
-            gte: today,
-            lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+            gte: targetDate,
+            lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000),
           },
         },
         orderBy: {
@@ -457,10 +459,13 @@ export const invoiceRouter = createTRPCRouter({
         }
       }
       
-      // If no rate found for today, get the most recent rate
+      // If no rate found for target date, get the most recent rate before that date
       const latestRate = await ctx.prisma.exchangeRate.findFirst({
         where: {
           currency: input.currency,
+          date: {
+            lte: targetDate,
+          },
         },
         orderBy: {
           date: 'desc',

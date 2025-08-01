@@ -61,6 +61,7 @@ interface InvoiceFormProps {
   onSubmit: (data: InvoiceFormSubmitData) => void | Promise<void>
   onCancel: () => void
   onCurrencyChange?: (currency: string) => void
+  onIssueDateChange?: (date: string) => void
   exchangeRate?: {
     rate: number
     source: string
@@ -86,7 +87,8 @@ export function InvoiceForm({
   luts, 
   onSubmit, 
   onCancel, 
-  onCurrencyChange, 
+  onCurrencyChange,
+  onIssueDateChange,
   exchangeRate, 
   manualExchangeRate, 
   onManualExchangeRateChange, 
@@ -459,7 +461,11 @@ export function InvoiceForm({
             type="date"
             id="issueDate"
             value={formData.issueDate}
-            onChange={(e) => setFormData(prev => ({ ...prev, issueDate: e.target.value }))}
+            onChange={(e) => {
+              const newDate = e.target.value
+              setFormData(prev => ({ ...prev, issueDate: newDate }))
+              onIssueDateChange?.(newDate)
+            }}
             className={getInputClassName()}
             required
             aria-required="true"

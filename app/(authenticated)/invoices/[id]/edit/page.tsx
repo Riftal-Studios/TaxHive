@@ -43,9 +43,13 @@ function EditInvoiceContent({ id }: { id: string }) {
   
   // Get exchange rate query
   const [selectedCurrency, setSelectedCurrency] = useState(invoice?.currency || 'USD')
+  const [selectedIssueDate, setSelectedIssueDate] = useState(
+    invoice?.invoiceDate ? invoice.invoiceDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  )
   const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(null)
   const { data: exchangeRateData } = api.invoices.getCurrentExchangeRate.useQuery({
     currency: selectedCurrency,
+    date: selectedIssueDate,
   }, {
     enabled: !!selectedCurrency && selectedCurrency !== 'INR',
   })
@@ -142,6 +146,7 @@ function EditInvoiceContent({ id }: { id: string }) {
         onSubmit={handleSubmit}
         onCancel={() => router.push(`/invoices/${id}`)}
         onCurrencyChange={setSelectedCurrency}
+        onIssueDateChange={setSelectedIssueDate}
         exchangeRate={exchangeRateInfo}
         manualExchangeRate={manualExchangeRate}
         onManualExchangeRateChange={setManualExchangeRate}

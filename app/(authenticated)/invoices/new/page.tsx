@@ -29,9 +29,13 @@ export default function NewInvoicePage() {
   
   // Get exchange rate query
   const [selectedCurrency, setSelectedCurrency] = useState('USD')
+  const [selectedIssueDate, setSelectedIssueDate] = useState(new Date().toISOString().split('T')[0])
   const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(null)
   const { data: exchangeRateData } = api.invoices.getCurrentExchangeRate.useQuery({
     currency: selectedCurrency,
+    date: selectedIssueDate,
+  }, {
+    enabled: selectedCurrency !== 'INR',
   })
   
   // Create invoice mutation
@@ -165,6 +169,7 @@ export default function NewInvoicePage() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             onCurrencyChange={setSelectedCurrency}
+            onIssueDateChange={setSelectedIssueDate}
             exchangeRate={exchangeRateData}
             manualExchangeRate={manualExchangeRate}
             onManualExchangeRateChange={setManualExchangeRate}

@@ -33,6 +33,7 @@ import { formatCurrency, formatINR } from '@/lib/invoice-utils'
 import { MUIInvoiceActions } from './invoice-actions'
 import { EnhancedPaymentModal as MUIPaymentModal } from './enhanced-payment-modal'
 import { format } from 'date-fns'
+import { toSafeNumber } from '@/lib/utils/decimal'
 
 // Define proper types for the invoice with relations
 interface InvoiceWithRelations {
@@ -411,15 +412,15 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                 {typedInvoice.lineItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.description}</TableCell>
-                    <TableCell align="right">{item.quantity.toNumber()}</TableCell>
+                    <TableCell align="right">{toSafeNumber(item.quantity)}</TableCell>
                     <TableCell align="right">
-                      {formatCurrency(Number(item.rate.toNumber()), typedInvoice.currency)}
+                      {formatCurrency(toSafeNumber(item.rate), typedInvoice.currency)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatCurrency(Number(item.amount.toNumber()), typedInvoice.currency)}
+                      {formatCurrency(toSafeNumber(item.amount), typedInvoice.currency)}
                     </TableCell>
                     <TableCell align="right">
-                      {formatINR(Number(item.amount.toNumber()) * Number(typedInvoice.exchangeRate))}
+                      {formatINR(toSafeNumber(item.amount) * Number(typedInvoice.exchangeRate))}
                     </TableCell>
                   </TableRow>
                 ))}

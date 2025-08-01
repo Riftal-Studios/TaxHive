@@ -37,14 +37,14 @@ export function getQueueService(): QueueService {
           redisConfig = {
             host: url.hostname,
             port: parseInt(url.port || '6379', 10),
-            password: decodeURIComponent(match[1]),
+            password: match[1], // Regex gives us raw password, no need to decode
           }
         }
       } else {
         redisConfig = {
           host: url.hostname,
           port: parseInt(url.port || '6379', 10),
-          password: password || undefined,
+          password: password ? decodeURIComponent(password) : undefined,
         }
       }
     }

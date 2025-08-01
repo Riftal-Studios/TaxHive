@@ -47,14 +47,14 @@ if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
       redisConfig = {
         host: url.hostname,
         port: parseInt(url.port || '6379', 10),
-        password: decodeURIComponent(match[1]),
+        password: match[1], // Regex gives us raw password, no need to decode
       }
     }
   } else {
     redisConfig = {
       host: url.hostname,
       port: parseInt(url.port || '6379', 10),
-      password: url.password || undefined,
+      password: url.password ? decodeURIComponent(url.password) : undefined,
     }
   }
 }

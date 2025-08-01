@@ -56,7 +56,7 @@ export const invoiceRouter = createTRPCRouter({
           where: {
             userId,
             invoiceNumber: {
-              startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(-2)}/`,
+              startsWith: `FY${currentFY.slice(2, 4)}-${currentFY.slice(-2)}/`,
             },
           },
           select: { invoiceNumber: true },
@@ -325,7 +325,7 @@ export const invoiceRouter = createTRPCRouter({
         where: {
           userId: ctx.session.user.id,
           invoiceNumber: {
-            startsWith: `FY${currentFY.slice(2, 5)}-${currentFY.slice(-2)}/`,
+            startsWith: `FY${currentFY.slice(2, 4)}-${currentFY.slice(-2)}/`,
           },
         },
         select: { invoiceNumber: true },

@@ -140,7 +140,10 @@ export const invoiceRouter = createTRPCRouter({
   }),
 
   getById: protectedProcedure
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ 
+      id: z.string(),
+      includePayments: z.boolean().optional().default(false)
+    }))
     .query(async ({ ctx, input }) => {
       const invoice = await ctx.prisma.invoice.findUnique({
         where: { id: input.id, userId: ctx.session.user.id },
@@ -148,6 +151,7 @@ export const invoiceRouter = createTRPCRouter({
           client: true,
           lineItems: true,
           lut: true,
+          payments: input.includePayments || undefined,
         },
       })
 
@@ -156,6 +160,36 @@ export const invoiceRouter = createTRPCRouter({
           code: 'NOT_FOUND',
           message: 'Invoice not found',
         })
+      }
+      
+      // Always recalculate balance to ensure accuracy
+      if (invoice.payments) {
+        const totalPaid = invoice.payments.reduce((sum, payment) => 
+          sum + Number(payment.amount), 0
+        )
+        const balanceDue = Number(invoice.totalAmount) - totalPaid
+        
+        // Update if there's a mismatch
+        if (Math.abs(Number(invoice.balanceDue) - balanceDue) > 0.01) {
+          await ctx.prisma.invoice.update({
+            where: { id: invoice.id },
+            data: {
+              amountPaid: totalPaid,
+              balanceDue: balanceDue,
+              paymentStatus: balanceDue <= 0 ? 'PAID' : totalPaid > 0 ? 'PARTIAL' : 'UNPAID'
+            }
+          })
+          // Refetch the updated invoice to get correct Decimal types
+          return await ctx.prisma.invoice.findUnique({
+            where: { id: invoice.id },
+            include: {
+              client: true,
+              lineItems: true,
+              lut: true,
+              payments: input.includePayments || undefined,
+            },
+          }) as typeof invoice
+        }
       }
 
       return invoice
@@ -629,5 +663,42 @@ export const invoiceRouter = createTRPCRouter({
         result: job.result,
         error: job.error,
       }
+    }),
+  
+  // Recalculate balance due for an invoice
+  recalculateBalance: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.id, userId: ctx.session.user.id },
+        include: { payments: true }
+      })
+      
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+      
+      // Calculate total paid from all payments
+      const totalPaid = invoice.payments.reduce((sum, payment) => 
+        sum + Number(payment.amount), 0
+      )
+      
+      const balanceDue = Number(invoice.totalAmount) - totalPaid
+      const paymentStatus = balanceDue <= 0 ? 'PAID' : totalPaid > 0 ? 'PARTIAL' : 'UNPAID'
+      
+      // Update invoice with correct values
+      const updated = await ctx.prisma.invoice.update({
+        where: { id: input.id },
+        data: {
+          amountPaid: totalPaid,
+          balanceDue: balanceDue,
+          paymentStatus: paymentStatus,
+        }
+      })
+      
+      return updated
     }),
 })

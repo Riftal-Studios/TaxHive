@@ -312,7 +312,7 @@ export function InvoiceList() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => router.push('/invoices/create')}
+            onClick={() => router.push('/invoices/new')}
           >
             Create Invoice
           </Button>

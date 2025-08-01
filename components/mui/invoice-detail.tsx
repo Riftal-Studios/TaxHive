@@ -120,7 +120,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     isLoading, 
     error, 
     refetch 
-  } = api.invoices.getById.useQuery({ id: invoiceId })
+  } = api.invoices.getById.useQuery({ id: invoiceId, includePayments: true })
   const { data: payments } = api.payments.getByInvoice.useQuery({ invoiceId })
 
   const handlePrint = () => {

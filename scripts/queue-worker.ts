@@ -28,8 +28,17 @@ let redisConfig: { host: string; port: number; password?: string } = {
   password: process.env.REDIS_PASSWORD,
 }
 
-// If REDIS_URL is provided, parse it
-if (process.env.REDIS_URL) {
+// If REDIS_URL is provided, prefer using REDIS_PASSWORD directly if available
+// This avoids URL encoding/decoding issues
+if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
+  const url = new URL(process.env.REDIS_URL)
+  redisConfig = {
+    host: url.hostname,
+    port: parseInt(url.port || '6379', 10),
+    password: process.env.REDIS_PASSWORD, // Use password directly, not from URL
+  }
+} else if (process.env.REDIS_URL) {
+  // Fallback to parsing from URL if REDIS_PASSWORD not available
   const url = new URL(process.env.REDIS_URL)
   // Handle the common redis://:password@host format
   if (!url.password && url.username === '' && process.env.REDIS_URL.includes('://:')) {

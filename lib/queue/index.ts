@@ -12,8 +12,17 @@ export function getQueueService(): QueueService {
       password: process.env.REDIS_PASSWORD,
     }
     
-    // If REDIS_URL is provided, parse it
-    if (process.env.REDIS_URL) {
+    // If REDIS_URL is provided, prefer using REDIS_PASSWORD directly if available
+    // This avoids URL encoding/decoding issues
+    if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
+      const url = new URL(process.env.REDIS_URL)
+      redisConfig = {
+        host: url.hostname,
+        port: parseInt(url.port || '6379', 10),
+        password: process.env.REDIS_PASSWORD, // Use password directly, not from URL
+      }
+    } else if (process.env.REDIS_URL) {
+      // Fallback to parsing from URL if REDIS_PASSWORD not available
       const url = new URL(process.env.REDIS_URL)
       // For Redis URLs like redis://:password@host:port, the password is in username
       // For Redis URLs like redis://user:password@host:port, the password is in password

@@ -31,7 +31,7 @@ docker compose --env-file .env -f docker/docker-compose.local.yml down
 
 # Build fresh images
 echo "🔨 Building Docker images..."
-docker compose --env-file .env -f docker/docker-compose.local.yml build --no-cache
+docker compose --env-file .env -f docker/docker-compose.local.yml build
 
 # Start services
 echo "🚀 Starting services..."

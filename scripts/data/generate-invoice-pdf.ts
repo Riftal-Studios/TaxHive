@@ -5,10 +5,10 @@ import path from 'path'
 
 async function generatePDFForInvoice() {
   try {
-    // Find the invoice
+    // Find the latest invoice
     const invoice = await prisma.invoice.findFirst({
-      where: {
-        publicAccessToken: '_dXZSGbfnHdB31LcE5bdaI-_LPCODxMl2hHmDv0ER2I'
+      orderBy: {
+        createdAt: 'desc'
       },
       include: {
         client: true,

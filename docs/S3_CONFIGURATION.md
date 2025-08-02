@@ -13,14 +13,27 @@ This guide explains how to configure AWS S3 for storing invoice PDFs in GSTHive.
 Add these to your `.env` file:
 
 ```bash
-# AWS Credentials
+# AWS Credentials (Required)
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 
-# AWS Configuration
-AWS_REGION=us-east-1  # Your AWS region
-AWS_S3_BUCKET=gsthive-uploads  # Your S3 bucket name
+# Basic Configuration (Required)
+AWS_REGION=us-east-1              # Default AWS region
+AWS_S3_BUCKET=gsthive-uploads     # Your S3 bucket name
+
+# Advanced Configuration (Optional)
+AWS_S3_REGION=ap-south-1          # Override region for S3 only
+AWS_S3_ENDPOINT=                  # Custom endpoint for S3-compatible services
+AWS_S3_FORCE_PATH_STYLE=false     # Set to true for MinIO/LocalStack
+AWS_S3_PUBLIC_READ=false          # Set to true to make uploads public by default
 ```
+
+### Configuration Options Explained
+
+- **AWS_S3_REGION**: Use this to override the region specifically for S3 if your bucket is in a different region than your other AWS services
+- **AWS_S3_ENDPOINT**: For S3-compatible services like CloudFlare R2, MinIO, or LocalStack
+- **AWS_S3_FORCE_PATH_STYLE**: Required for some S3-compatible services that don't support virtual-hosted-style URLs
+- **AWS_S3_PUBLIC_READ**: Automatically makes uploaded PDFs publicly accessible (use with caution)
 
 ## AWS IAM Policy
 
@@ -146,9 +159,21 @@ GSTHive can also work with CloudFlare R2 (S3-compatible):
 # For R2
 AWS_ACCESS_KEY_ID=your-r2-access-key
 AWS_SECRET_ACCESS_KEY=your-r2-secret-key
-AWS_REGION=auto
 AWS_S3_BUCKET=gsthive-uploads
-AWS_ENDPOINT_URL=https://your-account-id.r2.cloudflarestorage.com
+AWS_S3_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+AWS_S3_REGION=auto  # R2 uses 'auto' as region
 ```
 
-Update the S3 client initialization in `pdf-uploader-s3.ts` to include the endpoint.
+## Alternative: MinIO (Self-hosted S3)
+
+For local development or self-hosted S3:
+
+```bash
+# For MinIO
+AWS_ACCESS_KEY_ID=minioadmin
+AWS_SECRET_ACCESS_KEY=minioadmin
+AWS_S3_BUCKET=gsthive-uploads
+AWS_S3_ENDPOINT=http://localhost:9000
+AWS_S3_FORCE_PATH_STYLE=true  # Required for MinIO
+AWS_S3_REGION=us-east-1       # MinIO default
+```

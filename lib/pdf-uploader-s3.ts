@@ -2,10 +2,21 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 
+// S3 Configuration
+const s3Config = {
+  bucket: process.env.AWS_S3_BUCKET || process.env.S3_BUCKET,
+  region: process.env.AWS_S3_REGION || process.env.AWS_REGION || 'us-east-1',
+  endpoint: process.env.AWS_S3_ENDPOINT || process.env.AWS_ENDPOINT_URL, // For S3-compatible services
+  forcePathStyle: process.env.AWS_S3_FORCE_PATH_STYLE === 'true', // For MinIO/LocalStack
+  publicRead: process.env.AWS_S3_PUBLIC_READ === 'true', // Make uploads public by default
+}
+
 // Initialize S3 client
-const s3Client = process.env.AWS_ACCESS_KEY_ID && process.env.AWS_S3_BUCKET
+const s3Client = process.env.AWS_ACCESS_KEY_ID && s3Config.bucket
   ? new S3Client({
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: s3Config.region,
+      endpoint: s3Config.endpoint,
+      forcePathStyle: s3Config.forcePathStyle,
       credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
@@ -16,12 +27,12 @@ const s3Client = process.env.AWS_ACCESS_KEY_ID && process.env.AWS_S3_BUCKET
 // Upload PDF to S3 or local filesystem
 export async function uploadPDF(buffer: Buffer, filename: string): Promise<string> {
   // Use S3 if configured
-  if (s3Client && process.env.AWS_S3_BUCKET) {
+  if (s3Client && s3Config.bucket) {
     try {
       const key = `invoices/${filename}`
       
       const command = new PutObjectCommand({
-        Bucket: process.env.AWS_S3_BUCKET,
+        Bucket: s3Config.bucket,
         Key: key,
         Body: buffer,
         ContentType: 'application/pdf',
@@ -30,15 +41,20 @@ export async function uploadPDF(buffer: Buffer, filename: string): Promise<strin
           'uploaded-by': 'gsthive',
           'upload-date': new Date().toISOString(),
         },
-        // Optional: Make publicly readable (configure based on your needs)
-        // ACL: 'public-read',
+        // Set ACL based on configuration
+        ...(s3Config.publicRead && { ACL: 'public-read' }),
       })
 
       await s3Client.send(command)
       
       // Return S3 URL
-      // For private buckets, you might want to use CloudFront or generate signed URLs
-      return `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${key}`
+      if (s3Config.endpoint) {
+        // Custom endpoint (e.g., CloudFlare R2, MinIO)
+        return `${s3Config.endpoint}/${s3Config.bucket}/${key}`
+      } else {
+        // Standard AWS S3 URL
+        return `https://${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com/${key}`
+      }
     } catch (error) {
       console.error('S3 upload failed, falling back to local storage:', error)
       // Fall back to local storage on error
@@ -57,7 +73,7 @@ export async function uploadPDF(buffer: Buffer, filename: string): Promise<strin
 
 // Generate a signed URL for private S3 objects (optional)
 export async function getSignedUrl(key: string, expiresIn = 3600): Promise<string | null> {
-  if (!s3Client || !process.env.AWS_S3_BUCKET) {
+  if (!s3Client || !s3Config.bucket) {
     return null
   }
 
@@ -66,7 +82,7 @@ export async function getSignedUrl(key: string, expiresIn = 3600): Promise<strin
     const { GetObjectCommand } = await import('@aws-sdk/client-s3')
     
     const command = new GetObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET,
+      Bucket: s3Config.bucket,
       Key: key,
     })
 

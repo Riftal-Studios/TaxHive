@@ -1,5 +1,5 @@
-import { prisma } from '../lib/prisma'
-import { generateInvoicePDF } from '../lib/pdf-generator'
+import { prisma } from '../../lib/prisma'
+import { generateInvoicePDF } from '../../lib/pdf-generator'
 import { mkdir, writeFile } from 'fs/promises'
 import path from 'path'
 

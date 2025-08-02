@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { getQueueService } from '../lib/queue'
+import { getQueueService } from '../../lib/queue'
 
 async function checkQueue() {
   const queueService = getQueueService()

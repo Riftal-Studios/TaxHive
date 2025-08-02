@@ -1,5 +1,5 @@
-import { prisma } from '../lib/prisma'
-import { getQueueService } from '../lib/queue'
+import { prisma } from '../../lib/prisma'
+import { getQueueService } from '../../lib/queue'
 
 async function sendTestInvoice() {
   try {
@@ -28,7 +28,7 @@ async function sendTestInvoice() {
 
     // Generate public access token if not exists
     if (!invoice.publicAccessToken) {
-      const { generateSecureToken, getTokenExpirationDate } = await import('../lib/utils/token')
+      const { generateSecureToken, getTokenExpirationDate } = await import('../../lib/utils/token')
       
       const updated = await prisma.invoice.update({
         where: { id: invoice.id },

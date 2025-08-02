@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from '@prisma/client'
-import { getQueue } from '../lib/queue'
+import { getQueueService } from '../../lib/queue'
 
 const prisma = new PrismaClient()
 
@@ -42,7 +42,7 @@ async function testPDFRegeneration() {
     
     // Check if PDF regeneration was queued
     console.log('\nChecking queue for PDF regeneration job...')
-    const queue = getQueue()
+    const queue = getQueueService()
     
     // Wait a moment for the job to be processed
     await new Promise(resolve => setTimeout(resolve, 2000))

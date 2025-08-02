@@ -1,5 +1,8 @@
 import { readFileSync, existsSync } from 'fs'
 
+// Track if secrets have already been loaded
+let secretsLoaded = false
+
 /**
  * Load Docker secrets at runtime
  * This is called from server initialization to ensure secrets are loaded
@@ -8,6 +11,11 @@ import { readFileSync, existsSync } from 'fs'
 export function loadDockerSecrets(): void {
   // Only run on server-side
   if (typeof window !== 'undefined') {
+    return
+  }
+
+  // Skip if already loaded
+  if (secretsLoaded) {
     return
   }
 
@@ -66,6 +74,9 @@ export function loadDockerSecrets(): void {
   }
 
   console.log('Docker secrets loading complete')
+  
+  // Mark as loaded
+  secretsLoaded = true
 }
 
 // Load secrets immediately when this module is imported

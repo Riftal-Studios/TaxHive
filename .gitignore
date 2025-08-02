@@ -60,3 +60,4 @@ prisma/*.db-journal
 .vars
 .vars.*
 .aider*
+/uploads/

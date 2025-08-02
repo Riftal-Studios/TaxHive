@@ -4,6 +4,44 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { readFile } from 'fs/promises'
 import path from 'path'
+import { generateInvoicePDF } from '@/lib/pdf-generator'
+
+// Helper function to generate PDF on demand
+async function generatePDFOnDemand(invoiceId: string, userId: string): Promise<Buffer> {
+  // Fetch full invoice data with relations
+  const invoice = await prisma.invoice.findFirst({
+    where: {
+      id: invoiceId,
+      userId: userId,
+    },
+    include: {
+      client: true,
+      lineItems: true,
+      lut: true,
+    },
+  })
+
+  if (!invoice) {
+    throw new Error('Invoice not found')
+  }
+
+  // Get user data
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  })
+
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  // Generate PDF
+  const pdfBuffer = await generateInvoicePDF(invoice, user)
+  
+  // Optionally save the generated PDF to disk and update invoice record
+  // This part can be enhanced later to save to the uploads directory
+  
+  return pdfBuffer
+}
 
 export async function GET(
   request: NextRequest,
@@ -41,17 +79,24 @@ export async function GET(
       return new NextResponse('Invoice not found', { status: 404 })
     }
 
-    if (!invoice.pdfUrl) {
-      return new NextResponse('PDF not generated yet', { status: 404 })
-    }
-
-    // For now, we're serving from local filesystem
-    // In production, this would redirect to S3/CDN URL
-    const filename = path.basename(invoice.pdfUrl)
-    const filePath = path.join(process.cwd(), 'uploads', 'invoices', filename)
-
+    // Generate PDF on-the-fly if not cached
     try {
-      const pdfBuffer = await readFile(filePath)
+      let pdfBuffer: Buffer
+      
+      if (invoice.pdfUrl) {
+        // Try to read cached PDF
+        const filename = path.basename(invoice.pdfUrl)
+        const filePath = path.join(process.cwd(), 'uploads', 'invoices', filename)
+        try {
+          pdfBuffer = await readFile(filePath)
+        } catch {
+          // If cached PDF not found, generate new one
+          pdfBuffer = await generatePDFOnDemand(invoice.id, session.user.id)
+        }
+      } else {
+        // Generate new PDF
+        pdfBuffer = await generatePDFOnDemand(invoice.id, session.user.id)
+      }
       
       // Create a safe filename
       const safeClientName = invoice.client.name.replace(/[^a-zA-Z0-9]/g, '_')
@@ -65,8 +110,8 @@ export async function GET(
       
       return new NextResponse(pdfBuffer, { headers })
     } catch (error) {
-      console.error('Error reading PDF file:', error)
-      return new NextResponse('PDF file not found', { status: 404 })
+      console.error('Error generating/reading PDF:', error)
+      return new NextResponse('Failed to generate PDF', { status: 500 })
     }
   } catch (error) {
     console.error('Error downloading PDF:', error)

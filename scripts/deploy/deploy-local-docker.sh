@@ -6,7 +6,7 @@ set -e
 echo "🚀 Starting GST Hive local Docker deployment..."
 
 # Change to project root
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Check if .env file exists
 if [ ! -f .env ]; then

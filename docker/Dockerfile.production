@@ -85,9 +85,6 @@ COPY --chown=node:node package.json ./package.json
 # Copy tsconfig for tsx
 COPY --chown=node:node tsconfig.json ./tsconfig.json
 
-# Make start script executable
-RUN chmod +x scripts/start-server.sh
-
 # Switch to non-root user
 USER node
 
@@ -101,5 +98,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Start the application
-CMD ["/app/scripts/start-server.sh"]
+# Start the application directly
+CMD ["node", "server.js"]

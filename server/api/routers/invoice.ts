@@ -296,6 +296,17 @@ export const invoiceRouter = createTRPCRouter({
           })
         }
         
+        // Queue PDF regeneration after any update
+        try {
+          await getQueue().enqueue('PDF_GENERATION', {
+            invoiceId: id,
+            userId: ctx.session.user.id,
+          })
+        } catch (error) {
+          console.error('Failed to queue PDF regeneration after update:', error)
+          // Don't fail the update if PDF generation queueing fails
+        }
+        
         return invoice
       })
     }),
@@ -597,6 +608,8 @@ export const invoiceRouter = createTRPCRouter({
       // Queue invoice email
       const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
         to: input.to || invoice.client.email,
+        cc: input.cc,
+        bcc: input.bcc,
         subject: `Invoice ${invoice.invoiceNumber} from ${user.name || 'Your Service Provider'}`,
         template: 'invoice',
         data: {
@@ -699,6 +712,8 @@ export const invoiceRouter = createTRPCRouter({
       // Queue payment reminder email
       const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
         to: input.to || invoice.client.email,
+        cc: input.cc,
+        bcc: input.bcc,
         subject: `Payment Reminder: Invoice ${invoice.invoiceNumber}`,
         template: 'payment-reminder',
         data: {

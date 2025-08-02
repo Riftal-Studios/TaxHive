@@ -3,6 +3,8 @@ services:
     image: postgres:16-alpine
     container_name: gsthive-dev-postgres
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -16,12 +18,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - gsthive-local
+      - app
 
   redis:
     image: redis:7-alpine
     container_name: gsthive-dev-redis
     restart: unless-stopped
+    env_file:
+      - ../.env
     command: >
       sh -c '
         if [ -n "$${REDIS_PASSWORD}" ]; then
@@ -48,7 +52,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - gsthive-local
+      - app
 
   app:
     build:
@@ -56,6 +60,8 @@ services:
       dockerfile: docker/Dockerfile.dev
     container_name: gsthive-dev-app
     restart: unless-stopped
+    env_file:
+      - ../.env
     volumes:
       - ../:/app
       - /app/node_modules
@@ -89,18 +95,20 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - gsthive-local
+      - app
     # No ports exposed - access via Cloudflare tunnel
 
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: gsthive-dev-tunnel
     restart: unless-stopped
-    command: tunnel run
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    env_file:
+      - ../.env
     networks:
-      - gsthive-local
+      - app
     depends_on:
       - app
 
@@ -111,6 +119,8 @@ services:
       dockerfile: docker/Dockerfile.dev
     container_name: gsthive-dev-queue-worker
     command: npm run worker
+    env_file:
+      - ../.env
     volumes:
       - ../:/app
       - /app/node_modules
@@ -130,12 +140,12 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - gsthive-local
+      - app
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  gsthive-local:
+  app:
     driver: bridge

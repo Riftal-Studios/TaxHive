@@ -127,6 +127,8 @@ export const PdfGenerationJobSchema = z.object({
 
 export const EmailNotificationJobSchema = z.object({
   to: z.string().email(),
+  cc: z.string().email().optional(),
+  bcc: z.string().email().optional(),
   subject: z.string(),
   template: z.string(),
   data: z.record(z.string(), z.any()),

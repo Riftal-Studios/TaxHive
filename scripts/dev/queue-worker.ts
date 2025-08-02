@@ -9,10 +9,10 @@ import path from 'path'
 
 // Load .env.local for local development
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
-import { BullMQService } from '../lib/queue/bullmq.service'
-import { pdfGenerationHandler } from '../lib/queue/handlers/pdf-generation.handler'
-import { emailNotificationHandler } from '../lib/queue/handlers/email-notification.handler'
-import { exchangeRateFetchHandler } from '../lib/queue/handlers/exchange-rate-fetch.handler'
+import { BullMQService } from '../../lib/queue/bullmq.service'
+import { pdfGenerationHandler } from '../../lib/queue/handlers/pdf-generation.handler'
+import { emailNotificationHandler } from '../../lib/queue/handlers/email-notification.handler'
+import { exchangeRateFetchHandler } from '../../lib/queue/handlers/exchange-rate-fetch.handler'
 
 // Debug environment loading
 console.log('Environment check:')

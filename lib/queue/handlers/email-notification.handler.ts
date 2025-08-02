@@ -12,6 +12,8 @@ interface EmailNotificationResult {
 export async function emailNotificationHandler(job: Job<EmailNotificationJobData>): Promise<EmailNotificationResult> {
   const { 
     to, 
+    cc,
+    bcc,
     subject,
     template,
     data: templateData 
@@ -27,6 +29,8 @@ export async function emailNotificationHandler(job: Job<EmailNotificationJobData
   // Prepare email options
   const emailOptions: EmailOptions = {
     to,
+    cc,
+    bcc,
     subject,
     template: template as keyof typeof import('@/lib/email/templates').emailTemplates,
     data: templateData as import('@/lib/email/templates').EmailTemplateData,

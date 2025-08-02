@@ -86,7 +86,7 @@ COPY --chown=node:node package.json ./package.json
 COPY --chown=node:node tsconfig.json ./tsconfig.json
 
 # Make start script executable
-RUN chmod +x scripts/start-server.sh
+RUN chmod +x scripts/dev/start-server.sh
 
 # Switch to non-root user
 USER node
@@ -102,4 +102,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Start the application
-CMD ["/app/scripts/start-server.sh"]
+CMD ["/app/scripts/dev/start-server.sh"]

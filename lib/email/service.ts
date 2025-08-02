@@ -37,7 +37,7 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
 
   // Build email options
   const mailOptions: SendMailOptions = {
-    from: formatFromAddress(options.data.senderName, options.data.senderEmail),
+    from: formatFromAddress(options.data.senderName),
     to: options.to,
     cc: options.cc,
     bcc: options.bcc,
@@ -146,8 +146,9 @@ function createTransporter() {
   }
 }
 
-function formatFromAddress(senderName?: string, senderEmail?: string): string {
-  const email = senderEmail || process.env.EMAIL_FROM || 'noreply@gsthive.com'
+function formatFromAddress(senderName?: string): string {
+  // Always use the configured EMAIL_FROM
+  const email = process.env.EMAIL_FROM || 'no-reply@gsthive.com'
   const name = senderName || process.env.EMAIL_FROM_NAME || 'GSTHive'
   
   return `"${name}" <${email}>`

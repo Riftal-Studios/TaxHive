@@ -323,7 +323,7 @@ export const invoiceRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
-        status: z.enum(['DRAFT', 'SENT', 'PAID', 'PARTIALLY_PAID', 'OVERDUE', 'CANCELLED']),
+        status: z.enum(['DRAFT', 'SENT', 'CANCELLED']),
       })
     )
     .mutation(async ({ ctx, input }) => {

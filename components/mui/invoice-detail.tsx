@@ -30,10 +30,8 @@ import {
   Edit as EditIcon,
   Print as PrintIcon,
   Download as DownloadIcon,
-  CheckCircle as CheckCircleIcon,
   Send as SendIcon,
   Cancel as CancelIcon,
-  HourglassEmpty as HourglassEmptyIcon,
   Description as DraftIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
@@ -157,7 +155,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     if (invoice) {
       updateStatusMutation.mutate({
         id: invoice.id,
-        status: newStatus as 'DRAFT' | 'SENT' | 'PAID' | 'PARTIALLY_PAID' | 'OVERDUE' | 'CANCELLED',
+        status: newStatus as 'DRAFT' | 'SENT' | 'CANCELLED',
       })
     }
   }
@@ -292,18 +290,13 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
 
+  // Invoice Status: User-controlled workflow state (DRAFT, SENT, CANCELLED)
   const getStatusColor = (status: string): ChipColor => {
     switch (status) {
-      case 'PAID':
-        return 'success'
       case 'SENT':
         return 'info'
-      case 'OVERDUE':
-        return 'warning'
       case 'CANCELLED':
         return 'error'
-      case 'PARTIALLY_PAID':
-        return 'primary'
       case 'DRAFT':
         return 'default'
       default:
@@ -311,6 +304,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     }
   }
 
+  // Payment Status: System-managed based on actual payments (PAID, PARTIALLY_PAID, UNPAID, OVERDUE)
   const getPaymentStatusColor = (status: string): ChipColor => {
     switch (status) {
       case 'PAID':
@@ -319,9 +313,27 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
         return 'warning'
       case 'UNPAID':
         return 'error'
+      case 'OVERDUE':
+        return 'error'
       default:
         return 'default'
     }
+  }
+  
+  // Compute effective payment status including OVERDUE
+  const getEffectivePaymentStatus = (paymentStatus: string, dueDate: Date): string => {
+    if (paymentStatus === 'PAID') {
+      return 'PAID'
+    }
+    
+    const now = new Date()
+    const due = new Date(dueDate)
+    
+    if (now > due && (paymentStatus === 'UNPAID' || paymentStatus === 'PARTIALLY_PAID')) {
+      return 'OVERDUE'
+    }
+    
+    return paymentStatus
   }
 
   return (
@@ -439,10 +451,18 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                   <Grid size={{ xs: 6, md: 4 }} textAlign="right">
                     <Chip
                       label={
-                        typedInvoice.paymentStatus === 'PARTIALLY_PAID' ? 'Partially Paid' :
-                        typedInvoice.paymentStatus === 'UNPAID' ? 'Unpaid' : 'Paid'
+                        (() => {
+                          const effectiveStatus = getEffectivePaymentStatus(typedInvoice.paymentStatus, typedInvoice.dueDate)
+                          switch (effectiveStatus) {
+                            case 'PARTIALLY_PAID': return 'Partially Paid'
+                            case 'UNPAID': return 'Unpaid'
+                            case 'OVERDUE': return 'Overdue'
+                            case 'PAID': return 'Paid'
+                            default: return effectiveStatus
+                          }
+                        })()
                       }
-                      color={getPaymentStatusColor(typedInvoice.paymentStatus)}
+                      color={getPaymentStatusColor(getEffectivePaymentStatus(typedInvoice.paymentStatus, typedInvoice.dueDate))}
                       size="small"
                     />
                   </Grid>
@@ -787,24 +807,6 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             <SendIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Sent</ListItemText>
-        </MenuItem>
-        <MenuItem 
-          onClick={() => handleStatusUpdate('PAID')}
-          disabled={typedInvoice.status === 'PAID'}
-        >
-          <ListItemIcon>
-            <CheckCircleIcon fontSize="small" color="success" />
-          </ListItemIcon>
-          <ListItemText>Paid</ListItemText>
-        </MenuItem>
-        <MenuItem 
-          onClick={() => handleStatusUpdate('OVERDUE')}
-          disabled={typedInvoice.status === 'OVERDUE'}
-        >
-          <ListItemIcon>
-            <HourglassEmptyIcon fontSize="small" color="warning" />
-          </ListItemIcon>
-          <ListItemText>Overdue</ListItemText>
         </MenuItem>
         <MenuItem 
           onClick={() => handleStatusUpdate('CANCELLED')}

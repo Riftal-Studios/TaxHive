@@ -63,6 +63,10 @@ jobs:
           echo "aws_ses_region=${{ vars.AWS_SES_REGION }}" >> $GITHUB_OUTPUT
           echo "aws_region=${{ vars.AWS_REGION }}" >> $GITHUB_OUTPUT
           echo "aws_s3_bucket=${{ vars.AWS_S3_BUCKET }}" >> $GITHUB_OUTPUT
+          echo "aws_s3_region=${{ vars.AWS_S3_REGION }}" >> $GITHUB_OUTPUT
+          echo "aws_s3_endpoint=${{ vars.AWS_S3_ENDPOINT }}" >> $GITHUB_OUTPUT
+          echo "aws_s3_force_path_style=${{ vars.AWS_S3_FORCE_PATH_STYLE }}" >> $GITHUB_OUTPUT
+          echo "aws_s3_public_read=${{ vars.AWS_S3_PUBLIC_READ }}" >> $GITHUB_OUTPUT
 
       - name: Create deployment package
         run: |
@@ -176,6 +180,10 @@ jobs:
             # AWS
             AWS_REGION=${{ steps.vars.outputs.aws_region }}
             AWS_S3_BUCKET=${{ steps.vars.outputs.aws_s3_bucket }}
+            AWS_S3_REGION=${{ steps.vars.outputs.aws_s3_region }}
+            AWS_S3_ENDPOINT=${{ steps.vars.outputs.aws_s3_endpoint }}
+            AWS_S3_FORCE_PATH_STYLE=${{ steps.vars.outputs.aws_s3_force_path_style }}
+            AWS_S3_PUBLIC_READ=${{ steps.vars.outputs.aws_s3_public_read }}
             AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
             AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             

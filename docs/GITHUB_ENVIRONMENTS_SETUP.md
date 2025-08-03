@@ -118,6 +118,10 @@ AWS_SES_REGION: ap-south-1
 # AWS (Optional)
 AWS_REGION: ap-south-1
 AWS_S3_BUCKET: gsthive-production
+AWS_S3_REGION: ap-south-1              # Optional: Override if different from AWS_REGION
+AWS_S3_ENDPOINT:                        # Optional: For S3-compatible services (R2, MinIO)
+AWS_S3_FORCE_PATH_STYLE: false         # Optional: Set to true for MinIO/LocalStack
+AWS_S3_PUBLIC_READ: false              # Optional: Set to true for public PDFs
 ```
 
 ### Staging Environment Configuration

@@ -20,12 +20,21 @@ import {
   Divider,
   IconButton,
   Tooltip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import {
   Edit as EditIcon,
   Print as PrintIcon,
   Download as DownloadIcon,
+  CheckCircle as CheckCircleIcon,
+  Send as SendIcon,
+  Cancel as CancelIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  Description as DraftIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
@@ -98,6 +107,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   const router = useRouter()
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false)
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null)
   const [selectedPayment, setSelectedPayment] = useState<{
     id: string
     amount: number | { toNumber: () => number }
@@ -123,9 +133,33 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     refetch 
   } = api.invoices.getById.useQuery({ id: invoiceId, includePayments: true })
   const { data: payments } = api.payments.getByInvoice.useQuery({ invoiceId })
+  
+  const updateStatusMutation = api.invoices.updateStatus.useMutation({
+    onSuccess: () => {
+      refetch()
+      setStatusMenuAnchor(null)
+    },
+  })
 
   const handlePrint = () => {
     window.print()
+  }
+  
+  const handleStatusClick = (event: React.MouseEvent<HTMLElement>) => {
+    setStatusMenuAnchor(event.currentTarget)
+  }
+  
+  const handleStatusClose = () => {
+    setStatusMenuAnchor(null)
+  }
+  
+  const handleStatusUpdate = (newStatus: string) => {
+    if (invoice) {
+      updateStatusMutation.mutate({
+        id: invoice.id,
+        status: newStatus as 'DRAFT' | 'SENT' | 'PAID' | 'PARTIALLY_PAID' | 'OVERDUE' | 'CANCELLED',
+      })
+    }
   }
 
   const handleDownloadPDF = () => {
@@ -265,7 +299,13 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
       case 'SENT':
         return 'info'
       case 'OVERDUE':
+        return 'warning'
+      case 'CANCELLED':
         return 'error'
+      case 'PARTIALLY_PAID':
+        return 'primary'
+      case 'DRAFT':
+        return 'default'
       default:
         return 'default'
     }
@@ -378,11 +418,20 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                     <Typography variant="body2" fontWeight={500}>Status:</Typography>
                   </Grid>
                   <Grid size={{ xs: 6, md: 4 }} textAlign="right">
-                    <Chip
-                      label={typedInvoice.status}
-                      color={getStatusColor(typedInvoice.status)}
-                      size="small"
-                    />
+                    <Tooltip title="Click to update status">
+                      <Chip
+                        label={typedInvoice.status}
+                        color={getStatusColor(typedInvoice.status)}
+                        size="small"
+                        onClick={handleStatusClick}
+                        sx={{ 
+                          cursor: 'pointer',
+                          '&:hover': {
+                            filter: 'brightness(0.9)',
+                          }
+                        }}
+                      />
+                    </Tooltip>
                   </Grid>
                   <Grid size={{ xs: 6, md: 8 }} textAlign="right">
                     <Typography variant="body2" fontWeight={500}>Payment Status:</Typography>
@@ -714,6 +763,59 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
           }}
         />
       )}
+      
+      {/* Status Update Menu */}
+      <Menu
+        anchorEl={statusMenuAnchor}
+        open={Boolean(statusMenuAnchor)}
+        onClose={handleStatusClose}
+      >
+        <MenuItem 
+          onClick={() => handleStatusUpdate('DRAFT')}
+          disabled={typedInvoice.status === 'DRAFT'}
+        >
+          <ListItemIcon>
+            <DraftIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Draft</ListItemText>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleStatusUpdate('SENT')}
+          disabled={typedInvoice.status === 'SENT'}
+        >
+          <ListItemIcon>
+            <SendIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Sent</ListItemText>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleStatusUpdate('PAID')}
+          disabled={typedInvoice.status === 'PAID'}
+        >
+          <ListItemIcon>
+            <CheckCircleIcon fontSize="small" color="success" />
+          </ListItemIcon>
+          <ListItemText>Paid</ListItemText>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleStatusUpdate('OVERDUE')}
+          disabled={typedInvoice.status === 'OVERDUE'}
+        >
+          <ListItemIcon>
+            <HourglassEmptyIcon fontSize="small" color="warning" />
+          </ListItemIcon>
+          <ListItemText>Overdue</ListItemText>
+        </MenuItem>
+        <MenuItem 
+          onClick={() => handleStatusUpdate('CANCELLED')}
+          disabled={typedInvoice.status === 'CANCELLED'}
+        >
+          <ListItemIcon>
+            <CancelIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Cancelled</ListItemText>
+        </MenuItem>
+      </Menu>
     </Box>
   )
 }

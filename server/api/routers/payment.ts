@@ -2,6 +2,10 @@ import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
 import { Decimal } from '@prisma/client/runtime/library'
+import { getQueueService } from '@/lib/queue'
+
+// Get queue service lazily to avoid connection during build
+const getQueue = () => getQueueService()
 
 const PaymentInputSchema = z.object({
   invoiceId: z.string(),
@@ -109,6 +113,16 @@ export const paymentRouter = createTRPCRouter({
           status: invoiceStatus,
         },
       })
+
+      // Queue PDF regeneration after payment
+      try {
+        await getQueue().enqueue('PDF_GENERATION', {
+          invoiceId: input.invoiceId,
+          userId: userId,
+        })
+      } catch (error) {
+        console.error('Failed to queue PDF regeneration after payment:', error)
+      }
 
       return payment
     }),
@@ -325,6 +339,16 @@ export const paymentRouter = createTRPCRouter({
           },
         })
 
+        // Queue PDF regeneration after payment update
+        try {
+          await getQueue().enqueue('PDF_GENERATION', {
+            invoiceId: payment.invoiceId,
+            userId: userId,
+          })
+        } catch (error) {
+          console.error('Failed to queue PDF regeneration after payment update:', error)
+        }
+
         return updatedPayment
       }
 
@@ -346,6 +370,16 @@ export const paymentRouter = createTRPCRouter({
           fircDocumentUrl: input.fircDocumentUrl,
         },
       })
+
+      // Queue PDF regeneration after any payment update
+      try {
+        await getQueue().enqueue('PDF_GENERATION', {
+          invoiceId: payment.invoiceId,
+          userId: userId,
+        })
+      } catch (error) {
+        console.error('Failed to queue PDF regeneration after payment update:', error)
+      }
 
       return updatedPayment
     }),
@@ -417,6 +451,16 @@ export const paymentRouter = createTRPCRouter({
           status: invoiceStatus,
         },
       })
+
+      // Queue PDF regeneration after payment deletion
+      try {
+        await getQueue().enqueue('PDF_GENERATION', {
+          invoiceId: payment.invoiceId,
+          userId: userId,
+        })
+      } catch (error) {
+        console.error('Failed to queue PDF regeneration after payment deletion:', error)
+      }
 
       return { success: true }
     }),

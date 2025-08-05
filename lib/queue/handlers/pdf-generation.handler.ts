@@ -48,8 +48,9 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
     await updateProgress(75)
   }
 
-  // Upload PDF (for now, we'll save locally)
-  const pdfUrl = await uploadPDF(pdfBuffer, `${invoiceId}.pdf`)
+  // Upload PDF with timestamp to bust cache
+  const timestamp = Date.now()
+  const pdfUrl = await uploadPDF(pdfBuffer, `${invoiceId}-${timestamp}.pdf`)
 
   // Update invoice with PDF URL
   await db.invoice.update({

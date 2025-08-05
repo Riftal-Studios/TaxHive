@@ -33,6 +33,7 @@ import {
   Send as SendIcon,
   Cancel as CancelIcon,
   Description as DraftIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
@@ -106,6 +107,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false)
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null)
+  const [isRegenerating, setIsRegenerating] = useState(false)
   const [selectedPayment, setSelectedPayment] = useState<{
     id: string
     amount: number | { toNumber: () => number }
@@ -139,6 +141,16 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     },
   })
 
+  const regeneratePDFMutation = api.invoices.regeneratePDF.useMutation({
+    onSuccess: () => {
+      setIsRegenerating(false)
+      refetch()
+    },
+    onError: () => {
+      setIsRegenerating(false)
+    },
+  })
+
   const handlePrint = () => {
     window.print()
   }
@@ -168,6 +180,13 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
+    }
+  }
+
+  const handleRegeneratePDF = async () => {
+    if (invoice) {
+      setIsRegenerating(true)
+      regeneratePDFMutation.mutate({ id: invoice.id })
     }
   }
 
@@ -366,14 +385,25 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             </IconButton>
           </Tooltip>
           {typedInvoice.pdfUrl && (
-            <Tooltip title="Download PDF">
-              <IconButton
-                onClick={handleDownloadPDF}
-                aria-label="Download PDF"
-              >
-                <DownloadIcon />
-              </IconButton>
-            </Tooltip>
+            <>
+              <Tooltip title="Download PDF">
+                <IconButton
+                  onClick={handleDownloadPDF}
+                  aria-label="Download PDF"
+                >
+                  <DownloadIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Regenerate PDF">
+                <IconButton
+                  onClick={handleRegeneratePDF}
+                  disabled={isRegenerating}
+                  aria-label="Regenerate PDF"
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </>
           )}
           <MUIInvoiceActions
             invoiceId={typedInvoice.id}

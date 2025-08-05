@@ -15,6 +15,7 @@ import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
 import { getQueueService } from '@/lib/queue'
+import { db } from '@/lib/prisma'
 
 // Get queue service lazily to avoid connection during build
 const getQueue = () => getQueueService()
@@ -854,5 +855,35 @@ export const invoiceRouter = createTRPCRouter({
         tokenExpiresAt: updated.tokenExpiresAt,
         publicUrl: `${process.env.NEXTAUTH_URL}/invoice/${updated.publicAccessToken}`,
       }
+    }),
+
+  regeneratePDF: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id } = input
+
+      // Verify invoice belongs to user
+      const invoice = await db.invoice.findFirst({
+        where: {
+          id,
+          userId: ctx.session.user.id,
+        },
+      })
+
+      if (!invoice) {
+        throw new Error('Invoice not found')
+      }
+
+      // Queue PDF regeneration
+      await getQueue().enqueue('PDF_GENERATION', {
+        invoiceId: id,
+        userId: ctx.session.user.id,
+      })
+
+      return { success: true, message: 'PDF regeneration queued' }
     }),
 })

@@ -29,6 +29,11 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
       client: true,
       lineItems: true,
       lut: true,
+      payments: {
+        orderBy: {
+          paymentDate: 'asc'
+        }
+      },
     },
   })
 

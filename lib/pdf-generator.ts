@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer'
 
 // Re-export for backward compatibility
 export { uploadPDF } from './pdf-uploader'
-import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
+import type { Invoice, InvoiceItem, User, Client, LUT, Payment } from '@prisma/client'
 import { SAC_HSN_CODES } from './constants'
 import { numberToWordsIndian, numberToWordsInternational } from './utils/number-to-words'
 
@@ -10,6 +10,7 @@ type InvoiceWithRelations = Invoice & {
   lineItems: InvoiceItem[]
   client: Client
   lut: LUT | null
+  payments?: Payment[]
 }
 
 export async function generateInvoicePDF(
@@ -372,6 +373,28 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
             <span>Total Amount:</span>
             <span>${formatCurrency(Number(invoice.totalAmount), invoice.currency)} / ${formatINR(totalAmountINR)}</span>
           </div>
+          
+          ${invoice.payments && invoice.payments.length > 0 ? `
+            <div class="payments-section" style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+              <h4 style="margin: 10px 0;">Payment History</h4>
+              ${invoice.payments.map((payment, index) => `
+                <div class="total-row" style="font-size: 14px;">
+                  <span>Payment ${index + 1} (${new Date(payment.paymentDate).toLocaleDateString('en-IN')}):</span>
+                  <span>-${formatCurrency(Number(payment.amount), payment.currency)} / -${formatINR(Number(payment.creditedAmount || Number(payment.amount) * Number(invoice.exchangeRate)))}</span>
+                </div>
+              `).join('')}
+              
+              <div class="total-row" style="font-weight: bold; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <span>Amount Paid:</span>
+                <span>${formatCurrency(Number(invoice.amountPaid), invoice.currency)} / ${formatINR(Number(invoice.amountPaid) * Number(invoice.exchangeRate))}</span>
+              </div>
+              
+              <div class="total-row grand-total" style="background-color: #f8f9fa; padding: 10px; margin-top: 10px;">
+                <span>Balance Due:</span>
+                <span>${formatCurrency(Number(invoice.balanceDue), invoice.currency)} / ${formatINR(Number(invoice.balanceDue) * Number(invoice.exchangeRate))}</span>
+              </div>
+            </div>
+          ` : ''}
         </div>
 
         <div class="invoice-meta">

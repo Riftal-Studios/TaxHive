@@ -24,6 +24,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  CircularProgress,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import {
@@ -143,11 +144,17 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   const regeneratePDFMutation = api.invoices.regeneratePDF.useMutation({
     onSuccess: () => {
+      console.log('PDF regeneration triggered successfully')
       setIsRegenerating(false)
-      refetch()
+      // Add a delay before refetch to ensure PDF generation completes
+      setTimeout(() => {
+        refetch()
+      }, 2000)
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('PDF regeneration failed:', error)
       setIsRegenerating(false)
+      alert('Failed to regenerate PDF: ' + error.message)
     },
   })
 
@@ -174,8 +181,11 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   const handleDownloadPDF = () => {
     if (invoice?.pdfUrl) {
+      // Add timestamp to force browser to re-download
       const link = document.createElement('a')
-      link.href = invoice.pdfUrl
+      link.href = invoice.pdfUrl.includes('?') ? 
+        `${invoice.pdfUrl}&t=${Date.now()}` : 
+        `${invoice.pdfUrl}?t=${Date.now()}`
       link.download = `invoice-${invoice.invoiceNumber}.pdf`
       document.body.appendChild(link)
       link.click()
@@ -185,6 +195,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   const handleRegeneratePDF = async () => {
     if (invoice) {
+      console.log('Regenerating PDF for invoice:', invoice.id)
       setIsRegenerating(true)
       regeneratePDFMutation.mutate({ id: invoice.id })
     }
@@ -394,13 +405,17 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                   <DownloadIcon />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Regenerate PDF">
+              <Tooltip title={isRegenerating ? "Regenerating PDF..." : "Regenerate PDF"}>
                 <IconButton
                   onClick={handleRegeneratePDF}
                   disabled={isRegenerating}
                   aria-label="Regenerate PDF"
                 >
-                  <RefreshIcon />
+                  {isRegenerating ? (
+                    <CircularProgress size={24} />
+                  ) : (
+                    <RefreshIcon />
+                  )}
                 </IconButton>
               </Tooltip>
             </>

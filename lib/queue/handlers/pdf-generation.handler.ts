@@ -1,6 +1,7 @@
 import type { Job, PdfGenerationJobData } from '../types'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { uploadPDF } from '@/lib/pdf-uploader'
+import { cleanupOldPDF } from '@/lib/pdf-cleanup'
 import { db } from '@/lib/prisma'
 
 interface PdfGenerationResult {
@@ -37,6 +38,9 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
     },
   })
 
+  // Store old PDF URL for cleanup
+  const oldPdfUrl = invoice.pdfUrl
+
   if (updateProgress) {
     await updateProgress(50)
   }
@@ -57,6 +61,11 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
     where: { id: invoiceId },
     data: { pdfUrl },
   })
+
+  // Cleanup old PDF file if it exists
+  if (oldPdfUrl && oldPdfUrl !== pdfUrl) {
+    await cleanupOldPDF(oldPdfUrl)
+  }
 
   if (updateProgress) {
     await updateProgress(100)

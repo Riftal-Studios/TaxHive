@@ -59,11 +59,28 @@ export const paymentRouter = createTRPCRouter({
         new Decimal(0)
       )
       const newTotalPaid = totalPaid.add(new Decimal(input.amount))
+      
+      // Calculate the difference to check if payment exceeds the allowed amount
+      // Using a small epsilon (0.01) to handle floating-point precision issues
+      const difference = new Decimal(invoice.totalAmount).minus(newTotalPaid)
+      const epsilon = new Decimal(0.01) // Allow up to 1 cent difference for rounding
+      
+      // Debug logging
+      console.log('Payment validation:', {
+        existingPayments: invoice.payments.map(p => ({ id: p.id, amount: p.amount.toString() })),
+        totalAlreadyPaid: totalPaid.toString(),
+        newPaymentAmount: input.amount.toString(),
+        newTotalPaid: newTotalPaid.toString(),
+        invoiceTotal: invoice.totalAmount.toString(),
+        difference: difference.toString(),
+        wouldExceed: difference.lessThan(epsilon.negated()),
+      })
 
-      if (newTotalPaid.greaterThan(invoice.totalAmount)) {
+      // Only throw error if payment exceeds by more than epsilon (to handle rounding)
+      if (difference.lessThan(epsilon.negated())) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Payment amount would exceed invoice total',
+          message: `Payment amount would exceed invoice total. Invoice total: ${invoice.totalAmount}, Already paid: ${totalPaid}, New payment: ${input.amount}, Would total: ${newTotalPaid}`,
         })
       }
 
@@ -286,11 +303,16 @@ export const paymentRouter = createTRPCRouter({
           new Decimal(0)
         )
         const newTotalPaid = otherPaymentsTotal.add(new Decimal(input.amount))
+        
+        // Calculate the difference with epsilon for precision handling
+        const difference = new Decimal(payment.invoice.totalAmount).minus(newTotalPaid)
+        const epsilon = new Decimal(0.01) // Allow up to 1 cent difference for rounding
 
-        if (newTotalPaid.greaterThan(payment.invoice.totalAmount)) {
+        // Only throw error if payment exceeds by more than epsilon
+        if (difference.lessThan(epsilon.negated())) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: 'Updated payment amount would exceed invoice total',
+            message: `Updated payment amount would exceed invoice total. Invoice total: ${payment.invoice.totalAmount}, Other payments: ${otherPaymentsTotal}, New payment: ${input.amount}, Would total: ${newTotalPaid}`,
           })
         }
 

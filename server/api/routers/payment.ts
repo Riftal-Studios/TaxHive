@@ -7,6 +7,9 @@ import { getQueueService } from '@/lib/queue'
 // Get queue service lazily to avoid connection during build
 const getQueue = () => getQueueService()
 
+// Epsilon tolerance for decimal comparisons (0.01 = 1 cent)
+const EPSILON = new Decimal(0.01)
+
 const PaymentInputSchema = z.object({
   invoiceId: z.string(),
   amount: z.number().positive(), // Amount client sent (Y)
@@ -61,9 +64,8 @@ export const paymentRouter = createTRPCRouter({
       const newTotalPaid = totalPaid.add(new Decimal(input.amount))
       
       // Calculate the difference to check if payment exceeds the allowed amount
-      // Using a small epsilon (0.01) to handle floating-point precision issues
+      // Using a small epsilon to handle floating-point precision issues
       const difference = new Decimal(invoice.totalAmount).minus(newTotalPaid)
-      const epsilon = new Decimal(0.01) // Allow up to 1 cent difference for rounding
       
       // Debug logging
       console.log('Payment validation:', {
@@ -73,11 +75,11 @@ export const paymentRouter = createTRPCRouter({
         newTotalPaid: newTotalPaid.toString(),
         invoiceTotal: invoice.totalAmount.toString(),
         difference: difference.toString(),
-        wouldExceed: difference.lessThan(epsilon.negated()),
+        wouldExceed: difference.lessThan(EPSILON.negated()),
       })
 
       // Only throw error if payment exceeds by more than epsilon (to handle rounding)
-      if (difference.lessThan(epsilon.negated())) {
+      if (difference.lessThan(EPSILON.negated())) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: `Payment amount would exceed invoice total. Invoice total: ${invoice.totalAmount}, Already paid: ${totalPaid}, New payment: ${input.amount}, Would total: ${newTotalPaid}`,
@@ -107,10 +109,16 @@ export const paymentRouter = createTRPCRouter({
 
       // Update invoice payment status and amounts
       const amountPaid = newTotalPaid
-      const balanceDue = new Decimal(invoice.totalAmount).minus(amountPaid)
+      const rawBalanceDue = new Decimal(invoice.totalAmount).minus(amountPaid)
+      
+      // Use epsilon tolerance for payment status determination
+      const isFullyPaid = rawBalanceDue.lessThanOrEqualTo(EPSILON)
+      
+      // Clamp balance due to 0 if it's negative or within epsilon
+      const balanceDue = isFullyPaid ? new Decimal(0) : rawBalanceDue
       
       let paymentStatus: string
-      if (balanceDue.equals(0)) {
+      if (isFullyPaid) {
         paymentStatus = 'PAID'
       } else if (amountPaid.greaterThan(0)) {
         paymentStatus = 'PARTIALLY_PAID'
@@ -306,10 +314,9 @@ export const paymentRouter = createTRPCRouter({
         
         // Calculate the difference with epsilon for precision handling
         const difference = new Decimal(payment.invoice.totalAmount).minus(newTotalPaid)
-        const epsilon = new Decimal(0.01) // Allow up to 1 cent difference for rounding
 
         // Only throw error if payment exceeds by more than epsilon
-        if (difference.lessThan(epsilon.negated())) {
+        if (difference.lessThan(EPSILON.negated())) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: `Updated payment amount would exceed invoice total. Invoice total: ${payment.invoice.totalAmount}, Other payments: ${otherPaymentsTotal}, New payment: ${input.amount}, Would total: ${newTotalPaid}`,
@@ -338,10 +345,17 @@ export const paymentRouter = createTRPCRouter({
 
         // Update invoice payment status and amounts
         const amountPaid = newTotalPaid
-        const balanceDue = new Decimal(payment.invoice.totalAmount).minus(amountPaid)
+        const rawBalanceDue = new Decimal(payment.invoice.totalAmount).minus(amountPaid)
+        
+        // Use epsilon tolerance for payment status determination
+        const epsilon = new Decimal(0.01)
+        const isFullyPaid = rawBalanceDue.lessThanOrEqualTo(epsilon)
+        
+        // Clamp balance due to 0 if it's negative or within epsilon
+        const balanceDue = isFullyPaid ? new Decimal(0) : rawBalanceDue
         
         let paymentStatus: string
-        if (balanceDue.equals(0)) {
+        if (isFullyPaid) {
           paymentStatus = 'PAID'
         } else if (amountPaid.greaterThan(0)) {
           paymentStatus = 'PARTIALLY_PAID'
@@ -448,10 +462,16 @@ export const paymentRouter = createTRPCRouter({
         (sum, p) => sum.add(p.amount),
         new Decimal(0)
       )
-      const balanceDue = new Decimal(payment.invoice.totalAmount).minus(amountPaid)
+      const rawBalanceDue = new Decimal(payment.invoice.totalAmount).minus(amountPaid)
+      
+      // Use epsilon tolerance for payment status determination
+      const isFullyPaid = rawBalanceDue.lessThanOrEqualTo(EPSILON)
+      
+      // Clamp balance due to 0 if it's negative or within epsilon
+      const balanceDue = isFullyPaid ? new Decimal(0) : rawBalanceDue
       
       let paymentStatus: string
-      if (balanceDue.equals(0)) {
+      if (isFullyPaid) {
         paymentStatus = 'PAID'
       } else if (amountPaid.greaterThan(0)) {
         paymentStatus = 'PARTIALLY_PAID'

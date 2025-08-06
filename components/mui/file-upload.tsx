@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -38,7 +38,9 @@ export function FileUpload({
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [fileName, setFileName] = useState<string>('')
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dragCounter = useRef(0)
 
   const getFileNameFromUrl = (url: string): string => {
     try {
@@ -52,10 +54,7 @@ export function FileUpload({
     }
   }
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
+  const uploadFile = useCallback(async (file: File) => {
     // Validate file size
     const fileSizeMB = file.size / (1024 * 1024)
     if (fileSizeMB > maxSize) {
@@ -80,19 +79,39 @@ export function FileUpload({
       const formData = new FormData()
       formData.append('file', file)
 
-      // Upload file
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+      // Upload file with progress tracking
+      const xhr = new XMLHttpRequest()
+      
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100
+          setUploadProgress(percentComplete)
+        }
       })
 
-      if (!response.ok) {
-        throw new Error('Upload failed')
-      }
-
-      const data = await response.json()
-      onChange(data.url)
-      enqueueSnackbar('File uploaded successfully', { variant: 'success' })
+      // Handle completion
+      await new Promise<void>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText)
+              onChange(data.url)
+              enqueueSnackbar('File uploaded successfully', { variant: 'success' })
+              resolve()
+            } catch (error) {
+              reject(error)
+            }
+          } else {
+            reject(new Error('Upload failed'))
+          }
+        }
+        
+        xhr.onerror = () => reject(new Error('Upload failed'))
+        
+        xhr.open('POST', '/api/upload')
+        xhr.send(formData)
+      })
     } catch (error) {
       console.error('Upload error:', error)
       enqueueSnackbar('Failed to upload file', { variant: 'error' })
@@ -104,7 +123,56 @@ export function FileUpload({
         fileInputRef.current.value = ''
       }
     }
-  }
+  }, [accept, maxSize, onChange])
+
+  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    await uploadFile(file)
+  }, [uploadFile])
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (disabled || isUploading) return
+    
+    dragCounter.current++
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true)
+    }
+  }, [disabled, isUploading])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (disabled || isUploading) return
+    
+    dragCounter.current--
+    if (dragCounter.current === 0) {
+      setIsDragging(false)
+    }
+  }, [disabled, isUploading])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    dragCounter.current = 0
+    
+    if (disabled || isUploading) return
+
+    const files = e.dataTransfer.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      await uploadFile(file)
+    }
+  }, [disabled, isUploading, uploadFile])
 
   const handleRemove = () => {
     onChange(null)
@@ -140,20 +208,33 @@ export function FileUpload({
             cursor: disabled ? 'default' : 'pointer',
             borderStyle: 'dashed',
             borderWidth: 2,
-            bgcolor: 'background.default',
+            bgcolor: isDragging ? 'action.hover' : 'background.default',
+            borderColor: isDragging ? 'primary.main' : 'divider',
+            transition: 'all 0.2s ease',
             '&:hover': disabled ? {} : {
               bgcolor: 'action.hover',
               borderColor: 'primary.main',
             },
           }}
           onClick={() => !disabled && fileInputRef.current?.click()}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
-          <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+          <UploadIcon 
+            sx={{ 
+              fontSize: 48, 
+              color: isDragging ? 'primary.main' : 'text.secondary', 
+              mb: 1,
+              transition: 'color 0.2s ease'
+            }} 
+          />
           <Typography variant="body1" gutterBottom>
-            {label}
+            {isDragging ? 'Drop file here' : label}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Click to browse or drag and drop
+            {isDragging ? 'Release to upload' : 'Click to browse or drag and drop'}
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
             {helperText || `Accepted formats: ${accept} (Max ${maxSize}MB)`}
@@ -167,6 +248,9 @@ export function FileUpload({
             Uploading {fileName}...
           </Typography>
           <LinearProgress variant="determinate" value={uploadProgress} sx={{ mt: 1 }} />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            {Math.round(uploadProgress)}% complete
+          </Typography>
         </Paper>
       )}
 

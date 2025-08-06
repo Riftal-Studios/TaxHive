@@ -25,6 +25,11 @@ import {
   ListItemIcon,
   ListItemText,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import {
@@ -35,6 +40,7 @@ import {
   Cancel as CancelIcon,
   Description as DraftIcon,
   Refresh as RefreshIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
@@ -109,6 +115,8 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   const [showEditPaymentModal, setShowEditPaymentModal] = useState(false)
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null)
   const [selectedPayment, setSelectedPayment] = useState<{
     id: string
     amount: number | { toNumber: () => number }
@@ -155,6 +163,18 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
       console.error('PDF regeneration failed:', error)
       setIsRegenerating(false)
       alert('Failed to regenerate PDF: ' + error.message)
+    },
+  })
+
+  const deletePaymentMutation = api.payments.delete.useMutation({
+    onSuccess: () => {
+      refetch()
+      setShowDeleteConfirm(false)
+      setPaymentToDelete(null)
+    },
+    onError: (error) => {
+      console.error('Failed to delete payment:', error)
+      alert('Failed to delete payment: ' + error.message)
     },
   })
 
@@ -221,6 +241,17 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   }) => {
     setSelectedPayment(payment)
     setShowEditPaymentModal(true)
+  }
+
+  const handleDeletePayment = (paymentId: string) => {
+    setPaymentToDelete(paymentId)
+    setShowDeleteConfirm(true)
+  }
+
+  const confirmDeletePayment = () => {
+    if (paymentToDelete) {
+      deletePaymentMutation.mutate({ id: paymentToDelete })
+    }
   }
 
   if (isLoading) {
@@ -770,14 +801,23 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                           <Typography variant="caption" color="text.secondary">
                             Recorded on {format(new Date(payment.createdAt), 'dd MMM yyyy')}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditPayment(payment)}
-                            sx={{ mt: 1 }}
-                            aria-label="Edit payment"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
+                          <Box display="flex" gap={0.5} sx={{ mt: 1 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditPayment(payment)}
+                              aria-label="Edit payment"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeletePayment(payment.id)}
+                              color="error"
+                              aria-label="Delete payment"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                         </Box>
                       </Box>
                       {payment.notes && (
@@ -828,6 +868,45 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
           }}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false)
+          setPaymentToDelete(null)
+        }}
+        aria-labelledby="delete-dialog-title"
+        aria-describedby="delete-dialog-description"
+      >
+        <DialogTitle id="delete-dialog-title">
+          Delete Payment
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Are you sure you want to delete this payment? This action cannot be undone.
+            The invoice totals and payment status will be automatically recalculated.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setShowDeleteConfirm(false)
+              setPaymentToDelete(null)
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmDeletePayment} 
+            color="error"
+            variant="contained"
+            disabled={deletePaymentMutation.isPending}
+          >
+            {deletePaymentMutation.isPending ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       
       {/* Status Update Menu */}
       <Menu

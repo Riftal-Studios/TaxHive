@@ -32,6 +32,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns'
 import { api } from '@/lib/trpc/client'
 import { enqueueSnackbar } from 'notistack'
 import { toSafeNumber } from '@/lib/utils/decimal'
+import { FileUpload } from './file-upload'
 
 type PaymentMethod = 'BANK_TRANSFER' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'UPI' | 'PAYPAL' | 'PAYONEER' | 'WISE' | 'OTHER'
 
@@ -514,6 +515,9 @@ export function EditPaymentModal({
                 <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
                   FIRC Details
                 </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Foreign Inward Remittance Certificate from your bank
+                </Typography>
               </Grid>
               
               <Grid container spacing={2}>
@@ -538,6 +542,16 @@ export function EditPaymentModal({
                         helperText: "Date of FIRC issuance",
                       },
                     }}
+                  />
+                </Grid>
+                
+                <Grid size={12}>
+                  <FileUpload
+                    label="Upload FIRC Document"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    value={fircDocumentUrl}
+                    onChange={(url) => setFircDocumentUrl(url || '')}
+                    helperText="Upload FIRC document (PDF or image format, max 5MB)"
                   />
                 </Grid>
               </Grid>

@@ -23,6 +23,13 @@ interface PaymentStatusChartProps {
 }
 
 const STATUS_COLORS = {
+  DRAFT: '#9E9E9E',
+  SENT: '#2196F3',
+  VIEWED: '#FF9800',
+  PAID: '#4CAF50',
+  OVERDUE: '#F44336',
+  CANCELLED: '#757575',
+  // Legacy lowercase support
   draft: '#9E9E9E',
   sent: '#2196F3',
   viewed: '#FF9800',
@@ -32,6 +39,13 @@ const STATUS_COLORS = {
 } as const
 
 const STATUS_LABELS = {
+  DRAFT: 'Draft',
+  SENT: 'Sent',
+  VIEWED: 'Viewed',
+  PAID: 'Paid',
+  OVERDUE: 'Overdue',
+  CANCELLED: 'Cancelled',
+  // Legacy lowercase support
   draft: 'Draft',
   sent: 'Sent',
   viewed: 'Viewed',

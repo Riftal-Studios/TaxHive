@@ -142,6 +142,7 @@ function EditInvoiceContent({ id }: { id: string }) {
       <h1 className="text-2xl font-bold mb-6">Edit Invoice</h1>
       <InvoiceForm
         initialData={initialData}
+        invoiceStatus={invoice.status}
         clients={clients || []}
         luts={luts || []}
         onSubmit={handleSubmit}

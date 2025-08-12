@@ -293,6 +293,7 @@ export const invoiceRouter = createTRPCRouter({
               totalAmount,
               totalInINR: totalAmount * exchangeRate,
               balanceDue, // Update balance due based on new total
+              serviceCode: lineItems[0].sacCode, // Update service code from first line item
             },
           })
         }

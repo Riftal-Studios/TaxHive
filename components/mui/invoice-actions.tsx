@@ -22,6 +22,7 @@ interface InvoiceActionsProps {
   pdfUrl?: string | null
   clientEmail: string
   clientName: string
+  pdfGenerating?: boolean
 }
 
 export function MUIInvoiceActions({ 
@@ -29,7 +30,8 @@ export function MUIInvoiceActions({
   invoiceNumber,
   pdfUrl,
   clientEmail,
-  clientName 
+  clientName,
+  pdfGenerating = false
 }: InvoiceActionsProps) {
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
@@ -123,6 +125,7 @@ export function MUIInvoiceActions({
             onClick={handleViewPDF}
             startIcon={<ViewIcon />}
             variant="outlined"
+            disabled={pdfGenerating}
           >
             View PDF
           </Button>
@@ -133,16 +136,18 @@ export function MUIInvoiceActions({
           <Button
             onClick={handleDownloadPDF}
             startIcon={<DownloadIcon />}
+            disabled={pdfGenerating}
           >
             Download
           </Button>
         )}
         
-        {/* Send by Email button */}
+        {/* Send by Email button - disabled when PDF is generating */}
         <Button
           onClick={() => setShowEmailComposer(true)}
           startIcon={<EmailIcon />}
           variant="outlined"
+          disabled={pdfGenerating || isGenerating}
         >
           Send by Email
         </Button>

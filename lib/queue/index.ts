@@ -2,9 +2,16 @@ import { BullMQService } from './bullmq.service'
 import type { QueueService } from './types'
 
 let queueService: QueueService | null = null
+let initializationError: Error | null = null
 
 export function getQueueService(): QueueService {
+  // If we had an initialization error, throw it
+  if (initializationError) {
+    throw initializationError
+  }
+  
   if (!queueService) {
+    try {
     // Parse Redis URL if available, otherwise use individual config
     let redisConfig: { host: string; port: number; password?: string } = {
       host: process.env.REDIS_HOST || 'redis',
@@ -60,9 +67,26 @@ export function getQueueService(): QueueService {
         removeOnFail: false, // Keep failed jobs for debugging
       },
     })
+    } catch (error) {
+      // Store the error for future calls
+      initializationError = error instanceof Error ? error : new Error('Failed to initialize queue service')
+      throw initializationError
+    }
   }
 
   return queueService
+}
+
+export function isQueueServiceAvailable(): boolean {
+  try {
+    // Try to get the queue service without throwing
+    if (!queueService && !initializationError) {
+      getQueueService()
+    }
+    return queueService !== null
+  } catch {
+    return false
+  }
 }
 
 export { type QueueService, type Job, type JobType, type JobStatus } from './types'

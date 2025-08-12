@@ -14,11 +14,17 @@ import { getNextInvoiceSequence } from '@/lib/invoice-number-utils'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
-import { getQueueService } from '@/lib/queue'
+import { getQueueService, isQueueServiceAvailable } from '@/lib/queue'
 import { db } from '@/lib/prisma'
 
 // Get queue service lazily to avoid connection during build
-const getQueue = () => getQueueService()
+const getQueue = () => {
+  if (!isQueueServiceAvailable()) {
+    console.warn('Queue service is not available. PDF generation will not be queued.')
+    return null
+  }
+  return getQueueService()
+}
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
@@ -138,19 +144,31 @@ export const invoiceRouter = createTRPCRouter({
         
         // Queue PDF generation for new invoice
         try {
-          const job = await getQueue().enqueue('PDF_GENERATION', {
-            invoiceId: invoice.id,
-            userId: ctx.session.user.id,
-          })
-          
-          // Update invoice with job ID and status
-          await tx.invoice.update({
-            where: { id: invoice.id },
-            data: {
-              pdfStatus: 'generating',
-              pdfJobId: job.id,
-            }
-          })
+          const queueService = getQueue()
+          if (queueService) {
+            const job = await queueService.enqueue('PDF_GENERATION', {
+              invoiceId: invoice.id,
+              userId: ctx.session.user.id,
+            })
+            
+            // Update invoice with job ID and status
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: {
+                pdfStatus: 'generating',
+                pdfJobId: job.id,
+              }
+            })
+          } else {
+            // Queue service not available, mark as pending
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: {
+                pdfStatus: 'pending',
+                pdfError: 'Queue service temporarily unavailable',
+              }
+            })
+          }
         } catch (error) {
           console.error('Failed to queue PDF generation for new invoice:', error)
           // Mark as failed but don't fail invoice creation
@@ -327,20 +345,25 @@ export const invoiceRouter = createTRPCRouter({
         
         // Queue PDF regeneration after any update
         try {
-          const job = await getQueue().enqueue('PDF_GENERATION', {
-            invoiceId: id,
-            userId: ctx.session.user.id,
-          })
-          
-          // Update invoice with job ID and status
-          await tx.invoice.update({
-            where: { id },
-            data: {
-              pdfStatus: 'generating',
-              pdfJobId: job.id,
-              pdfError: null, // Clear any previous error
-            }
-          })
+          const queueService = getQueue()
+          if (queueService) {
+            const job = await queueService.enqueue('PDF_GENERATION', {
+              invoiceId: id,
+              userId: ctx.session.user.id,
+            })
+            
+            // Update invoice with job ID and status
+            await tx.invoice.update({
+              where: { id },
+              data: {
+                pdfStatus: 'generating',
+                pdfJobId: job.id,
+                pdfError: null, // Clear any previous error
+              }
+            })
+          } else {
+            console.warn('Queue service not available for PDF regeneration after update')
+          }
         } catch (error) {
           console.error('Failed to queue PDF regeneration after update:', error)
           // Mark as failed but don't fail the update
@@ -473,7 +496,14 @@ export const invoiceRouter = createTRPCRouter({
 
       try {
         // Enqueue PDF generation job
-        const job = await getQueue().enqueue('PDF_GENERATION', {
+        const queueService = getQueue()
+        if (!queueService) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Queue service is not available',
+          })
+        }
+        const job = await queueService.enqueue('PDF_GENERATION', {
           invoiceId: input.id,
           userId: ctx.session.user.id,
         })
@@ -487,7 +517,7 @@ export const invoiceRouter = createTRPCRouter({
         console.error('Failed to queue PDF generation:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to queue PDF generation',
+          message: error instanceof TRPCError ? error.message : 'Failed to queue PDF generation',
         })
       }
     }),
@@ -497,7 +527,11 @@ export const invoiceRouter = createTRPCRouter({
     .input(z.object({ jobId: z.string() }))
     .query(async ({ input }) => {
       try {
-        const job = await getQueue().getJob(input.jobId)
+        const queueService = getQueue()
+        if (!queueService) {
+          return { status: 'unknown', progress: 0 }
+        }
+        const job = await queueService.getJob(input.jobId)
 
         if (!job) {
           throw new TRPCError({
@@ -652,7 +686,14 @@ export const invoiceRouter = createTRPCRouter({
       }
       
       // Queue invoice email
-      const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
+      const queueService = getQueue()
+      if (!queueService) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Queue service is not available',
+        })
+      }
+      const job = await queueService.enqueue('EMAIL_NOTIFICATION', {
         to: input.to || invoice.client.email,
         cc: input.cc,
         bcc: input.bcc,
@@ -756,7 +797,14 @@ export const invoiceRouter = createTRPCRouter({
       const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
       
       // Queue payment reminder email
-      const job = await getQueue().enqueue('EMAIL_NOTIFICATION', {
+      const queueService = getQueue()
+      if (!queueService) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Queue service is not available',
+        })
+      }
+      const job = await queueService.enqueue('EMAIL_NOTIFICATION', {
         to: input.to || invoice.client.email,
         cc: input.cc,
         bcc: input.bcc,
@@ -814,7 +862,14 @@ export const invoiceRouter = createTRPCRouter({
       jobId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const job = await getQueue().getJob(input.jobId)
+      const queueService = getQueue()
+      if (!queueService) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Queue service is not available',
+        })
+      }
+      const job = await queueService.getJob(input.jobId)
       
       if (!job) {
         throw new TRPCError({
@@ -925,7 +980,14 @@ export const invoiceRouter = createTRPCRouter({
 
       // Queue PDF regeneration
       try {
-        const job = await getQueue().enqueue('PDF_GENERATION', {
+        const queueService = getQueue()
+        if (!queueService) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Queue service is not available',
+          })
+        }
+        const job = await queueService.enqueue('PDF_GENERATION', {
           invoiceId: id,
           userId: ctx.session.user.id,
         })
@@ -983,7 +1045,18 @@ export const invoiceRouter = createTRPCRouter({
       // If there's a job ID and status is generating, check the job status
       if (invoice.pdfJobId && invoice.pdfStatus === 'generating') {
         try {
-          const job = await getQueue().getJob(invoice.pdfJobId)
+          const queueService = getQueue()
+          if (!queueService) {
+            // Can't check job status, return current status
+            return {
+              status: invoice.pdfStatus || 'pending',
+              error: invoice.pdfError,
+              pdfUrl: invoice.pdfUrl,
+              pdfGeneratedAt: invoice.pdfGeneratedAt,
+              progress: 0,
+            }
+          }
+          const job = await queueService.getJob(invoice.pdfJobId)
           if (job) {
             // Map job status to our status
             if (job.status === 'completed') {

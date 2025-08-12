@@ -125,6 +125,10 @@ model Invoice {
   
   // PDF Storage
   pdfUrl         String?
+  pdfStatus      String?   @default("pending") // pending, generating, completed, failed
+  pdfError       String?   // Error message if generation failed
+  pdfGeneratedAt DateTime? // When PDF was last successfully generated
+  pdfJobId       String?   // Queue job ID for tracking
   
   // Public access fields
   publicAccessToken String?   @unique

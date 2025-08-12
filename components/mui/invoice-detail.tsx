@@ -41,6 +41,7 @@ import {
   Description as DraftIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
+  Description,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
@@ -61,6 +62,9 @@ interface InvoiceWithRelations {
   status: string
   paymentStatus: string
   pdfUrl: string | null
+  pdfStatus?: string | null
+  pdfError?: string | null
+  pdfGeneratedAt?: Date | null
   currency: string
   exchangeRate: number
   exchangeSource: string
@@ -142,6 +146,29 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     refetch 
   } = api.invoices.getById.useQuery({ id: invoiceId, includePayments: true })
   const { data: payments } = api.payments.getByInvoice.useQuery({ invoiceId })
+  
+  // Check PDF status and enable polling when generating
+  const [shouldPoll, setShouldPoll] = useState(false)
+  const { data: pdfStatus } = api.invoices.checkPDFStatus.useQuery(
+    { id: invoiceId },
+    {
+      enabled: !!invoice,
+      refetchInterval: shouldPoll ? 2000 : false, // Poll every 2 seconds when generating
+      refetchOnWindowFocus: true,
+    }
+  )
+  
+  // Update polling state based on PDF status
+  React.useEffect(() => {
+    setShouldPoll(pdfStatus?.status === 'generating')
+  }, [pdfStatus?.status])
+  
+  // Auto-refetch invoice when PDF generation completes
+  React.useEffect(() => {
+    if (pdfStatus?.status === 'completed' && invoice?.pdfStatus === 'generating') {
+      refetch()
+    }
+  }, [pdfStatus?.status, invoice?.pdfStatus, refetch])
   
   const updateStatusMutation = api.invoices.updateStatus.useMutation({
     onSuccess: () => {
@@ -426,30 +453,65 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
               <PrintIcon />
             </IconButton>
           </Tooltip>
-          {typedInvoice.pdfUrl && (
-            <>
-              <Tooltip title="Download PDF">
-                <IconButton
-                  onClick={handleDownloadPDF}
-                  aria-label="Download PDF"
-                >
-                  <DownloadIcon />
-                </IconButton>
+          
+          {/* PDF Status Section */}
+          {pdfStatus?.status === 'generating' ? (
+            <Box display="flex" alignItems="center" gap={1}>
+              <CircularProgress size={20} />
+              <Typography variant="body2" color="text.secondary">
+                Generating PDF... {pdfStatus.progress ? `${pdfStatus.progress}%` : ''}
+              </Typography>
+            </Box>
+          ) : pdfStatus?.status === 'failed' ? (
+            <Box display="flex" alignItems="center" gap={1}>
+              <Tooltip title={String(pdfStatus.error || 'PDF generation failed')}>
+                <Chip
+                  label="PDF Failed"
+                  color="error"
+                  size="small"
+                  onDelete={handleRegeneratePDF}
+                  deleteIcon={<RefreshIcon />}
+                />
               </Tooltip>
-              <Tooltip title={isRegenerating ? "Regenerating PDF..." : "Regenerate PDF"}>
-                <IconButton
-                  onClick={handleRegeneratePDF}
-                  disabled={isRegenerating}
-                  aria-label="Regenerate PDF"
-                >
-                  {isRegenerating ? (
-                    <CircularProgress size={24} />
-                  ) : (
-                    <RefreshIcon />
-                  )}
-                </IconButton>
+            </Box>
+          ) : typedInvoice.pdfUrl ? (
+            <>
+              <Tooltip title={pdfStatus?.status === 'generating' ? "PDF is being generated..." : "Download PDF"}>
+                <span>
+                  <IconButton
+                    onClick={handleDownloadPDF}
+                    disabled={pdfStatus?.status === 'generating'}
+                    aria-label="Download PDF"
+                  >
+                    <DownloadIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title={isRegenerating || pdfStatus?.status === 'generating' ? "Regenerating PDF..." : "Regenerate PDF"}>
+                <span>
+                  <IconButton
+                    onClick={handleRegeneratePDF}
+                    disabled={isRegenerating || pdfStatus?.status === 'generating'}
+                    aria-label="Regenerate PDF"
+                  >
+                    {isRegenerating || pdfStatus?.status === 'generating' ? (
+                      <CircularProgress size={24} />
+                    ) : (
+                      <RefreshIcon />
+                    )}
+                  </IconButton>
+                </span>
               </Tooltip>
             </>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={pdfStatus?.status === 'generating' ? <CircularProgress size={16} /> : <Description />}
+              onClick={handleRegeneratePDF}
+              disabled={isRegenerating || pdfStatus?.status === 'generating'}
+            >
+              {pdfStatus?.status === 'generating' ? 'Generating...' : 'Generate PDF'}
+            </Button>
           )}
           <MUIInvoiceActions
             invoiceId={typedInvoice.id}
@@ -457,6 +519,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             pdfUrl={typedInvoice.pdfUrl}
             clientEmail={typedInvoice.client.email}
             clientName={typedInvoice.client.name}
+            pdfGenerating={pdfStatus?.status === 'generating'}
           />
         </Box>
       </Box>

@@ -138,13 +138,29 @@ export const invoiceRouter = createTRPCRouter({
         
         // Queue PDF generation for new invoice
         try {
-          await getQueue().enqueue('PDF_GENERATION', {
+          const job = await getQueue().enqueue('PDF_GENERATION', {
             invoiceId: invoice.id,
             userId: ctx.session.user.id,
           })
+          
+          // Update invoice with job ID and status
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: {
+              pdfStatus: 'generating',
+              pdfJobId: job.id,
+            }
+          })
         } catch (error) {
           console.error('Failed to queue PDF generation for new invoice:', error)
-          // Don't fail invoice creation if PDF generation queueing fails
+          // Mark as failed but don't fail invoice creation
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: {
+              pdfStatus: 'failed',
+              pdfError: error instanceof Error ? error.message : 'Failed to queue PDF generation',
+            }
+          })
         }
         
         return invoice
@@ -311,13 +327,30 @@ export const invoiceRouter = createTRPCRouter({
         
         // Queue PDF regeneration after any update
         try {
-          await getQueue().enqueue('PDF_GENERATION', {
+          const job = await getQueue().enqueue('PDF_GENERATION', {
             invoiceId: id,
             userId: ctx.session.user.id,
           })
+          
+          // Update invoice with job ID and status
+          await tx.invoice.update({
+            where: { id },
+            data: {
+              pdfStatus: 'generating',
+              pdfJobId: job.id,
+              pdfError: null, // Clear any previous error
+            }
+          })
         } catch (error) {
           console.error('Failed to queue PDF regeneration after update:', error)
-          // Don't fail the update if PDF generation queueing fails
+          // Mark as failed but don't fail the update
+          await tx.invoice.update({
+            where: { id },
+            data: {
+              pdfStatus: 'failed',
+              pdfError: error instanceof Error ? error.message : 'Failed to queue PDF regeneration',
+            }
+          })
         }
         
         return invoice
@@ -891,11 +924,117 @@ export const invoiceRouter = createTRPCRouter({
       }
 
       // Queue PDF regeneration
-      await getQueue().enqueue('PDF_GENERATION', {
-        invoiceId: id,
-        userId: ctx.session.user.id,
+      try {
+        const job = await getQueue().enqueue('PDF_GENERATION', {
+          invoiceId: id,
+          userId: ctx.session.user.id,
+        })
+        
+        // Update invoice with job ID and status
+        await ctx.prisma.invoice.update({
+          where: { id },
+          data: {
+            pdfStatus: 'generating',
+            pdfJobId: job.id,
+            pdfError: null, // Clear any previous error
+          }
+        })
+        
+        return { success: true, message: 'PDF regeneration queued', jobId: job.id }
+      } catch (error) {
+        // Mark as failed
+        await ctx.prisma.invoice.update({
+          where: { id },
+          data: {
+            pdfStatus: 'failed',
+            pdfError: error instanceof Error ? error.message : 'Failed to queue PDF regeneration',
+          }
+        })
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to queue PDF regeneration',
+        })
+      }
+    }),
+
+  // Check PDF status for an invoice
+  checkPDFStatus: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.id, userId: ctx.session.user.id },
+        select: {
+          pdfStatus: true,
+          pdfError: true,
+          pdfUrl: true,
+          pdfGeneratedAt: true,
+          pdfJobId: true,
+        }
       })
 
-      return { success: true, message: 'PDF regeneration queued' }
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+
+      // If there's a job ID and status is generating, check the job status
+      if (invoice.pdfJobId && invoice.pdfStatus === 'generating') {
+        try {
+          const job = await getQueue().getJob(invoice.pdfJobId)
+          if (job) {
+            // Map job status to our status
+            if (job.status === 'completed') {
+              // Job completed but database might not be updated yet
+              // Double-check by refetching invoice
+              const updatedInvoice = await ctx.prisma.invoice.findUnique({
+                where: { id: input.id },
+                select: {
+                  pdfStatus: true,
+                  pdfError: true,
+                  pdfUrl: true,
+                  pdfGeneratedAt: true,
+                }
+              })
+              return {
+                status: updatedInvoice?.pdfStatus || 'completed',
+                error: updatedInvoice?.pdfError || null,
+                pdfUrl: updatedInvoice?.pdfUrl || null,
+                pdfGeneratedAt: updatedInvoice?.pdfGeneratedAt || null,
+                progress: 100,
+              }
+            } else if (job.status === 'failed') {
+              return {
+                status: 'failed',
+                error: job.error || invoice.pdfError || 'PDF generation failed',
+                pdfUrl: invoice.pdfUrl,
+                pdfGeneratedAt: invoice.pdfGeneratedAt,
+                progress: 0,
+              }
+            } else {
+              // Still in progress
+              return {
+                status: 'generating',
+                error: null,
+                pdfUrl: invoice.pdfUrl,
+                pdfGeneratedAt: invoice.pdfGeneratedAt,
+                progress: job.progress || 0,
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking job status:', error)
+        }
+      }
+
+      return {
+        status: invoice.pdfStatus || 'pending',
+        error: invoice.pdfError,
+        pdfUrl: invoice.pdfUrl,
+        pdfGeneratedAt: invoice.pdfGeneratedAt,
+        progress: invoice.pdfStatus === 'completed' ? 100 : 0,
+      }
     }),
 })

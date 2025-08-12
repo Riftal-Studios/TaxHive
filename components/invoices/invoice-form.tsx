@@ -70,6 +70,7 @@ interface InvoiceFormProps {
   manualExchangeRate?: number | null
   onManualExchangeRateChange?: (rate: number | null) => void
   initialData?: Partial<InvoiceFormData>
+  invoiceStatus?: string // Add status to determine button text
   autoSave?: boolean
   onAutoSave?: (data: Partial<InvoiceFormData>) => void | Promise<void>
 }
@@ -93,6 +94,7 @@ export function InvoiceForm({
   manualExchangeRate, 
   onManualExchangeRateChange, 
   initialData,
+  invoiceStatus,
   autoSave = false,
   onAutoSave
 }: InvoiceFormProps) {
@@ -911,7 +913,7 @@ export function InvoiceForm({
           disabled={isSubmitting}
           className={buttonClassName.primary}
         >
-          {isSubmitting ? 'Saving...' : 'Save Draft'}
+          {isSubmitting ? 'Saving...' : (invoiceStatus && invoiceStatus !== 'DRAFT' ? 'Update Invoice' : 'Save Draft')}
         </button>
       </div>
     </form>

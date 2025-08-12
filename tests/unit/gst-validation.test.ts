@@ -135,7 +135,7 @@ describe('GST Validation Functions', () => {
     it('should reject export invoice with invalid service code', () => {
       const invoice = {
         placeOfSupply: GST_CONSTANTS.PLACE_OF_SUPPLY_EXPORT,
-        serviceCode: '9983', // Too short
+        serviceCode: '99999999', // Code that doesn't exist in GST Classification Scheme
         igstRate: 0,
         lutId: 'lut123',
         currency: 'USD',
@@ -144,7 +144,7 @@ describe('GST Validation Functions', () => {
       }
       const result = validateGSTInvoice(invoice)
       expect(result.isValid).toBe(false)
-      expect(result.errors).toContain('Service code (HSN/SAC) must be 8 digits for exports')
+      expect(result.errors).toContain('Service code (HSN/SAC) is not a valid code from the GST Classification Scheme')
     })
 
     it('should reject invoice without exchange rate', () => {

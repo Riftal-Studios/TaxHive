@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { GST_CONSTANTS } from '@/lib/constants'
+import { GST_CONSTANTS, SAC_HSN_CODES } from '@/lib/constants'
 
 /**
  * GSTIN validation regex
@@ -159,9 +159,14 @@ export function validateGSTInvoice(invoice: {
       warnings.push('IGST rate should be 0% for exports under LUT')
     }
 
-    // Service code must be 8 digits for exports
-    if (!invoice.serviceCode || invoice.serviceCode.length !== GST_CONSTANTS.SERVICE_CODE_LENGTH_EXPORT) {
-      errors.push('Service code (HSN/SAC) must be 8 digits for exports')
+    // Service code must exist in the official SAC/HSN codes list
+    if (!invoice.serviceCode) {
+      errors.push('Service code (HSN/SAC) is required for exports')
+    } else {
+      const codeExists = SAC_HSN_CODES.some(item => item.code === invoice.serviceCode)
+      if (!codeExists) {
+        errors.push('Service code (HSN/SAC) is not a valid code from the GST Classification Scheme')
+      }
     }
 
     // Exchange rate validation
@@ -197,11 +202,22 @@ export const panSchema = z.string()
   .regex(PAN_REGEX, 'Invalid PAN format')
   .transform(val => val.toUpperCase())
 
+// Helper function to validate SAC/HSN codes
+function isValidSACCode(code: string): boolean {
+  return SAC_HSN_CODES.some(item => item.code === code)
+}
+
 export const hsnSacCodeSchema = z.string()
-  .regex(/^\d{4,8}$/, 'HSN/SAC code must be 4-8 digits')
+  .refine(
+    (code) => isValidSACCode(code),
+    { message: 'HSN/SAC code must be a valid code from the GST Classification Scheme' }
+  )
 
 export const exportHsnSacCodeSchema = z.string()
-  .regex(/^\d{8}$/, 'HSN/SAC code must be 8 digits for exports')
+  .refine(
+    (code) => isValidSACCode(code),
+    { message: 'HSN/SAC code must be a valid code from the GST Classification Scheme' }
+  )
 
 /**
  * Calculate GST components for domestic supplies (not applicable for exports but included for completeness)

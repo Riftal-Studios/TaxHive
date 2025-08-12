@@ -136,6 +136,17 @@ export const invoiceRouter = createTRPCRouter({
           })),
         })
         
+        // Queue PDF generation for new invoice
+        try {
+          await getQueue().enqueue('PDF_GENERATION', {
+            invoiceId: invoice.id,
+            userId: ctx.session.user.id,
+          })
+        } catch (error) {
+          console.error('Failed to queue PDF generation for new invoice:', error)
+          // Don't fail invoice creation if PDF generation queueing fails
+        }
+        
         return invoice
       })
     }),

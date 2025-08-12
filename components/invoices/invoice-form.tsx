@@ -300,7 +300,7 @@ export function InvoiceForm({
       if (!item.sacCode) {
         itemErrors.sacCode = 'SAC/HSN code is required'
       } else if (!validateHSNCode(item.sacCode)) {
-        itemErrors.sacCode = 'SAC/HSN code must be 8 digits'
+        itemErrors.sacCode = 'SAC/HSN code must be a valid code from the GST Classification Scheme'
       }
       
       if (item.quantity <= 0) {

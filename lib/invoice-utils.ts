@@ -1,3 +1,5 @@
+import { SAC_HSN_CODES } from '@/lib/constants'
+
 /**
  * Get the current fiscal year in format YYYY-YY
  * Indian fiscal year runs from April 1 to March 31
@@ -114,10 +116,10 @@ export function convertToINR(amount: number, exchangeRate: number): number {
 }
 
 /**
- * Validate HSN/SAC code (8 digits for exports)
+ * Validate HSN/SAC code against the official GST Classification Scheme
  */
 export function validateHSNCode(code: string): boolean {
-  return /^\d{8}$/.test(code)
+  return SAC_HSN_CODES.some(item => item.code === code)
 }
 
 /**

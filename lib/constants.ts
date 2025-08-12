@@ -12,7 +12,6 @@ export type InvoiceStatus = typeof INVOICE_STATUS[keyof typeof INVOICE_STATUS]
 export const GST_CONSTANTS = {
   PLACE_OF_SUPPLY_EXPORT: 'Outside India (Section 2-6)',
   IGST_RATE_EXPORT: 0,
-  SERVICE_CODE_LENGTH_EXPORT: 8,
 } as const
 
 export const FISCAL_YEAR = {

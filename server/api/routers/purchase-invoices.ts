@@ -25,21 +25,31 @@ const createPurchaseInvoiceSchema = z.object({
   vendorId: z.string(),
   invoiceNumber: z.string().min(1),
   invoiceDate: z.date(),
-  taxableAmount: z.number().positive(),
+  placeOfSupply: z.string().optional(),
+  taxableAmount: z.number().min(0),
+  cgstRate: z.number().min(0).default(0),
+  sgstRate: z.number().min(0).default(0),
+  igstRate: z.number().min(0).default(0),
   cgstAmount: z.number().min(0).default(0),
   sgstAmount: z.number().min(0).default(0),
   igstAmount: z.number().min(0).default(0),
   cessAmount: z.number().min(0).default(0),
-  itcCategory: z.enum(['INPUTS', 'CAPITAL_GOODS', 'INPUT_SERVICES', 'BLOCKED']),
+  totalGSTAmount: z.number().min(0).default(0),
+  totalAmount: z.number().min(0),
+  itcCategory: z.enum(['INPUTS', 'CAPITAL_GOODS', 'INPUT_SERVICES', 'BLOCKED']).default('INPUTS'),
   itcEligible: z.boolean().default(true),
+  itcClaimed: z.number().min(0).default(0),
+  itcReversed: z.number().min(0).default(0),
+  reversalReason: z.string().optional(),
   description: z.string().optional(),
   notes: z.string().optional(),
+  documentUrl: z.string().optional(),
   lineItems: z.array(z.object({
     description: z.string(),
     hsnSacCode: z.string(),
-    quantity: z.number().positive(),
-    rate: z.number().positive(),
-    amount: z.number().positive(),
+    quantity: z.number().min(0),
+    rate: z.number().min(0),
+    amount: z.number().min(0),
     gstRate: z.number().min(0),
     cgstAmount: z.number().min(0).default(0),
     sgstAmount: z.number().min(0).default(0),
@@ -133,7 +143,8 @@ export const purchaseInvoicesRouter = createTRPCRouter({
     }),
   
   // Purchase Invoice Management
-  createPurchaseInvoice: protectedProcedure
+  // Alias for compatibility
+  create: protectedProcedure
     .input(createPurchaseInvoiceSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify vendor exists and belongs to user
@@ -167,15 +178,15 @@ export const purchaseInvoicesRouter = createTRPCRouter({
         })
       }
       
-      // Get vendor's state for place of supply
-      const placeOfSupply = vendor.stateCode
+      // Get place of supply from input or vendor's state
+      const placeOfSupply = input.placeOfSupply || vendor.stateCode
       
-      // Calculate GST rates based on amounts
-      let cgstRate = 0
-      let sgstRate = 0
-      let igstRate = 0
+      // Use GST rates from input or calculate from amounts
+      let cgstRate = input.cgstRate || 0
+      let sgstRate = input.sgstRate || 0
+      let igstRate = input.igstRate || 0
       
-      if (input.taxableAmount > 0) {
+      if (!cgstRate && !sgstRate && !igstRate && input.taxableAmount > 0) {
         if (input.cgstAmount > 0) {
           cgstRate = (input.cgstAmount / input.taxableAmount) * 100
         }
@@ -222,10 +233,126 @@ export const purchaseInvoicesRouter = createTRPCRouter({
           totalAmount,
           itcCategory: input.itcCategory,
           itcEligible: input.itcEligible,
-          itcClaimed: itcCalculation.eligibleITC,
-          itcReversed: 0,
+          itcClaimed: input.itcClaimed || itcCalculation.eligibleITC,
+          itcReversed: input.itcReversed || 0,
+          reversalReason: input.reversalReason,
           description: input.description,
           notes: input.notes,
+          documentUrl: input.documentUrl,
+          lineItems: {
+            create: input.lineItems,
+          },
+        },
+        include: {
+          vendor: true,
+          lineItems: true,
+        },
+      })
+      
+      // Update ITC register for the month
+      const period = input.invoiceDate.toISOString().slice(0, 7) // YYYY-MM
+      const financialYear = getFinancialYear(input.invoiceDate)
+      
+      await updateITCRegister(ctx, ctx.session.user.id, period, financialYear, itcCalculation)
+      
+      return purchaseInvoice
+    }),
+  
+  createPurchaseInvoice: protectedProcedure
+    .input(createPurchaseInvoiceSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Verify vendor exists and belongs to user
+      const vendor = await ctx.prisma.vendor.findFirst({
+        where: {
+          id: input.vendorId,
+          userId: ctx.session.user.id,
+        },
+      })
+      
+      if (!vendor) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Vendor not found',
+        })
+      }
+      
+      // Check for duplicate invoice
+      const existing = await ctx.prisma.purchaseInvoice.findFirst({
+        where: {
+          userId: ctx.session.user.id,
+          vendorId: input.vendorId,
+          invoiceNumber: input.invoiceNumber,
+        },
+      })
+      
+      if (existing) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Invoice with this number already exists for this vendor',
+        })
+      }
+      
+      // Get place of supply from input or vendor's state
+      const placeOfSupply = input.placeOfSupply || vendor.stateCode
+      
+      // Use GST rates from input or calculate from amounts
+      let cgstRate = input.cgstRate || 0
+      let sgstRate = input.sgstRate || 0
+      let igstRate = input.igstRate || 0
+      
+      if (!cgstRate && !sgstRate && !igstRate && input.taxableAmount > 0) {
+        if (input.cgstAmount > 0) {
+          cgstRate = (input.cgstAmount / input.taxableAmount) * 100
+        }
+        if (input.sgstAmount > 0) {
+          sgstRate = (input.sgstAmount / input.taxableAmount) * 100
+        }
+        if (input.igstAmount > 0) {
+          igstRate = (input.igstAmount / input.taxableAmount) * 100
+        }
+      }
+      
+      // Calculate ITC
+      const itcCalculation = calculateITC({
+        taxableAmount: input.taxableAmount,
+        cgstAmount: input.cgstAmount,
+        sgstAmount: input.sgstAmount,
+        igstAmount: input.igstAmount,
+        cessAmount: input.cessAmount,
+        category: input.itcCategory,
+        isEligible: input.itcEligible,
+      })
+      
+      // Calculate total amount
+      const totalGST = input.cgstAmount + input.sgstAmount + input.igstAmount + (input.cessAmount || 0)
+      const totalAmount = input.taxableAmount + totalGST
+      
+      // Create purchase invoice with line items
+      const purchaseInvoice = await ctx.prisma.purchaseInvoice.create({
+        data: {
+          userId: ctx.session.user.id,
+          vendorId: input.vendorId,
+          invoiceNumber: input.invoiceNumber,
+          invoiceDate: input.invoiceDate,
+          placeOfSupply,
+          taxableAmount: input.taxableAmount,
+          cgstRate,
+          sgstRate,
+          igstRate,
+          cgstAmount: input.cgstAmount,
+          sgstAmount: input.sgstAmount,
+          igstAmount: input.igstAmount,
+          cessAmount: input.cessAmount || 0,
+          totalGSTAmount: totalGST,
+          totalAmount,
+          itcCategory: input.itcCategory,
+          itcEligible: input.itcEligible,
+          itcClaimed: input.itcClaimed || itcCalculation.eligibleITC,
+          itcReversed: input.itcReversed || 0,
+          reversalReason: input.reversalReason,
+          description: input.description,
+          notes: input.notes,
+          documentUrl: input.documentUrl,
           lineItems: {
             create: input.lineItems,
           },
@@ -285,6 +412,126 @@ export const purchaseInvoicesRouter = createTRPCRouter({
           invoiceDate: 'desc',
         },
       })
+    }),
+  
+  // Get all purchase invoices with pagination
+  getAll: protectedProcedure
+    .input(z.object({
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(10),
+      vendorId: z.string().optional(),
+      matchStatus: z.enum(['MATCHED', 'MISMATCHED', 'NOT_AVAILABLE']).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const page = input?.page || 1
+      const limit = input?.limit || 10
+      const skip = (page - 1) * limit
+      
+      const where: any = {
+        userId: ctx.session.user.id,
+      }
+      
+      if (input?.vendorId) {
+        where.vendorId = input.vendorId
+      }
+      
+      if (input?.matchStatus) {
+        where.matchStatus = input.matchStatus
+      }
+      
+      const [purchases, total] = await Promise.all([
+        ctx.prisma.purchaseInvoice.findMany({
+          where,
+          include: {
+            vendor: true,
+            lineItems: true,
+          },
+          orderBy: {
+            invoiceDate: 'desc',
+          },
+          skip,
+          take: limit,
+        }),
+        ctx.prisma.purchaseInvoice.count({ where }),
+      ])
+      
+      return {
+        purchases,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    }),
+  
+  // Delete purchase invoice
+  delete: protectedProcedure
+    .input(z.string())
+    .mutation(async ({ ctx, input }) => {
+      // Verify invoice exists and belongs to user
+      const invoice = await ctx.prisma.purchaseInvoice.findFirst({
+        where: {
+          id: input,
+          userId: ctx.session.user.id,
+        },
+      })
+      
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Purchase invoice not found',
+        })
+      }
+      
+      // Update ITC register to reverse the claimed ITC
+      const period = invoice.invoiceDate.toISOString().slice(0, 7)
+      const register = await ctx.prisma.iTCRegister.findUnique({
+        where: {
+          userId_period: {
+            userId: ctx.session.user.id,
+            period,
+          },
+        },
+      })
+      
+      if (register) {
+        await ctx.prisma.iTCRegister.update({
+          where: {
+            userId_period: {
+              userId: ctx.session.user.id,
+              period,
+            },
+          },
+          data: {
+            eligibleITC: {
+              decrement: invoice.itcClaimed,
+            },
+            claimedITC: {
+              decrement: invoice.itcClaimed,
+            },
+            closingBalance: {
+              decrement: invoice.itcClaimed,
+            },
+            // Update category breakup
+            ...(invoice.itcCategory === 'INPUTS' && {
+              inputsITC: { decrement: invoice.itcClaimed },
+            }),
+            ...(invoice.itcCategory === 'CAPITAL_GOODS' && {
+              capitalGoodsITC: { decrement: invoice.itcClaimed },
+            }),
+            ...(invoice.itcCategory === 'INPUT_SERVICES' && {
+              inputServicesITC: { decrement: invoice.itcClaimed },
+            }),
+          },
+        })
+      }
+      
+      // Delete the invoice (line items will be cascade deleted)
+      await ctx.prisma.purchaseInvoice.delete({
+        where: { id: input },
+      })
+      
+      return { success: true }
     }),
   
   getPurchaseInvoiceById: protectedProcedure

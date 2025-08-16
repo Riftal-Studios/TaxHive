@@ -1168,7 +1168,7 @@ export const invoiceRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id
-      const { calculateInvoiceGST, validateGSTIN, getStateCodeFromGSTIN } = await import('@/lib/gst')
+      const { calculateInvoiceGST, calculateGST: calculateGSTAmount, validateGSTIN, getStateCodeFromGSTIN } = await import('@/lib/gst')
       
       // Validate B2B GSTIN if provided
       if (input.invoiceType === 'DOMESTIC_B2B' && input.buyerGSTIN) {
@@ -1202,16 +1202,27 @@ export const invoiceRouter = createTRPCRouter({
         })
       }
       
-      // Calculate GST
+      // Calculate GST for all line items and individual items
       const lineItemsWithAmounts = input.lineItems.map(item => ({
         ...item,
         amount: item.quantity * item.rate,
       }))
       
+      // Calculate GST for the entire invoice
       const gstCalculation = calculateInvoiceGST(
         lineItemsWithAmounts,
         supplierStateCode,
         input.placeOfSupply as StateCode
+      )
+      
+      // Calculate GST for individual line items for storage
+      const individualItemGST = lineItemsWithAmounts.map(item => 
+        calculateGSTAmount(
+          item.amount,
+          item.gstRate,
+          supplierStateCode,
+          input.placeOfSupply as StateCode
+        )
       )
       
       // Use transaction for atomicity
@@ -1272,14 +1283,11 @@ export const invoiceRouter = createTRPCRouter({
           },
         })
         
-        // Create line items with GST details
-        for (const item of input.lineItems) {
+        // Create line items with pre-calculated GST details
+        for (let i = 0; i < input.lineItems.length; i++) {
+          const item = input.lineItems[i]
           const itemAmount = item.quantity * item.rate
-          const itemGST = calculateInvoiceGST(
-            [{ amount: itemAmount, gstRate: item.gstRate }],
-            supplierStateCode,
-            input.placeOfSupply as StateCode
-          )
+          const itemGST = individualItemGST[i] // Use pre-calculated GST
           
           await tx.invoiceItem.create({
             data: {

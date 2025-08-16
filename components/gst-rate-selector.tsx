@@ -11,7 +11,7 @@ import {
   Box,
   Typography,
 } from '@mui/material'
-// GST rates are defined locally for this component
+import { VALID_GST_RATES } from '@/lib/gst'
 
 interface GSTRateSelectorProps {
   value: number
@@ -23,13 +23,23 @@ interface GSTRateSelectorProps {
   size?: 'small' | 'medium'
 }
 
-const gstRateDetails = [
-  { rate: 0, label: '0% (Exempt/Export)', color: 'success' },
-  { rate: 5, label: '5%', color: 'info' },
-  { rate: 12, label: '12%', color: 'warning' },
-  { rate: 18, label: '18%', color: 'primary' },
-  { rate: 28, label: '28%', color: 'error' },
-] as const
+// Map GST rates to display details using the imported rates
+const gstRateDetails = VALID_GST_RATES.map(rate => {
+  switch (rate) {
+    case 0:
+      return { rate, label: '0% (Exempt/Export)', color: 'success' as const }
+    case 5:
+      return { rate, label: '5%', color: 'info' as const }
+    case 12:
+      return { rate, label: '12%', color: 'warning' as const }
+    case 18:
+      return { rate, label: '18%', color: 'primary' as const }
+    case 28:
+      return { rate, label: '28%', color: 'error' as const }
+    default:
+      return { rate, label: `${rate}%`, color: 'default' as const }
+  }
+})
 
 export function GSTRateSelector({
   value,

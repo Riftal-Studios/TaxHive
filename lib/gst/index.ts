@@ -204,6 +204,8 @@ export function calculateGST(
 
 /**
  * Calculate GST for multiple line items
+ * Note: When items have different GST rates, the rates in the result represent
+ * the effective/weighted average rates based on the total amounts
  */
 export function calculateInvoiceGST(
   lineItems: Array<{
@@ -218,11 +220,8 @@ export function calculateInvoiceGST(
   )
 
   // Aggregate all calculations
-  return calculations.reduce((acc, calc) => ({
+  const result = calculations.reduce((acc, calc) => ({
     taxableAmount: acc.taxableAmount + calc.taxableAmount,
-    cgstRate: calc.cgstRate, // Rate remains same for display
-    sgstRate: calc.sgstRate,
-    igstRate: calc.igstRate,
     cgstAmount: acc.cgstAmount + calc.cgstAmount,
     sgstAmount: acc.sgstAmount + calc.sgstAmount,
     igstAmount: acc.igstAmount + calc.igstAmount,
@@ -230,15 +229,31 @@ export function calculateInvoiceGST(
     totalAmount: acc.totalAmount + calc.totalAmount,
   }), {
     taxableAmount: 0,
-    cgstRate: 0,
-    sgstRate: 0,
-    igstRate: 0,
     cgstAmount: 0,
     sgstAmount: 0,
     igstAmount: 0,
     totalGSTAmount: 0,
     totalAmount: 0,
   })
+
+  // Calculate effective rates based on actual amounts
+  // These represent the weighted average rates when items have different rates
+  const effectiveCgstRate = result.taxableAmount > 0 
+    ? (result.cgstAmount / result.taxableAmount) * 100 
+    : 0
+  const effectiveSgstRate = result.taxableAmount > 0 
+    ? (result.sgstAmount / result.taxableAmount) * 100 
+    : 0
+  const effectiveIgstRate = result.taxableAmount > 0 
+    ? (result.igstAmount / result.taxableAmount) * 100 
+    : 0
+
+  return {
+    ...result,
+    cgstRate: effectiveCgstRate,
+    sgstRate: effectiveSgstRate,
+    igstRate: effectiveIgstRate,
+  }
 }
 
 /**

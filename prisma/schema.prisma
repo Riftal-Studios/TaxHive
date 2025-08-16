@@ -31,6 +31,9 @@ model User {
   luts     LUT[]
   emailHistory EmailHistory[]
   otps     OTP[]
+  gstReturns GSTReturn[]
+  vendors Vendor[]
+  purchaseInvoices PurchaseInvoice[]
 }
 
 model Account {
@@ -78,6 +81,8 @@ model Client {
   country     String
   phone       String?
   taxId       String? // Foreign tax ID if applicable
+  gstin       String? // GSTIN for domestic B2B clients
+  stateCode   String? // State code for domestic B2C clients (place of supply)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -105,6 +110,11 @@ model Invoice {
   serviceCode    String        // HSN/SAC code
   lutId          String?       // Reference to LUT (for exports)
   buyerGSTIN     String?       // Buyer's GSTIN for B2B invoices
+  
+  // Export-specific fields for GSTR-1
+  portCode       String?       // Port code for exports
+  shippingBillNo String?       // Shipping bill number
+  shippingBillDate DateTime?   // Shipping bill date
   
   // Financial Details
   currency       String        @default("USD")
@@ -171,6 +181,7 @@ model InvoiceItem {
   rate        Decimal
   amount      Decimal
   serviceCode String  // HSN/SAC code
+  uqc         String? // Unit of Quantity Code for GST (e.g., NOS, KGS, MTR)
   
   // GST fields for domestic invoices
   gstRate     Decimal @default(0) // Total GST rate (0%, 5%, 12%, 18%, 28%)
@@ -288,4 +299,137 @@ model OTP {
   @@index([email])
   @@index([code])
   @@index([expiresAt])
+}
+
+// GST Return Management Models
+
+model GSTReturn {
+  id            String    @id @default(cuid())
+  userId        String
+  returnType    String    // 'GSTR1' | 'GSTR3B' | 'GSTR2A' | 'GSTR9'
+  period        String    // 'MM-YYYY' for monthly, 'FY-YYYY' for annual
+  filingStatus  String    @default("DRAFT") // 'DRAFT' | 'READY' | 'FILED' | 'AMENDED'
+  filingDate    DateTime?
+  arn           String?   // Acknowledgment Reference Number
+  
+  // GSTR-1 Data (stored as JSON for flexibility)
+  b2bInvoices   Json?     // B2B supplies
+  b2cInvoices   Json?     // B2C supplies > 2.5L
+  b2csInvoices  Json?     // B2C supplies < 2.5L (state-wise)
+  exportInvoices Json?    // Zero-rated supplies
+  creditNotes   Json?     // Credit notes issued
+  debitNotes    Json?     // Debit notes issued
+  hsnSummary    Json?     // HSN-wise summary
+  
+  // GSTR-3B Data
+  outputTax     Decimal?  // Total output tax
+  inputTaxClaim Decimal?  // Total ITC claimed
+  netTaxPayable Decimal?  // Net tax liability
+  lateFee       Decimal?  // Late fee if any
+  interest      Decimal?  // Interest if any
+  
+  // Complete JSON output for GST portal
+  jsonOutput    Json      // GST portal format JSON
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, returnType, period])
+  @@index([userId])
+  @@index([returnType])
+  @@index([period])
+  @@index([filingStatus])
+}
+
+model Vendor {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  gstin         String?  // GSTIN for registered vendors
+  pan           String?  // PAN for unregistered vendors
+  address       String
+  stateCode     String   // State code for place of supply
+  email         String?
+  phone         String?
+  isRegistered  Boolean  @default(true) // GST registered or not
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchases PurchaseInvoice[]
+  
+  @@index([userId])
+  @@index([gstin])
+}
+
+model PurchaseInvoice {
+  id              String   @id @default(cuid())
+  userId          String
+  vendorId        String
+  invoiceNumber   String
+  invoiceDate     DateTime
+  placeOfSupply   String   // State code
+  
+  // Tax details
+  taxableAmount   Decimal
+  cgstRate        Decimal  @default(0)
+  sgstRate        Decimal  @default(0)
+  igstRate        Decimal  @default(0)
+  cgstAmount      Decimal  @default(0)
+  sgstAmount      Decimal  @default(0)
+  igstAmount      Decimal  @default(0)
+  cessAmount      Decimal  @default(0)
+  totalGSTAmount  Decimal  @default(0)
+  totalAmount     Decimal
+  
+  // ITC Details
+  itcEligible     Boolean  @default(true)
+  itcCategory     String   @default("INPUTS") // 'INPUTS' | 'CAPITAL_GOODS' | 'INPUT_SERVICES' | 'BLOCKED'
+  itcClaimed      Decimal  @default(0)
+  itcReversed     Decimal  @default(0)
+  reversalReason  String?
+  
+  // Reconciliation
+  gstr2aMatched   Boolean  @default(false)
+  matchStatus     String   @default("NOT_AVAILABLE") // 'MATCHED' | 'MISMATCHED' | 'NOT_AVAILABLE'
+  gstr2bReference String?  // Reference from GSTR-2B if matched
+  
+  // Additional Info
+  description     String?
+  notes           String?
+  documentUrl     String?  // Upload purchase invoice PDF
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+  lineItems PurchaseLineItem[]
+  
+  @@unique([userId, vendorId, invoiceNumber])
+  @@index([userId])
+  @@index([vendorId])
+  @@index([invoiceDate])
+  @@index([matchStatus])
+}
+
+model PurchaseLineItem {
+  id                String  @id @default(cuid())
+  purchaseInvoiceId String
+  description       String
+  hsnSacCode        String  // HSN/SAC code
+  quantity          Decimal
+  rate              Decimal
+  amount            Decimal
+  gstRate           Decimal @default(0)
+  cgstAmount        Decimal @default(0)
+  sgstAmount        Decimal @default(0)
+  igstAmount        Decimal @default(0)
+  
+  purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([purchaseInvoiceId])
 }

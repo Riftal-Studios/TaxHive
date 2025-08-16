@@ -297,3 +297,77 @@ export function requiresGSTIN(invoiceType: string): boolean {
 export function requiresLUT(invoiceType: string): boolean {
   return invoiceType === 'EXPORT'
 }
+
+/**
+ * Get state name from state code
+ */
+export function getStateNameFromCode(stateCode: string): string | null {
+  return INDIAN_STATES[stateCode as StateCode] || null
+}
+
+/**
+ * Get PAN from GSTIN
+ */
+export function getPANFromGSTIN(gstin: string): string | null {
+  if (!gstin || gstin.length !== 15) {
+    return null
+  }
+  
+  return gstin.substring(2, 12)
+}
+
+/**
+ * Determine if supply is inter-state or intra-state
+ */
+export function isInterStateSupply(supplierStateCode: string, customerStateCode: string): boolean {
+  return supplierStateCode !== customerStateCode
+}
+
+/**
+ * Calculate tax type based on supply type
+ */
+export function getTaxType(supplierStateCode: string, customerStateCode: string): 'IGST' | 'CGST_SGST' {
+  return isInterStateSupply(supplierStateCode, customerStateCode) ? 'IGST' : 'CGST_SGST'
+}
+
+/**
+ * Format amount for GST returns (2 decimal places)
+ */
+export function formatGSTAmount(amount: number): number {
+  return Math.round(amount * 100) / 100
+}
+
+/**
+ * Get financial year from date
+ */
+export function getFinancialYear(date: Date = new Date()): string {
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1
+  
+  if (month >= 4) {
+    return `${year}-${(year + 1).toString().slice(2)}`
+  } else {
+    return `${year - 1}-${year.toString().slice(2)}`
+  }
+}
+
+/**
+ * Get GST return due date
+ */
+export function getGSTReturnDueDate(returnType: 'GSTR1' | 'GSTR3B', month: number, year: number): Date {
+  if (returnType === 'GSTR1') {
+    // GSTR-1 is due on 11th of next month
+    if (month === 12) {
+      return new Date(year + 1, 0, 11)
+    }
+    return new Date(year, month, 11)
+  } else if (returnType === 'GSTR3B') {
+    // GSTR-3B is due on 20th of next month
+    if (month === 12) {
+      return new Date(year + 1, 0, 20)
+    }
+    return new Date(year, month, 20)
+  }
+  
+  throw new Error('Invalid return type')
+}

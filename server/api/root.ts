@@ -7,6 +7,7 @@ import { lutRouter } from '@/server/api/routers/lut'
 import { dashboardRouter } from '@/server/api/routers/dashboard'
 import { paymentRouter } from '@/server/api/routers/payment'
 import { authRouter } from '@/server/api/routers/auth'
+import { gstReturnsRouter } from '@/server/api/routers/gst-returns'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -17,6 +18,7 @@ export const appRouter = createTRPCRouter({
   luts: lutRouter,
   dashboard: dashboardRouter,
   payments: paymentRouter,
+  gstReturns: gstReturnsRouter,
 })
 
 export type AppRouter = typeof appRouter

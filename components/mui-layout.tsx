@@ -34,6 +34,7 @@ import {
   Receipt as LUTIcon,
   Payment as PaymentIcon,
   Work as WorkIcon,
+  Assignment as ReturnsIcon,
 } from '@mui/icons-material'
 import { signOut } from 'next-auth/react'
 import { useTheme as useAppTheme } from '@/components/theme-provider'
@@ -54,6 +55,7 @@ const menuItems = [
   { text: 'Invoices', icon: <InvoiceIcon />, href: '/invoices' },
   { text: 'Clients', icon: <ClientsIcon />, href: '/clients' },
   { text: 'Payments', icon: <PaymentIcon />, href: '/payments' },
+  { text: 'GST Returns', icon: <ReturnsIcon />, href: '/returns' },
   { text: 'LUT Management', icon: <LUTIcon />, href: '/luts' },
 ]
 

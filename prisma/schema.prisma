@@ -34,6 +34,8 @@ model User {
   gstReturns GSTReturn[]
   vendors Vendor[]
   purchaseInvoices PurchaseInvoice[]
+  creditNotes CreditNote[]
+  debitNotes DebitNote[]
 }
 
 model Account {
@@ -166,6 +168,8 @@ model Invoice {
   lineItems   InvoiceItem[]
   payments    Payment[]
   emailHistory EmailHistory[]
+  creditNotes CreditNote[]
+  debitNotes  DebitNote[]
 
   @@index([userId])
   @@index([clientId])
@@ -432,4 +436,128 @@ model PurchaseLineItem {
   purchaseInvoice PurchaseInvoice @relation(fields: [purchaseInvoiceId], references: [id], onDelete: Cascade)
   
   @@index([purchaseInvoiceId])
+}
+
+// Credit and Debit Notes Models
+
+model CreditNote {
+  id                String   @id @default(cuid())
+  userId            String
+  noteNumber        String   @unique // Format: CN-FY24-25/001
+  noteDate          DateTime
+  originalInvoiceId String
+  reason            String   // 'RATE_CHANGE' | 'QUANTITY_CHANGE' | 'DISCOUNT' | 'RETURN' | 'OTHER'
+  reasonDescription String?
+  
+  // Financial Details
+  currency          String   @default("INR")
+  
+  // GST Adjustments (amount being credited back)
+  taxableAmountDiff Decimal  // Positive value for reduction
+  cgstDiff          Decimal  @default(0)
+  sgstDiff          Decimal  @default(0)
+  igstDiff          Decimal  @default(0)
+  totalGSTDiff      Decimal  @default(0)
+  totalDiff         Decimal  // Total amount being credited
+  
+  // Status
+  status            String   @default("DRAFT") // 'DRAFT' | 'ISSUED' | 'CANCELLED'
+  
+  // PDF Storage
+  pdfUrl            String?
+  pdfGeneratedAt    DateTime?
+  
+  // Additional Info
+  notes             String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalInvoice   Invoice  @relation(fields: [originalInvoiceId], references: [id])
+  lineItems         CreditNoteLineItem[]
+  
+  @@index([userId])
+  @@index([originalInvoiceId])
+  @@index([status])
+  @@index([noteDate])
+}
+
+model CreditNoteLineItem {
+  id              String  @id @default(cuid())
+  creditNoteId    String
+  description     String
+  serviceCode     String  // HSN/SAC code
+  quantity        Decimal
+  rate            Decimal
+  amount          Decimal // Amount being credited (positive)
+  gstRate         Decimal @default(0)
+  cgstAmount      Decimal @default(0)
+  sgstAmount      Decimal @default(0)
+  igstAmount      Decimal @default(0)
+  
+  creditNote      CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  
+  @@index([creditNoteId])
+}
+
+model DebitNote {
+  id                String   @id @default(cuid())
+  userId            String
+  noteNumber        String   @unique // Format: DN-FY24-25/001
+  noteDate          DateTime
+  originalInvoiceId String
+  reason            String   // 'RATE_INCREASE' | 'QUANTITY_INCREASE' | 'ADDITIONAL_CHARGE' | 'PENALTY' | 'OTHER'
+  reasonDescription String?
+  
+  // Financial Details
+  currency          String   @default("INR")
+  
+  // GST Adjustments (additional amount being charged)
+  taxableAmountDiff Decimal  // Positive value for addition
+  cgstDiff          Decimal  @default(0)
+  sgstDiff          Decimal  @default(0)
+  igstDiff          Decimal  @default(0)
+  totalGSTDiff      Decimal  @default(0)
+  totalDiff         Decimal  // Total additional amount being charged
+  
+  // Status
+  status            String   @default("DRAFT") // 'DRAFT' | 'ISSUED' | 'CANCELLED'
+  
+  // PDF Storage
+  pdfUrl            String?
+  pdfGeneratedAt    DateTime?
+  
+  // Additional Info
+  notes             String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalInvoice   Invoice  @relation(fields: [originalInvoiceId], references: [id])
+  lineItems         DebitNoteLineItem[]
+  
+  @@index([userId])
+  @@index([originalInvoiceId])
+  @@index([status])
+  @@index([noteDate])
+}
+
+model DebitNoteLineItem {
+  id              String  @id @default(cuid())
+  debitNoteId     String
+  description     String
+  serviceCode     String  // HSN/SAC code
+  quantity        Decimal
+  rate            Decimal
+  amount          Decimal // Additional amount being charged (positive)
+  gstRate         Decimal @default(0)
+  cgstAmount      Decimal @default(0)
+  sgstAmount      Decimal @default(0)
+  igstAmount      Decimal @default(0)
+  
+  debitNote       DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  
+  @@index([debitNoteId])
 }

@@ -97,18 +97,31 @@ model Invoice {
   dueDate        DateTime
   status         String        @default("DRAFT")
   
+  // Invoice Type
+  invoiceType    String        @default("EXPORT") // EXPORT, DOMESTIC_B2B, DOMESTIC_B2C
+  
   // GST Compliance Fields
   placeOfSupply  String        @default("Outside India (Section 2-6)")
   serviceCode    String        // HSN/SAC code
-  lutId          String?       // Reference to LUT
+  lutId          String?       // Reference to LUT (for exports)
+  buyerGSTIN     String?       // Buyer's GSTIN for B2B invoices
   
   // Financial Details
   currency       String        @default("USD")
   exchangeRate   Decimal
   exchangeSource String        // RBI/Fallback API
   subtotal       Decimal
+  
+  // GST Fields for Domestic Invoices
+  taxableAmount  Decimal       @default(0)
+  cgstRate       Decimal       @default(0)
+  sgstRate       Decimal       @default(0)
   igstRate       Decimal       @default(0)
+  cgstAmount     Decimal       @default(0)
+  sgstAmount     Decimal       @default(0)
   igstAmount     Decimal       @default(0)
+  totalGSTAmount Decimal       @default(0)
+  
   totalAmount    Decimal
   totalInINR     Decimal
   
@@ -158,6 +171,12 @@ model InvoiceItem {
   rate        Decimal
   amount      Decimal
   serviceCode String  // HSN/SAC code
+  
+  // GST fields for domestic invoices
+  gstRate     Decimal @default(0) // Total GST rate (0%, 5%, 12%, 18%, 28%)
+  cgstAmount  Decimal @default(0)
+  sgstAmount  Decimal @default(0)
+  igstAmount  Decimal @default(0)
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 

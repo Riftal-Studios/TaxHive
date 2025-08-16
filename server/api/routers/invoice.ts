@@ -1110,4 +1110,226 @@ export const invoiceRouter = createTRPCRouter({
         progress: invoice.pdfStatus === 'completed' ? 100 : 0,
       }
     }),
+
+  // GST-related endpoints for domestic invoices
+  validateGSTIN: protectedProcedure
+    .input(z.object({
+      gstin: z.string(),
+    }))
+    .query(async ({ input }) => {
+      const { validateGSTIN } = await import('@/lib/gst')
+      return validateGSTIN(input.gstin)
+    }),
+
+  calculateGST: protectedProcedure
+    .input(z.object({
+      lineItems: z.array(z.object({
+        amount: z.number(),
+        gstRate: z.number(),
+      })),
+      supplierStateCode: z.string().length(2),
+      customerStateCode: z.string().length(2),
+    }))
+    .mutation(async ({ input }) => {
+      const { calculateInvoiceGST } = await import('@/lib/gst')
+      const { StateCode } = await import('@/lib/gst')
+      
+      const result = calculateInvoiceGST(
+        input.lineItems,
+        input.supplierStateCode as StateCode,
+        input.customerStateCode as StateCode
+      )
+      
+      // Convert Decimal objects to numbers for JSON serialization
+      return {
+        taxableAmount: result.taxableAmount.toNumber(),
+        cgstRate: result.cgstRate.toNumber(),
+        sgstRate: result.sgstRate.toNumber(),
+        igstRate: result.igstRate.toNumber(),
+        cgstAmount: result.cgstAmount.toNumber(),
+        sgstAmount: result.sgstAmount.toNumber(),
+        igstAmount: result.igstAmount.toNumber(),
+        totalGSTAmount: result.totalGSTAmount.toNumber(),
+        totalAmount: result.totalAmount.toNumber(),
+      }
+    }),
+
+  createDomesticInvoice: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.string(),
+        invoiceType: z.enum(['DOMESTIC_B2B', 'DOMESTIC_B2C']),
+        buyerGSTIN: z.string().optional(),
+        placeOfSupply: z.string().length(2), // State code
+        issueDate: z.date(),
+        dueDate: z.date(),
+        currency: z.string().default('INR'),
+        paymentTerms: z.number().optional(),
+        bankDetails: z.string().optional(),
+        notes: z.string().optional(),
+        lineItems: z.array(z.object({
+          description: z.string().min(1),
+          quantity: z.number().positive(),
+          rate: z.number().positive(),
+          sacCode: z.string(),
+          gstRate: z.number(),
+        })).min(1),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      const { calculateInvoiceGST, validateGSTIN, getStateCodeFromGSTIN } = await import('@/lib/gst')
+      const { StateCode } = await import('@/lib/gst')
+      
+      // Validate B2B GSTIN if provided
+      if (input.invoiceType === 'DOMESTIC_B2B' && input.buyerGSTIN) {
+        const gstinValidation = validateGSTIN(input.buyerGSTIN)
+        if (!gstinValidation.valid) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Invalid buyer GSTIN: ${gstinValidation.error}`,
+          })
+        }
+      }
+      
+      // Get supplier state code from user's GSTIN
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: userId },
+        select: { gstin: true },
+      })
+      
+      if (!user?.gstin) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Supplier GSTIN not configured. Please update your profile.',
+        })
+      }
+      
+      const supplierStateCode = getStateCodeFromGSTIN(user.gstin)
+      if (!supplierStateCode) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Invalid supplier GSTIN format.',
+        })
+      }
+      
+      // Calculate GST
+      const lineItemsWithAmounts = input.lineItems.map(item => ({
+        ...item,
+        amount: item.quantity * item.rate,
+      }))
+      
+      const gstCalculation = calculateInvoiceGST(
+        lineItemsWithAmounts,
+        supplierStateCode,
+        input.placeOfSupply as StateCode
+      )
+      
+      // Use transaction for atomicity
+      return await ctx.prisma.$transaction(async (tx) => {
+        // Get the current fiscal year
+        const currentFY = getCurrentFiscalYear(input.issueDate)
+        
+        // Get the next invoice number
+        const existingInvoices = await tx.invoice.findMany({
+          where: {
+            userId,
+            invoiceNumber: {
+              startsWith: `FY${currentFY.slice(2, 4)}-${currentFY.slice(-2)}/`,
+            },
+          },
+          select: { invoiceNumber: true },
+        })
+        
+        const invoiceNumbers = existingInvoices.map(inv => inv.invoiceNumber)
+        const nextSequence = getNextInvoiceSequence(invoiceNumbers)
+        const invoiceNumber = generateInvoiceNumber(currentFY, nextSequence)
+        
+        // Create invoice with GST details
+        const invoice = await tx.invoice.create({
+          data: {
+            userId,
+            clientId: input.clientId,
+            invoiceType: input.invoiceType,
+            buyerGSTIN: input.buyerGSTIN,
+            invoiceNumber,
+            invoiceDate: input.issueDate,
+            dueDate: input.dueDate,
+            currency: input.currency,
+            exchangeRate: 1, // INR to INR
+            exchangeSource: 'Fixed',
+            subtotal: gstCalculation.taxableAmount.toNumber(),
+            taxableAmount: gstCalculation.taxableAmount.toNumber(),
+            cgstRate: gstCalculation.cgstRate.toNumber(),
+            sgstRate: gstCalculation.sgstRate.toNumber(),
+            igstRate: gstCalculation.igstRate.toNumber(),
+            cgstAmount: gstCalculation.cgstAmount.toNumber(),
+            sgstAmount: gstCalculation.sgstAmount.toNumber(),
+            igstAmount: gstCalculation.igstAmount.toNumber(),
+            totalGSTAmount: gstCalculation.totalGSTAmount.toNumber(),
+            totalAmount: gstCalculation.totalAmount.toNumber(),
+            totalInINR: gstCalculation.totalAmount.toNumber(),
+            status: 'DRAFT',
+            placeOfSupply: input.placeOfSupply,
+            serviceCode: input.lineItems[0].sacCode,
+            paymentTerms: input.paymentTerms?.toString(),
+            bankDetails: input.bankDetails,
+            notes: input.notes,
+            paymentStatus: 'UNPAID',
+            amountPaid: 0,
+            balanceDue: gstCalculation.totalAmount.toNumber(),
+            publicAccessToken: generateSecureToken(),
+            tokenExpiresAt: getTokenExpirationDate(90),
+          },
+        })
+        
+        // Create line items with GST details
+        for (const item of input.lineItems) {
+          const itemAmount = item.quantity * item.rate
+          const itemGST = calculateInvoiceGST(
+            [{ amount: itemAmount, gstRate: item.gstRate }],
+            supplierStateCode,
+            input.placeOfSupply as StateCode
+          )
+          
+          await tx.invoiceItem.create({
+            data: {
+              invoiceId: invoice.id,
+              description: item.description,
+              quantity: item.quantity,
+              rate: item.rate,
+              amount: itemAmount,
+              serviceCode: item.sacCode,
+              gstRate: item.gstRate,
+              cgstAmount: itemGST.cgstAmount.toNumber(),
+              sgstAmount: itemGST.sgstAmount.toNumber(),
+              igstAmount: itemGST.igstAmount.toNumber(),
+            },
+          })
+        }
+        
+        // Queue PDF generation
+        try {
+          const queueService = getQueue()
+          if (queueService) {
+            const job = await queueService.enqueue('PDF_GENERATION', {
+              invoiceId: invoice.id,
+              userId: ctx.session.user.id,
+            })
+            
+            await tx.invoice.update({
+              where: { id: invoice.id },
+              data: {
+                pdfStatus: 'generating',
+                pdfJobId: job.id,
+              },
+            })
+          }
+        } catch (error) {
+          console.error('Failed to queue PDF generation:', error)
+        }
+        
+        return invoice
+      })
+    }),
 })

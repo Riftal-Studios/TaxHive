@@ -26,9 +26,9 @@ import {
   IconButton,
   Chip,
   Stack,
-  CircularProgress,
-  Grid
+  CircularProgress
 } from '@mui/material'
+import Grid from '@mui/material/Grid'
 import {
   Add as AddIcon,
   Visibility as ViewIcon,

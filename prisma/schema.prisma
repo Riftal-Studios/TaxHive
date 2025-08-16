@@ -36,6 +36,7 @@ model User {
   purchaseInvoices PurchaseInvoice[]
   creditNotes CreditNote[]
   debitNotes DebitNote[]
+  itcRegisters ITCRegister[]
 }
 
 model Account {
@@ -560,4 +561,40 @@ model DebitNoteLineItem {
   debitNote       DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
   
   @@index([debitNoteId])
+}
+
+// ITC Management Models
+
+model ITCRegister {
+  id              String   @id @default(cuid())
+  userId          String
+  period          String   // Format: MM-YYYY
+  financialYear   String   // Format: FY24-25
+  
+  // ITC Balances
+  openingBalance  Decimal  @default(0)
+  eligibleITC     Decimal  @default(0)
+  claimedITC      Decimal  @default(0)
+  reversedITC     Decimal  @default(0)
+  blockedITC      Decimal  @default(0)
+  closingBalance  Decimal  @default(0)
+  
+  // Breakup by category
+  inputsITC       Decimal  @default(0)
+  capitalGoodsITC Decimal  @default(0)
+  inputServicesITC Decimal @default(0)
+  
+  // Reconciliation Status
+  isReconciled    Boolean  @default(false)
+  reconciledAt    DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, period])
+  @@index([userId])
+  @@index([period])
+  @@index([financialYear])
 }

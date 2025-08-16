@@ -9,6 +9,7 @@ import { paymentRouter } from '@/server/api/routers/payment'
 import { authRouter } from '@/server/api/routers/auth'
 import { gstReturnsRouter } from '@/server/api/routers/gst-returns'
 import { creditDebitNotesRouter } from '@/server/api/routers/credit-debit-notes'
+import { purchaseInvoicesRouter } from '@/server/api/routers/purchase-invoices'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   payments: paymentRouter,
   gstReturns: gstReturnsRouter,
   creditDebitNotes: creditDebitNotesRouter,
+  purchaseInvoices: purchaseInvoicesRouter,
 })
 
 export type AppRouter = typeof appRouter

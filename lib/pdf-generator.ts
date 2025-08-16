@@ -5,6 +5,7 @@ export { uploadPDF } from './pdf-uploader'
 import type { Invoice, InvoiceItem, User, Client, LUT, Payment } from '@prisma/client'
 import { SAC_HSN_CODES } from './constants'
 import { numberToWordsIndian, numberToWordsInternational } from './utils/number-to-words'
+import { INDIAN_STATES, StateCode } from '@/lib/gst'
 
 type InvoiceWithRelations = Invoice & {
   lineItems: InvoiceItem[]
@@ -75,8 +76,33 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
     }).format(amount)
   }
 
+  // Check invoice type
+  const isExport = invoice.invoiceType === 'EXPORT'
+  const isDomesticB2B = invoice.invoiceType === 'DOMESTIC_B2B'
+  const isDomesticB2C = invoice.invoiceType === 'DOMESTIC_B2C'
+  const isDomestic = isDomesticB2B || isDomesticB2C
+
+  // GST calculation helpers
+  const hasGST = isDomestic && Number(invoice.totalGSTAmount) > 0
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const isInterState = hasGST && Number(invoice.igstAmount) > 0
+  const isIntraState = hasGST && (Number(invoice.cgstAmount) > 0 || Number(invoice.sgstAmount) > 0)
+
+  // Get state name from place of supply code if domestic
+  const getPlaceOfSupplyDisplay = () => {
+    if (isExport) {
+      return invoice.placeOfSupply || 'Outside India (Section 2-6)'
+    }
+    const stateCode = invoice.placeOfSupply as StateCode
+    const stateName = INDIAN_STATES[stateCode]
+    return stateName ? `${stateName} (${stateCode})` : invoice.placeOfSupply
+  }
+
   const subtotalINR = Number(invoice.subtotal) * Number(invoice.exchangeRate)
   const igstAmountINR = Number(invoice.igstAmount) * Number(invoice.exchangeRate)
+  const cgstAmountINR = Number(invoice.cgstAmount) * Number(invoice.exchangeRate)
+  const sgstAmountINR = Number(invoice.sgstAmount) * Number(invoice.exchangeRate)
+  const totalGSTAmountINR = Number(invoice.totalGSTAmount) * Number(invoice.exchangeRate)
   const totalAmountINR = Number(invoice.totalAmount) * Number(invoice.exchangeRate)
 
   return `
@@ -307,6 +333,7 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
               ${invoice.client.address.replace(/\n/g, '<br>')}<br>
               ${invoice.client.country}<br>
               ${invoice.client.taxId ? `Tax ID: ${invoice.client.taxId}<br>` : ''}
+              ${isDomesticB2B && invoice.buyerGSTIN ? `<span class="gstin">GSTIN: ${invoice.buyerGSTIN}</span><br>` : ''}
               Email: ${invoice.client.email}<br>
               ${invoice.client.phone ? `Phone: ${invoice.client.phone}` : ''}
             </div>
@@ -314,9 +341,10 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
           <div class="party">
             <h3>INVOICE DETAILS</h3>
             <div class="party-details">
+              <strong>Invoice Type:</strong> ${isExport ? 'Export' : isDomesticB2B ? 'Domestic B2B' : 'Domestic B2C'}<br>
               <strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}<br>
               <strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}<br>
-              <strong>Place of Supply:</strong> ${invoice.placeOfSupply}<br>
+              <strong>Place of Supply:</strong> ${getPlaceOfSupplyDisplay()}<br>
               <strong>Service Code (HSN/SAC):</strong> ${invoice.serviceCode}<br>
               <strong>Service Type:</strong> ${getServiceTypeDescription(invoice.serviceCode)}
             </div>
@@ -330,20 +358,32 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
           </div>
         ` : ''}
 
-        <div class="exchange-rate">
-          <strong>Exchange Rate:</strong> 1 ${invoice.currency} = ${formatINR(Number(invoice.exchangeRate))} 
-          (${invoice.exchangeSource} as on ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')})
-        </div>
+        ${isExport ? `
+          <div class="exchange-rate">
+            <strong>Exchange Rate:</strong> 1 ${invoice.currency} = ${formatINR(Number(invoice.exchangeRate))} 
+            (${invoice.exchangeSource} as on ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')})
+          </div>
+        ` : ''}
 
         <table class="items-table">
           <thead>
             <tr>
               <th style="width: 50px;">S.No</th>
               <th>Description</th>
+              ${isDomestic ? `<th style="width: 80px;">HSN/SAC</th>` : ''}
               <th style="width: 80px;">Qty</th>
-              <th style="width: 120px;">Rate (${invoice.currency})</th>
-              <th style="width: 120px;">Amount (${invoice.currency})</th>
-              <th style="width: 120px;">Amount (INR)</th>
+              <th style="width: 120px;">Rate${isExport ? ` (${invoice.currency})` : ''}</th>
+              <th style="width: 120px;">${isDomestic ? 'Taxable Value' : `Amount (${invoice.currency})`}</th>
+              ${isDomestic && hasGST ? `
+                ${isIntraState ? `
+                  <th style="width: 80px;">CGST<br/>${invoice.cgstRate}%</th>
+                  <th style="width: 80px;">SGST<br/>${invoice.sgstRate}%</th>
+                ` : `
+                  <th style="width: 100px;">IGST<br/>${invoice.igstRate}%</th>
+                `}
+                <th style="width: 120px;">Total Amount</th>
+              ` : ''}
+              ${isExport ? `<th style="width: 120px;">Amount (INR)</th>` : ''}
             </tr>
           </thead>
           <tbody>
@@ -351,10 +391,20 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
               <tr>
                 <td class="number">${index + 1}</td>
                 <td>${item.description}</td>
+                ${isDomestic ? `<td>${item.serviceCode || invoice.serviceCode}</td>` : ''}
                 <td class="number">${item.quantity}</td>
-                <td class="number">${formatCurrency(Number(item.rate), invoice.currency)}</td>
-                <td class="number">${formatCurrency(Number(item.amount), invoice.currency)}</td>
-                <td class="number">${formatINR(Number(item.amount) * Number(invoice.exchangeRate))}</td>
+                <td class="number">${isExport ? formatCurrency(Number(item.rate), invoice.currency) : formatINR(Number(item.rate))}</td>
+                <td class="number">${isExport ? formatCurrency(Number(item.amount), invoice.currency) : formatINR(Number(item.amount))}</td>
+                ${isDomestic && hasGST ? `
+                  ${isIntraState ? `
+                    <td class="number">${formatINR(Number(item.cgstAmount || 0))}</td>
+                    <td class="number">${formatINR(Number(item.sgstAmount || 0))}</td>
+                  ` : `
+                    <td class="number">${formatINR(Number(item.igstAmount || 0))}</td>
+                  `}
+                  <td class="number">${formatINR(Number(item.amount) + Number(item.cgstAmount || 0) + Number(item.sgstAmount || 0) + Number(item.igstAmount || 0))}</td>
+                ` : ''}
+                ${isExport ? `<td class="number">${formatINR(Number(item.amount) * Number(invoice.exchangeRate))}</td>` : ''}
               </tr>
             `).join('')}
           </tbody>
@@ -362,16 +412,35 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
 
         <div class="totals">
           <div class="total-row">
-            <span>Subtotal:</span>
-            <span>${formatCurrency(Number(invoice.subtotal), invoice.currency)} / ${formatINR(subtotalINR)}</span>
+            <span>${isDomestic ? 'Taxable Amount' : 'Subtotal'}:</span>
+            <span>${isExport ? `${formatCurrency(Number(invoice.subtotal), invoice.currency)} / ${formatINR(subtotalINR)}` : formatINR(Number(invoice.taxableAmount || invoice.subtotal))}</span>
           </div>
-          <div class="total-row">
-            <span>IGST @ ${invoice.igstRate}%:</span>
-            <span>${formatCurrency(Number(invoice.igstAmount), invoice.currency)} / ${formatINR(igstAmountINR)}</span>
-          </div>
+          ${hasGST ? `
+            ${isIntraState ? `
+              <div class="total-row">
+                <span>CGST @ ${invoice.cgstRate}%:</span>
+                <span>${formatINR(cgstAmountINR)}</span>
+              </div>
+              <div class="total-row">
+                <span>SGST @ ${invoice.sgstRate}%:</span>
+                <span>${formatINR(sgstAmountINR)}</span>
+              </div>
+            ` : `
+              <div class="total-row">
+                <span>IGST @ ${invoice.igstRate}%:</span>
+                <span>${formatINR(igstAmountINR)}</span>
+              </div>
+            `}
+          ` : ''}
+          ${isExport && Number(invoice.igstRate) === 0 ? `
+            <div class="total-row">
+              <span>IGST @ 0% (Export):</span>
+              <span>${formatCurrency(0, invoice.currency)} / ${formatINR(0)}</span>
+            </div>
+          ` : ''}
           <div class="total-row grand-total">
             <span>Total Amount:</span>
-            <span>${formatCurrency(Number(invoice.totalAmount), invoice.currency)} / ${formatINR(totalAmountINR)}</span>
+            <span>${isExport ? `${formatCurrency(Number(invoice.totalAmount), invoice.currency)} / ${formatINR(totalAmountINR)}` : formatINR(totalAmountINR)}</span>
           </div>
           
           ${invoice.payments && invoice.payments.length > 0 ? `
@@ -399,14 +468,95 @@ function generateInvoiceHTML(invoice: InvoiceWithRelations, user: User): string 
 
         <div class="invoice-meta">
           <div class="meta-row">
-            <span class="meta-label">Amount in Words (INR):</span>
+            <span class="meta-label">Amount in Words${isDomestic ? '' : ' (INR)'}:</span>
             <span>${numberToWordsIndian(totalAmountINR)} Rupees Only</span>
           </div>
-          <div class="meta-row">
-            <span class="meta-label">Amount in Words (${invoice.currency}):</span>
-            <span>${numberToWordsInternational(Number(invoice.totalAmount))} ${getCurrencyName(invoice.currency)} Only</span>
-          </div>
+          ${isExport ? `
+            <div class="meta-row">
+              <span class="meta-label">Amount in Words (${invoice.currency}):</span>
+              <span>${numberToWordsInternational(Number(invoice.totalAmount))} ${getCurrencyName(invoice.currency)} Only</span>
+            </div>
+          ` : ''}
+          ${hasGST ? `
+            <div class="meta-row">
+              <span class="meta-label">Tax Amount in Words:</span>
+              <span>${numberToWordsIndian(totalGSTAmountINR)} Rupees Only</span>
+            </div>
+          ` : ''}
         </div>
+
+        ${hasGST && invoice.lineItems.length > 1 ? `
+          <div class="gst-summary" style="margin-top: 30px; padding: 15px; background-color: #f9f9f9; border: 1px solid #ddd;">
+            <h3 style="margin-bottom: 15px;">GST Summary</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background-color: #f5f5f5;">
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">HSN/SAC</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Taxable Value</th>
+                  ${isIntraState ? `
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">CGST Rate</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">CGST Amount</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">SGST Rate</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">SGST Amount</th>
+                  ` : `
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">IGST Rate</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">IGST Amount</th>
+                  `}
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total Tax</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(() => {
+                  // Group items by HSN/SAC code and GST rate
+                  const groups: { [key: string]: { taxable: number; cgst: number; sgst: number; igst: number; rate: number } } = {}
+                  invoice.lineItems.forEach(item => {
+                    const key = item.serviceCode || invoice.serviceCode
+                    if (!groups[key]) {
+                      groups[key] = { taxable: 0, cgst: 0, sgst: 0, igst: 0, rate: Number(item.gstRate) }
+                    }
+                    groups[key].taxable += Number(item.amount)
+                    groups[key].cgst += Number(item.cgstAmount || 0)
+                    groups[key].sgst += Number(item.sgstAmount || 0)
+                    groups[key].igst += Number(item.igstAmount || 0)
+                  })
+                  
+                  return Object.entries(groups).map(([hsnSac, data]) => `
+                    <tr>
+                      <td style="border: 1px solid #ddd; padding: 8px;">${hsnSac}</td>
+                      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(data.taxable)}</td>
+                      ${isIntraState ? `
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${data.rate / 2}%</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(data.cgst)}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${data.rate / 2}%</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(data.sgst)}</td>
+                      ` : `
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${data.rate}%</td>
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(data.igst)}</td>
+                      `}
+                      <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(data.cgst + data.sgst + data.igst)}</td>
+                    </tr>
+                  `).join('')
+                })()}
+              </tbody>
+              <tfoot>
+                <tr style="font-weight: bold; background-color: #f5f5f5;">
+                  <td style="border: 1px solid #ddd; padding: 8px;">Total</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(Number(invoice.taxableAmount || invoice.subtotal))}</td>
+                  ${isIntraState ? `
+                    <td style="border: 1px solid #ddd; padding: 8px;"></td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(cgstAmountINR)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;"></td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(sgstAmountINR)}</td>
+                  ` : `
+                    <td style="border: 1px solid #ddd; padding: 8px;"></td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(igstAmountINR)}</td>
+                  `}
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatINR(totalGSTAmountINR)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ` : ''}
 
         ${invoice.notes ? `
           <div class="notes">

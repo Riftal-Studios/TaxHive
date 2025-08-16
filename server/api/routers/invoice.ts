@@ -16,6 +16,7 @@ import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
 import { getQueueService, isQueueServiceAvailable } from '@/lib/queue'
 import { db } from '@/lib/prisma'
+import type { StateCode } from '@/lib/gst'
 
 // Get queue service lazily to avoid connection during build
 const getQueue = () => {
@@ -1132,7 +1133,6 @@ export const invoiceRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       const { calculateInvoiceGST } = await import('@/lib/gst')
-      const { StateCode } = await import('@/lib/gst')
       
       const result = calculateInvoiceGST(
         input.lineItems,
@@ -1140,18 +1140,8 @@ export const invoiceRouter = createTRPCRouter({
         input.customerStateCode as StateCode
       )
       
-      // Convert Decimal objects to numbers for JSON serialization
-      return {
-        taxableAmount: result.taxableAmount.toNumber(),
-        cgstRate: result.cgstRate.toNumber(),
-        sgstRate: result.sgstRate.toNumber(),
-        igstRate: result.igstRate.toNumber(),
-        cgstAmount: result.cgstAmount.toNumber(),
-        sgstAmount: result.sgstAmount.toNumber(),
-        igstAmount: result.igstAmount.toNumber(),
-        totalGSTAmount: result.totalGSTAmount.toNumber(),
-        totalAmount: result.totalAmount.toNumber(),
-      }
+      // Return the result directly (already numbers, not Decimals)
+      return result
     }),
 
   createDomesticInvoice: protectedProcedure
@@ -1179,7 +1169,6 @@ export const invoiceRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id
       const { calculateInvoiceGST, validateGSTIN, getStateCodeFromGSTIN } = await import('@/lib/gst')
-      const { StateCode } = await import('@/lib/gst')
       
       // Validate B2B GSTIN if provided
       if (input.invoiceType === 'DOMESTIC_B2B' && input.buyerGSTIN) {
@@ -1258,17 +1247,17 @@ export const invoiceRouter = createTRPCRouter({
             currency: input.currency,
             exchangeRate: 1, // INR to INR
             exchangeSource: 'Fixed',
-            subtotal: gstCalculation.taxableAmount.toNumber(),
-            taxableAmount: gstCalculation.taxableAmount.toNumber(),
-            cgstRate: gstCalculation.cgstRate.toNumber(),
-            sgstRate: gstCalculation.sgstRate.toNumber(),
-            igstRate: gstCalculation.igstRate.toNumber(),
-            cgstAmount: gstCalculation.cgstAmount.toNumber(),
-            sgstAmount: gstCalculation.sgstAmount.toNumber(),
-            igstAmount: gstCalculation.igstAmount.toNumber(),
-            totalGSTAmount: gstCalculation.totalGSTAmount.toNumber(),
-            totalAmount: gstCalculation.totalAmount.toNumber(),
-            totalInINR: gstCalculation.totalAmount.toNumber(),
+            subtotal: gstCalculation.taxableAmount,
+            taxableAmount: gstCalculation.taxableAmount,
+            cgstRate: gstCalculation.cgstRate,
+            sgstRate: gstCalculation.sgstRate,
+            igstRate: gstCalculation.igstRate,
+            cgstAmount: gstCalculation.cgstAmount,
+            sgstAmount: gstCalculation.sgstAmount,
+            igstAmount: gstCalculation.igstAmount,
+            totalGSTAmount: gstCalculation.totalGSTAmount,
+            totalAmount: gstCalculation.totalAmount,
+            totalInINR: gstCalculation.totalAmount,
             status: 'DRAFT',
             placeOfSupply: input.placeOfSupply,
             serviceCode: input.lineItems[0].sacCode,
@@ -1277,7 +1266,7 @@ export const invoiceRouter = createTRPCRouter({
             notes: input.notes,
             paymentStatus: 'UNPAID',
             amountPaid: 0,
-            balanceDue: gstCalculation.totalAmount.toNumber(),
+            balanceDue: gstCalculation.totalAmount,
             publicAccessToken: generateSecureToken(),
             tokenExpiresAt: getTokenExpirationDate(90),
           },
@@ -1301,9 +1290,9 @@ export const invoiceRouter = createTRPCRouter({
               amount: itemAmount,
               serviceCode: item.sacCode,
               gstRate: item.gstRate,
-              cgstAmount: itemGST.cgstAmount.toNumber(),
-              sgstAmount: itemGST.sgstAmount.toNumber(),
-              igstAmount: itemGST.igstAmount.toNumber(),
+              cgstAmount: itemGST.cgstAmount,
+              sgstAmount: itemGST.sgstAmount,
+              igstAmount: itemGST.igstAmount,
             },
           })
         }

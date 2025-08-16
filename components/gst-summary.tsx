@@ -15,7 +15,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Grid,
 } from '@mui/material'
 import { formatINR } from '@/lib/gst'
 
@@ -52,54 +51,52 @@ export function GSTSummary({
   if (variant === 'compact') {
     return (
       <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+          <Box>
             <Typography variant="body2" color="text.secondary">
               Taxable Amount
             </Typography>
             <Typography variant="h6">{formatINR(taxableAmount)}</Typography>
-          </Grid>
+          </Box>
           {!isExempt && (
             <>
               {isInterState ? (
-                <Grid item xs={6}>
+                <Box>
                   <Typography variant="body2" color="text.secondary">
                     IGST {showRates && `@${igstRate}%`}
                   </Typography>
                   <Typography variant="h6">{formatINR(igstAmount)}</Typography>
-                </Grid>
+                </Box>
               ) : (
                 <>
-                  <Grid item xs={3}>
-                    <Typography variant="body2" color="text.secondary">
-                      CGST {showRates && `@${cgstRate}%`}
-                    </Typography>
-                    <Typography variant="body2">{formatINR(cgstAmount)}</Typography>
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Typography variant="body2" color="text.secondary">
-                      SGST {showRates && `@${sgstRate}%`}
-                    </Typography>
-                    <Typography variant="body2">{formatINR(sgstAmount)}</Typography>
-                  </Grid>
+                  <Box sx={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        CGST {showRates && `@${cgstRate}%`}
+                      </Typography>
+                      <Typography variant="body2">{formatINR(cgstAmount)}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        SGST {showRates && `@${sgstRate}%`}
+                      </Typography>
+                      <Typography variant="body2">{formatINR(sgstAmount)}</Typography>
+                    </Box>
+                  </Box>
                 </>
               )}
             </>
           )}
-          <Grid item xs={12}>
-            <Divider sx={{ my: 1 }} />
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body1" fontWeight={600}>
-              Total Amount
-            </Typography>
-          </Grid>
-          <Grid item xs={6} sx={{ textAlign: 'right' }}>
-            <Typography variant="h5" color="primary" fontWeight={600}>
-              {formatINR(totalAmount)}
-            </Typography>
-          </Grid>
-        </Grid>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body1" fontWeight={600}>
+            Total Amount
+          </Typography>
+          <Typography variant="h5" color="primary" fontWeight={600}>
+            {formatINR(totalAmount)}
+          </Typography>
+        </Box>
       </Box>
     )
   }

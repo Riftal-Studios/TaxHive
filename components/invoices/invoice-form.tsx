@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type { Client, LUT } from '@prisma/client'
-import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, calculateTotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
+import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal, getPaymentTermOptions, getSupportedCurrencies } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES, GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, getLUTExpiryStatus } from '@/lib/validations/gst'
 import { generateUUID } from '@/lib/utils/uuid'
@@ -16,6 +16,12 @@ import {
   dropdownContainerClassName,
   dropdownItemClassName
 } from '@/lib/ui-utils'
+import { InvoiceTypeSelector } from '@/components/invoice-type-selector'
+import { GSTINInput } from '@/components/gstin-input'
+import { PlaceOfSupplySelector } from '@/components/place-of-supply-selector'
+import { GSTRateSelector } from '@/components/gst-rate-selector'
+import { GSTSummary } from '@/components/gst-summary'
+import { calculateGST, type StateCode } from '@/lib/gst'
 
 interface LineItem {
   id: string
@@ -24,9 +30,15 @@ interface LineItem {
   quantity: number
   rate: number
   amount: number
+  gstRate?: number
+  cgstAmount?: number
+  sgstAmount?: number
+  igstAmount?: number
+  totalAmount?: number
 }
 
 interface InvoiceFormData {
+  invoiceType: 'EXPORT' | 'DOMESTIC_B2B' | 'DOMESTIC_B2C'
   clientId: string
   lutId: string
   issueDate: string
@@ -36,9 +48,12 @@ interface InvoiceFormData {
   lineItems: LineItem[]
   bankDetails: string
   notes: string
+  buyerGSTIN?: string
+  placeOfSupply?: string
 }
 
 interface InvoiceFormSubmitData {
+  invoiceType: 'EXPORT' | 'DOMESTIC_B2B' | 'DOMESTIC_B2C'
   clientId: string
   lutId: string
   issueDate: string
@@ -50,9 +65,12 @@ interface InvoiceFormSubmitData {
     sacCode: string
     quantity: number
     rate: number
+    gstRate?: number
   }>
   bankDetails: string
   notes: string
+  buyerGSTIN?: string
+  placeOfSupply?: string
 }
 
 interface InvoiceFormProps {
@@ -81,6 +99,8 @@ interface FormErrors {
   issueDate?: string
   dueDate?: string
   lineItems?: Record<string, Record<string, string>>
+  buyerGSTIN?: string
+  placeOfSupply?: string
 }
 
 export function InvoiceForm({ 
@@ -101,6 +121,7 @@ export function InvoiceForm({
   // Memoize initial form data to prevent unnecessary re-renders
   const getInitialFormData = useCallback((): InvoiceFormData => {
     return {
+      invoiceType: initialData?.invoiceType || 'EXPORT',
       clientId: initialData?.clientId || '',
       lutId: initialData?.lutId || '',
       issueDate: initialData?.issueDate || new Date().toISOString().split('T')[0],
@@ -115,10 +136,13 @@ export function InvoiceForm({
           quantity: 1,
           rate: 0,
           amount: 0,
+          gstRate: 0,
         },
       ],
       bankDetails: initialData?.bankDetails || '',
       notes: initialData?.notes || '',
+      buyerGSTIN: initialData?.buyerGSTIN || '',
+      placeOfSupply: initialData?.placeOfSupply || '',
     }
   }, [initialData])
 
@@ -140,17 +164,67 @@ export function InvoiceForm({
   const paymentTermOptions = useMemo(() => getPaymentTermOptions(), [])
   const currencyOptions = useMemo(() => getSupportedCurrencies(), [])
 
-  // Calculate totals with memoization
-  const { subtotal, gstAmount, total } = useMemo(() => {
+  // Calculate totals with memoization including GST for domestic invoices
+  const { subtotal, gstDetails, total } = useMemo(() => {
     const subtotal = calculateSubtotal(formData.lineItems)
-    const gstAmount = 0 // Always 0 for exports under LUT
-    const total = calculateTotal(subtotal, gstAmount)
-    return { subtotal, gstAmount, total }
-  }, [formData.lineItems])
+    
+    let cgstAmount = 0
+    let sgstAmount = 0
+    let igstAmount = 0
+    let totalGSTAmount = 0
+    
+    if (formData.invoiceType !== 'EXPORT') {
+      // For domestic invoices, calculate GST
+      const isInterState = formData.placeOfSupply && formData.placeOfSupply !== '07' // Assuming Delhi (07) as supplier state
+      
+      formData.lineItems.forEach(item => {
+        if (item.gstRate && item.gstRate > 0) {
+          const gstCalc = calculateGST(
+            item.amount,
+            item.gstRate,
+            '07' as StateCode, // Delhi - should be from company settings
+            (formData.placeOfSupply || '07') as StateCode
+          )
+          
+          if (isInterState) {
+            item.igstAmount = Number(gstCalc.igstAmount)
+            igstAmount += item.igstAmount
+          } else {
+            item.cgstAmount = Number(gstCalc.cgstAmount)
+            item.sgstAmount = Number(gstCalc.sgstAmount)
+            cgstAmount += item.cgstAmount
+            sgstAmount += item.sgstAmount
+          }
+          
+          item.totalAmount = item.amount + Number(gstCalc.totalGSTAmount)
+        } else {
+          item.totalAmount = item.amount
+        }
+      })
+      
+      totalGSTAmount = cgstAmount + sgstAmount + igstAmount
+    }
+    
+    const total = subtotal + totalGSTAmount
+    
+    return {
+      subtotal,
+      gstDetails: {
+        cgstAmount,
+        sgstAmount,
+        igstAmount,
+        totalGSTAmount,
+        cgstRate: formData.lineItems[0]?.gstRate ? formData.lineItems[0].gstRate / 2 : 0,
+        sgstRate: formData.lineItems[0]?.gstRate ? formData.lineItems[0].gstRate / 2 : 0,
+        igstRate: formData.lineItems[0]?.gstRate || 0,
+      },
+      total
+    }
+  }, [formData.lineItems, formData.invoiceType, formData.placeOfSupply])
 
   // GST validation with memoization
   const gstValidation = useMemo(() => {
-    if (formData.lineItems.length === 0 || (!exchangeRate && !manualExchangeRate)) {
+    if (formData.invoiceType !== 'EXPORT' || formData.lineItems.length === 0 || (!exchangeRate && !manualExchangeRate)) {
       return null
     }
     return validateGSTInvoice({
@@ -162,7 +236,7 @@ export function InvoiceForm({
       exchangeRate: manualExchangeRate || exchangeRate?.rate || 0,
       exchangeSource: exchangeRate ? exchangeRate.source : 'Manual',
     })
-  }, [formData.lineItems, formData.lutId, formData.currency, exchangeRate, manualExchangeRate])
+  }, [formData.invoiceType, formData.lineItems, formData.lutId, formData.currency, exchangeRate, manualExchangeRate])
 
   // LUT expiry status with memoization
   const lutExpiryStatus = useMemo(() => {
@@ -228,6 +302,7 @@ export function InvoiceForm({
             quantity: 1,
             rate: 0,
             amount: 0,
+            gstRate: prev.lineItems[0]?.gstRate || 0, // Use same GST rate as first item
           },
         ],
       }
@@ -289,6 +364,15 @@ export function InvoiceForm({
     if (!formData.clientId) {
       newErrors.clientId = 'Client is required'
     }
+    
+    // Validate GST fields for domestic invoices
+    if (formData.invoiceType === 'DOMESTIC_B2B' && !formData.buyerGSTIN) {
+      newErrors.buyerGSTIN = 'Buyer GSTIN is required for B2B invoices'
+    }
+    
+    if (formData.invoiceType !== 'EXPORT' && !formData.placeOfSupply) {
+      newErrors.placeOfSupply = 'Place of supply is required for domestic invoices'
+    }
 
     // Validate line items
     const lineItemErrors: Record<string, Record<string, string>> = {}
@@ -342,6 +426,7 @@ export function InvoiceForm({
           sacCode: item.sacCode,
           quantity: Number(item.quantity),
           rate: Number(item.rate),
+          gstRate: item.gstRate || 0,
         })),
       })
     } finally {
@@ -370,6 +455,27 @@ export function InvoiceForm({
           Auto-saving...
         </div>
       )}
+
+      {/* Invoice Type Selection */}
+      <div>
+        <InvoiceTypeSelector
+          value={formData.invoiceType}
+          onChange={(type) => {
+            setFormData(prev => {
+              const newData = {
+                ...prev,
+                invoiceType: type,
+                currency: type === 'EXPORT' ? 'USD' : 'INR', // Default to INR for domestic
+              }
+              triggerAutoSave(newData)
+              return newData
+            })
+            if (type !== 'EXPORT' && onCurrencyChange) {
+              onCurrencyChange('INR')
+            }
+          }}
+        />
+      </div>
 
       {/* Client and LUT Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -415,43 +521,117 @@ export function InvoiceForm({
           )}
         </div>
 
-        <div>
-          <label htmlFor="lut" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            LUT
-          </label>
-          <div className="relative">
-            <button
-              type="button"
-              id="lut"
-              onClick={() => setShowLutDropdown(!showLutDropdown)}
-              className={getDropdownButtonClassName(!!errors.lutId)}
-              aria-expanded={showLutDropdown}
-              aria-haspopup="listbox"
-            >
-              {selectedLut ? selectedLut.lutNumber : 'Select a LUT'}
-            </button>
-            {showLutDropdown && (
-              <div className={dropdownContainerClassName} role="listbox">
-                {luts.map(lut => (
-                  <button
-                    key={lut.id}
-                    type="button"
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, lutId: lut.id }))
-                      setShowLutDropdown(false)
-                    }}
-                    className={dropdownItemClassName}
-                    role="option"
-                    aria-selected={formData.lutId === lut.id}
-                  >
-                    {lut.lutNumber}
-                  </button>
-                ))}
-              </div>
+        {formData.invoiceType === 'EXPORT' ? (
+          <div>
+            <label htmlFor="lut" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              LUT
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                id="lut"
+                onClick={() => setShowLutDropdown(!showLutDropdown)}
+                className={getDropdownButtonClassName(!!errors.lutId)}
+                aria-expanded={showLutDropdown}
+                aria-haspopup="listbox"
+              >
+                {selectedLut ? selectedLut.lutNumber : 'Select a LUT'}
+              </button>
+              {showLutDropdown && (
+                <div className={dropdownContainerClassName} role="listbox">
+                  {luts.map(lut => (
+                    <button
+                      key={lut.id}
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, lutId: lut.id }))
+                        setShowLutDropdown(false)
+                      }}
+                      className={dropdownItemClassName}
+                      role="option"
+                      aria-selected={formData.lutId === lut.id}
+                    >
+                      {lut.lutNumber}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : formData.invoiceType === 'DOMESTIC_B2B' ? (
+          <div>
+            <GSTINInput
+              value={formData.buyerGSTIN || ''}
+              onChange={(value) => {
+                setFormData(prev => {
+                  const newData = { ...prev, buyerGSTIN: value }
+                  triggerAutoSave(newData)
+                  return newData
+                })
+              }}
+              onValidation={(isValid, stateCode) => {
+                if (isValid && stateCode && !formData.placeOfSupply) {
+                  setFormData(prev => ({
+                    ...prev,
+                    placeOfSupply: stateCode
+                  }))
+                }
+              }}
+              label="Buyer GSTIN"
+              required
+              showStateInfo
+            />
+            {errors.buyerGSTIN && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
+                {errors.buyerGSTIN}
+              </p>
             )}
           </div>
-        </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Customer Type
+            </label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              B2C - Business to Consumer
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Place of Supply for Domestic Invoices */}
+      {formData.invoiceType !== 'EXPORT' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <PlaceOfSupplySelector
+              value={formData.placeOfSupply || ''}
+              onChange={(value) => {
+                setFormData(prev => {
+                  const newData = { ...prev, placeOfSupply: value }
+                  triggerAutoSave(newData)
+                  return newData
+                })
+              }}
+              required
+              label="Place of Supply"
+              helperText="Select the state where goods/services are supplied"
+            />
+            {errors.placeOfSupply && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">
+                {errors.placeOfSupply}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Supply Type
+            </label>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {formData.placeOfSupply === '07' ? 'Intra-State (CGST + SGST)' : 'Inter-State (IGST)'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Date and Payment Terms */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -504,6 +684,7 @@ export function InvoiceForm({
             className={selectClassName}
             required
             aria-required="true"
+            disabled={formData.invoiceType !== 'EXPORT'} // Domestic invoices must be in INR
           >
             {currencyOptions.map(currency => (
               <option key={currency.code} value={currency.code}>
@@ -511,6 +692,11 @@ export function InvoiceForm({
               </option>
             ))}
           </select>
+          {formData.invoiceType !== 'EXPORT' && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Domestic invoices must be in INR
+            </p>
+          )}
         </div>
 
         <div>
@@ -534,8 +720,8 @@ export function InvoiceForm({
         </div>
       </div>
 
-      {/* Exchange Rate Display */}
-      {formData.currency !== 'INR' && (
+      {/* Exchange Rate Display - Only for Export invoices */}
+      {formData.invoiceType === 'EXPORT' && formData.currency !== 'INR' && (
         <>
           {exchangeRate ? (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -618,7 +804,7 @@ export function InvoiceForm({
         <div className="space-y-4">
           {formData.lineItems.map((item) => (
             <div key={item.id} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
                 <div className="md:col-span-2">
                   <label htmlFor={`description-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Description <span className="text-red-500" aria-hidden="true">*</span>
@@ -764,13 +950,28 @@ export function InvoiceForm({
                   )}
                 </div>
 
+                {/* GST Rate Selector for Domestic Invoices */}
+                {formData.invoiceType !== 'EXPORT' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      GST Rate
+                    </label>
+                    <GSTRateSelector
+                      value={item.gstRate || 0}
+                      onChange={(rate) => handleLineItemChange(item.id, 'gstRate', rate)}
+                      size="small"
+                      fullWidth
+                    />
+                  </div>
+                )}
+
                 <div className="flex items-end justify-between">
                   <div className="flex-1">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       Amount
                     </label>
                     <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(item.amount, formData.currency).replace(/[^\d,.-]/g, '')}
+                      {formatCurrency(item.totalAmount || item.amount, formData.invoiceType === 'EXPORT' ? formData.currency : 'INR').replace(/[^\d,.-]/g, '')}
                     </div>
                   </div>
                   {formData.lineItems.length > 1 && (
@@ -798,25 +999,40 @@ export function InvoiceForm({
       </div>
 
       {/* Totals */}
-      <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal:</span>
-            <span>{formatCurrency(subtotal, formData.currency)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>IGST (0%):</span>
-            <span>{formatCurrency(gstAmount, formData.currency)}</span>
-          </div>
-          <div className="flex justify-between font-medium text-lg">
-            <span>Total:</span>
-            <span>{formatCurrency(total, formData.currency)}</span>
+      {formData.invoiceType === 'EXPORT' ? (
+        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(subtotal, formData.currency)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>IGST (0%):</span>
+              <span>{formatCurrency(0, formData.currency)}</span>
+            </div>
+            <div className="flex justify-between font-medium text-lg">
+              <span>Total:</span>
+              <span>{formatCurrency(total, formData.currency)}</span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <GSTSummary
+          taxableAmount={subtotal}
+          cgstRate={gstDetails.cgstRate}
+          sgstRate={gstDetails.sgstRate}
+          igstRate={gstDetails.igstRate}
+          cgstAmount={gstDetails.cgstAmount}
+          sgstAmount={gstDetails.sgstAmount}
+          igstAmount={gstDetails.igstAmount}
+          totalGSTAmount={gstDetails.totalGSTAmount}
+          totalAmount={total}
+          variant="compact"
+        />
+      )}
 
-      {/* LUT Declaration */}
-      {selectedLut && (
+      {/* LUT Declaration - Only for Export invoices */}
+      {formData.invoiceType === 'EXPORT' && selectedLut && (
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
           <p className="text-sm text-blue-900 dark:text-blue-200">
             SUPPLY MEANT FOR EXPORT UNDER LUT NO {selectedLut.lutNumber} DATED{' '}

@@ -51,7 +51,7 @@ export function GSTINInput({
   const [stateInfo, setStateInfo] = useState<string>('')
 
   // Server-side validation (optional)
-  const validateGSTINMutation = api.invoice.validateGSTIN.useQuery(
+  const validateGSTINMutation = api.invoices.validateGSTIN.useQuery(
     { gstin: value },
     {
       enabled: false, // Manual trigger

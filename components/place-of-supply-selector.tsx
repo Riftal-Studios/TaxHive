@@ -9,12 +9,13 @@ import {
   SelectChangeEvent,
   TextField,
   Autocomplete,
+  Typography,
 } from '@mui/material'
 import { INDIAN_STATES, StateCode } from '@/lib/gst'
 
 interface PlaceOfSupplySelectorProps {
-  value: StateCode | ''
-  onChange: (stateCode: StateCode) => void
+  value: string
+  onChange: (stateCode: string) => void
   disabled?: boolean
   label?: string
   required?: boolean
@@ -59,6 +60,8 @@ export function PlaceOfSupplySelector({
         onChange={(_, newValue) => {
           if (newValue) {
             onChange(newValue.code)
+          } else {
+            onChange('')
           }
         }}
         renderInput={(params) => (
@@ -77,7 +80,7 @@ export function PlaceOfSupplySelector({
 
   // Select variant
   const handleChange = (event: SelectChangeEvent<string>) => {
-    onChange(event.target.value as StateCode)
+    onChange(event.target.value)
   }
 
   return (
@@ -132,6 +135,3 @@ export function StateDisplay({ stateCode, showCode = true }: StateDisplayProps) 
   
   return <>{stateName}</>
 }
-
-// Add missing import
-import { Typography } from '@mui/material'

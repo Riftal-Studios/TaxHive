@@ -2,8 +2,6 @@
  * GST Utilities for Indian domestic invoices
  */
 
-import { Decimal } from '@prisma/client/runtime/library'
-
 // Valid GST rates in India
 export const VALID_GST_RATES = [0, 5, 12, 18, 28] as const
 export type GSTRate = typeof VALID_GST_RATES[number]
@@ -123,24 +121,24 @@ export function isValidGSTRate(rate: number): rate is GSTRate {
  * Calculate GST amounts based on place of supply
  */
 export interface GSTCalculation {
-  taxableAmount: Decimal
-  cgstRate: Decimal
-  sgstRate: Decimal
-  igstRate: Decimal
-  cgstAmount: Decimal
-  sgstAmount: Decimal
-  igstAmount: Decimal
-  totalGSTAmount: Decimal
-  totalAmount: Decimal
+  taxableAmount: number
+  cgstRate: number
+  sgstRate: number
+  igstRate: number
+  cgstAmount: number
+  sgstAmount: number
+  igstAmount: number
+  totalGSTAmount: number
+  totalAmount: number
 }
 
 export function calculateGST(
-  amount: number | Decimal,
+  amount: number,
   gstRate: number,
   supplierStateCode: StateCode,
   customerStateCode: StateCode
 ): GSTCalculation {
-  const taxableAmount = new Decimal(amount)
+  const taxableAmount = amount
   
   if (!isValidGSTRate(gstRate)) {
     throw new Error(`Invalid GST rate: ${gstRate}. Must be one of ${VALID_GST_RATES.join(', ')}`)
@@ -150,13 +148,13 @@ export function calculateGST(
   if (gstRate === 0) {
     return {
       taxableAmount,
-      cgstRate: new Decimal(0),
-      sgstRate: new Decimal(0),
-      igstRate: new Decimal(0),
-      cgstAmount: new Decimal(0),
-      sgstAmount: new Decimal(0),
-      igstAmount: new Decimal(0),
-      totalGSTAmount: new Decimal(0),
+      cgstRate: 0,
+      sgstRate: 0,
+      igstRate: 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalGSTAmount: 0,
       totalAmount: taxableAmount,
     }
   }
@@ -165,39 +163,39 @@ export function calculateGST(
 
   if (isInterState) {
     // Inter-state supply: Apply IGST
-    const igstRate = new Decimal(gstRate)
-    const igstAmount = taxableAmount.mul(igstRate).div(100)
+    const igstRate = gstRate
+    const igstAmount = taxableAmount * (igstRate / 100)
     const totalGSTAmount = igstAmount
-    const totalAmount = taxableAmount.add(totalGSTAmount)
+    const totalAmount = taxableAmount + totalGSTAmount
 
     return {
       taxableAmount,
-      cgstRate: new Decimal(0),
-      sgstRate: new Decimal(0),
+      cgstRate: 0,
+      sgstRate: 0,
       igstRate,
-      cgstAmount: new Decimal(0),
-      sgstAmount: new Decimal(0),
+      cgstAmount: 0,
+      sgstAmount: 0,
       igstAmount,
       totalGSTAmount,
       totalAmount,
     }
   } else {
     // Intra-state supply: Apply CGST + SGST (split equally)
-    const cgstRate = new Decimal(gstRate).div(2)
-    const sgstRate = new Decimal(gstRate).div(2)
-    const cgstAmount = taxableAmount.mul(cgstRate).div(100)
-    const sgstAmount = taxableAmount.mul(sgstRate).div(100)
-    const totalGSTAmount = cgstAmount.add(sgstAmount)
-    const totalAmount = taxableAmount.add(totalGSTAmount)
+    const cgstRate = gstRate / 2
+    const sgstRate = gstRate / 2
+    const cgstAmount = taxableAmount * (cgstRate / 100)
+    const sgstAmount = taxableAmount * (sgstRate / 100)
+    const totalGSTAmount = cgstAmount + sgstAmount
+    const totalAmount = taxableAmount + totalGSTAmount
 
     return {
       taxableAmount,
       cgstRate,
       sgstRate,
-      igstRate: new Decimal(0),
+      igstRate: 0,
       cgstAmount,
       sgstAmount,
-      igstAmount: new Decimal(0),
+      igstAmount: 0,
       totalGSTAmount,
       totalAmount,
     }
@@ -209,7 +207,7 @@ export function calculateGST(
  */
 export function calculateInvoiceGST(
   lineItems: Array<{
-    amount: number | Decimal
+    amount: number
     gstRate: number
   }>,
   supplierStateCode: StateCode,
@@ -221,39 +219,38 @@ export function calculateInvoiceGST(
 
   // Aggregate all calculations
   return calculations.reduce((acc, calc) => ({
-    taxableAmount: acc.taxableAmount.add(calc.taxableAmount),
+    taxableAmount: acc.taxableAmount + calc.taxableAmount,
     cgstRate: calc.cgstRate, // Rate remains same for display
     sgstRate: calc.sgstRate,
     igstRate: calc.igstRate,
-    cgstAmount: acc.cgstAmount.add(calc.cgstAmount),
-    sgstAmount: acc.sgstAmount.add(calc.sgstAmount),
-    igstAmount: acc.igstAmount.add(calc.igstAmount),
-    totalGSTAmount: acc.totalGSTAmount.add(calc.totalGSTAmount),
-    totalAmount: acc.totalAmount.add(calc.totalAmount),
+    cgstAmount: acc.cgstAmount + calc.cgstAmount,
+    sgstAmount: acc.sgstAmount + calc.sgstAmount,
+    igstAmount: acc.igstAmount + calc.igstAmount,
+    totalGSTAmount: acc.totalGSTAmount + calc.totalGSTAmount,
+    totalAmount: acc.totalAmount + calc.totalAmount,
   }), {
-    taxableAmount: new Decimal(0),
-    cgstRate: new Decimal(0),
-    sgstRate: new Decimal(0),
-    igstRate: new Decimal(0),
-    cgstAmount: new Decimal(0),
-    sgstAmount: new Decimal(0),
-    igstAmount: new Decimal(0),
-    totalGSTAmount: new Decimal(0),
-    totalAmount: new Decimal(0),
+    taxableAmount: 0,
+    cgstRate: 0,
+    sgstRate: 0,
+    igstRate: 0,
+    cgstAmount: 0,
+    sgstAmount: 0,
+    igstAmount: 0,
+    totalGSTAmount: 0,
+    totalAmount: 0,
   })
 }
 
 /**
  * Format amount for display
  */
-export function formatINR(amount: number | Decimal): string {
-  const value = typeof amount === 'number' ? amount : amount.toNumber()
+export function formatINR(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value)
+  }).format(amount)
 }
 
 /**

@@ -3,6 +3,9 @@ import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { Prisma } from '@prisma/client'
 import { TRPCError } from '@trpc/server'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
+import { generateGSTR1, validateGSTR1Data } from '@/lib/gst-returns/gstr1-generator'
+import { generateGSTR3B, validateGSTR3BData } from '@/lib/gst-returns/gstr3b-generator'
+import { Decimal } from '@prisma/client/runtime/library'
 
 // Helper function to get fiscal year from date
 function getFiscalYear(date: Date): string {
@@ -122,12 +125,26 @@ export const gstReturnsRouter = createTRPCRouter({
       const startDate = startOfMonth(new Date(year, month - 1))
       const endDate = endOfMonth(new Date(year, month - 1))
       const financialYear = getFiscalYear(startDate)
+      const userId = ctx.session.user.id
       
+      // Get user's GSTIN
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: userId },
+        select: { gstin: true }
+      })
+
+      if (!user?.gstin) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'GSTIN not configured for user'
+        })
+      }
+
       // Check if return already exists
       const existingReturn = await ctx.prisma.gSTReturn.findUnique({
         where: {
           userId_returnType_period: {
-            userId: ctx.session.user.id,
+            userId,
             returnType: 'GSTR1',
             period: input.period
           }
@@ -141,10 +158,32 @@ export const gstReturnsRouter = createTRPCRouter({
         })
       }
       
+      // Get turnover for HSN code length determination
+      const yearStart = new Date(year - 1, 3, 1) // April of previous year
+      const yearEnd = new Date(year, 2, 31, 23, 59, 59) // March of current year
+      
+      const yearInvoices = await ctx.prisma.invoice.findMany({
+        where: {
+          userId,
+          invoiceDate: {
+            gte: yearStart,
+            lte: yearEnd
+          },
+          status: { not: 'DRAFT' }
+        },
+        select: {
+          subtotal: true,
+          taxableAmount: true
+        }
+      })
+      
+      const turnover = yearInvoices.reduce((sum, inv) => 
+        sum + (inv.taxableAmount || inv.subtotal).toNumber(), 0)
+
       // Fetch all invoices for the period
       const invoices = await ctx.prisma.invoice.findMany({
         where: {
-          userId: ctx.session.user.id,
+          userId,
           invoiceDate: {
             gte: startDate,
             lte: endDate
@@ -155,93 +194,71 @@ export const gstReturnsRouter = createTRPCRouter({
         },
         include: {
           lineItems: true,
-          client: true,
-          creditNotes: {
-            where: {
-              status: 'ISSUED'
-            },
-            include: {
-              lineItems: true
-            }
-          },
-          debitNotes: {
-            where: {
-              status: 'ISSUED'
-            },
-            include: {
-              lineItems: true
-            }
-          }
+          client: true
         }
       })
       
-      // Separate invoices by type
-      const exportInvoices = invoices.filter(inv => inv.invoiceType === 'EXPORT')
-      const b2bInvoices = invoices.filter(inv => inv.invoiceType === 'DOMESTIC_B2B')
-      const b2cLargeInvoices = invoices.filter(
-        inv => inv.invoiceType === 'DOMESTIC_B2C' && Number(inv.totalInINR) > 250000
-      )
-      const b2cSmallInvoices = invoices.filter(
-        inv => inv.invoiceType === 'DOMESTIC_B2C' && Number(inv.totalInINR) <= 250000
-      )
+      // Transform invoices to match our generator interface
+      const transformedInvoices = invoices.map(inv => ({
+        ...inv,
+        buyerGSTIN: inv.client.gstin,
+        taxableAmount: inv.taxableAmount || inv.subtotal,
+        cgstAmount: inv.cgstAmount || new Decimal(0),
+        sgstAmount: inv.sgstAmount || new Decimal(0),
+        igstAmount: inv.igstAmount || new Decimal(0),
+        placeOfSupply: inv.placeOfSupply || inv.client.stateCode || '00',
+        lineItems: inv.lineItems.map(item => ({
+          ...item,
+          serviceCode: item.serviceCode || '998314',
+          cgstAmount: item.cgstAmount || new Decimal(0),
+          sgstAmount: item.sgstAmount || new Decimal(0),
+          igstAmount: item.igstAmount || new Decimal(0),
+          cgstRate: item.cgstRate || new Decimal(0),
+          sgstRate: item.sgstRate || new Decimal(0),
+          igstRate: item.igstRate || new Decimal(0),
+          uqc: item.uqc || 'OTH'
+        }))
+      }))
       
-      // Get credit and debit notes for the period
-      const creditNotes = await ctx.prisma.creditNote.findMany({
-        where: {
-          userId: ctx.session.user.id,
-          noteDate: {
-            gte: startDate,
-            lte: endDate
-          },
-          status: 'ISSUED'
-        },
-        include: {
-          lineItems: true,
-          originalInvoice: {
-            include: {
-              client: true
-            }
-          }
+      // Get credit and debit notes for the period (if they exist)
+      const creditNotes: any[] = [] // TODO: Implement credit notes fetching when available
+      const debitNotes: any[] = [] // TODO: Implement debit notes fetching when available
+      
+      // Generate GSTR-1 JSON using our generator
+      const gstr1Period = `${month.toString().padStart(2, '0')}${year}`
+      const gstr1Json = generateGSTR1(
+        transformedInvoices,
+        creditNotes,
+        debitNotes,
+        {
+          gstin: user.gstin,
+          period: gstr1Period,
+          turnover
         }
-      })
-      
-      const debitNotes = await ctx.prisma.debitNote.findMany({
-        where: {
-          userId: ctx.session.user.id,
-          noteDate: {
-            gte: startDate,
-            lte: endDate
-          },
-          status: 'ISSUED'
-        },
-        include: {
-          lineItems: true,
-          originalInvoice: {
-            include: {
-              client: true
-            }
-          }
-        }
-      })
-      
-      // Generate GSTR-1 sections
-      const b2bData = generateB2BInvoices(b2bInvoices)
-      const exportData = generateExportInvoices(exportInvoices)
-      const hsnSummary = generateHSNSummary(invoices)
-      
-      // Calculate totals for GSTR-3B
-      const totalOutwardTaxable = invoices.reduce(
-        (sum, inv) => sum + Number(inv.taxableAmount || inv.subtotal), 0
       )
-      const totalOutwardZeroRated = exportInvoices.reduce(
-        (sum, inv) => sum + Number(inv.totalInINR), 0
-      )
+      
+      // Validate the generated data
+      const validation = validateGSTR1Data(gstr1Json)
+      if (!validation.valid) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `GSTR-1 validation failed: ${validation.errors.join(', ')}`
+        })
+      }
+      
+      // Calculate totals from generated GSTR-1
+      const totalOutwardTaxable = transformedInvoices
+        .filter(inv => inv.invoiceType !== 'EXPORT')
+        .reduce((sum, inv) => sum + inv.taxableAmount.toNumber(), 0)
+      const totalOutwardZeroRated = transformedInvoices
+        .filter(inv => inv.invoiceType === 'EXPORT')
+        .reduce((sum, inv) => sum + inv.totalInINR.toNumber(), 0)
       
       // Create or update the GST return
       const gstReturn = await ctx.prisma.gSTReturn.upsert({
         where: {
           userId_returnType_period: {
-            userId: ctx.session.user.id,
+            userId,
             returnType: 'GSTR1',
             period: input.period
           }
@@ -249,35 +266,37 @@ export const gstReturnsRouter = createTRPCRouter({
         update: {
           financialYear,
           month,
-          b2bInvoices: b2bData.length > 0 ? b2bData : Prisma.JsonNull,
-          exportInvoices: exportData.length > 0 ? exportData : Prisma.JsonNull,
-          b2cLargeInvoices: Prisma.JsonNull, // TODO: Implement B2C large
-          b2cSmallInvoices: Prisma.JsonNull, // TODO: Implement B2C small
-          creditNotes: creditNotes.length > 0 ? creditNotes : Prisma.JsonNull,
-          debitNotes: debitNotes.length > 0 ? debitNotes : Prisma.JsonNull,
-          hsnSummary: hsnSummary.length > 0 ? hsnSummary : Prisma.JsonNull,
+          b2bInvoices: gstr1Json.b2b?.length > 0 ? gstr1Json.b2b : Prisma.JsonNull,
+          exportInvoices: gstr1Json.exp?.length > 0 ? gstr1Json.exp : Prisma.JsonNull,
+          b2cLargeInvoices: gstr1Json.b2cl?.length > 0 ? gstr1Json.b2cl : Prisma.JsonNull,
+          b2cSmallInvoices: gstr1Json.b2cs?.length > 0 ? gstr1Json.b2cs : Prisma.JsonNull,
+          creditNotes: gstr1Json.cdnr?.length > 0 ? gstr1Json.cdnr : Prisma.JsonNull,
+          debitNotes: gstr1Json.cdnur?.length > 0 ? gstr1Json.cdnur : Prisma.JsonNull,
+          hsnSummary: gstr1Json.hsn?.data?.length > 0 ? gstr1Json.hsn.data : Prisma.JsonNull,
           outwardTaxable: totalOutwardTaxable,
           outwardZeroRated: totalOutwardZeroRated,
-          filingStatus: 'DRAFT',
+          jsonOutput: gstr1Json,
+          filingStatus: existingReturn?.filingStatus === 'FILED' ? 'FILED' : 'DRAFT',
           preparedBy: ctx.session.user.name || ctx.session.user.email,
           preparedAt: new Date(),
           updatedAt: new Date()
         },
         create: {
-          userId: ctx.session.user.id,
+          userId,
           returnType: 'GSTR1',
           period: input.period,
           financialYear,
           month,
-          b2bInvoices: b2bData.length > 0 ? b2bData : Prisma.JsonNull,
-          exportInvoices: exportData.length > 0 ? exportData : Prisma.JsonNull,
-          b2cLargeInvoices: Prisma.JsonNull,
-          b2cSmallInvoices: Prisma.JsonNull,
-          creditNotes: creditNotes.length > 0 ? creditNotes : Prisma.JsonNull,
-          debitNotes: debitNotes.length > 0 ? debitNotes : Prisma.JsonNull,
-          hsnSummary: hsnSummary.length > 0 ? hsnSummary : Prisma.JsonNull,
+          b2bInvoices: gstr1Json.b2b?.length > 0 ? gstr1Json.b2b : Prisma.JsonNull,
+          exportInvoices: gstr1Json.exp?.length > 0 ? gstr1Json.exp : Prisma.JsonNull,
+          b2cLargeInvoices: gstr1Json.b2cl?.length > 0 ? gstr1Json.b2cl : Prisma.JsonNull,
+          b2cSmallInvoices: gstr1Json.b2cs?.length > 0 ? gstr1Json.b2cs : Prisma.JsonNull,
+          creditNotes: gstr1Json.cdnr?.length > 0 ? gstr1Json.cdnr : Prisma.JsonNull,
+          debitNotes: gstr1Json.cdnur?.length > 0 ? gstr1Json.cdnur : Prisma.JsonNull,
+          hsnSummary: gstr1Json.hsn?.data?.length > 0 ? gstr1Json.hsn.data : Prisma.JsonNull,
           outwardTaxable: totalOutwardTaxable,
           outwardZeroRated: totalOutwardZeroRated,
+          jsonOutput: gstr1Json,
           filingStatus: 'DRAFT',
           preparedBy: ctx.session.user.name || ctx.session.user.email,
           preparedAt: new Date()
@@ -289,12 +308,13 @@ export const gstReturnsRouter = createTRPCRouter({
         period: gstReturn.period,
         returnType: gstReturn.returnType,
         filingStatus: gstReturn.filingStatus,
+        data: gstr1Json,
         summary: {
           totalInvoices: invoices.length,
-          b2bInvoices: b2bInvoices.length,
-          exportInvoices: exportInvoices.length,
-          b2cLargeInvoices: b2cLargeInvoices.length,
-          b2cSmallInvoices: b2cSmallInvoices.length,
+          b2bInvoices: gstr1Json.b2b?.length || 0,
+          exportInvoices: gstr1Json.exp?.length || 0,
+          b2cLargeInvoices: gstr1Json.b2cl?.length || 0,
+          b2cSmallInvoices: gstr1Json.b2cs?.length || 0,
           creditNotes: creditNotes.length,
           debitNotes: debitNotes.length,
           totalOutwardTaxable,
@@ -477,12 +497,26 @@ export const gstReturnsRouter = createTRPCRouter({
       const startDate = startOfMonth(new Date(year, month - 1))
       const endDate = endOfMonth(new Date(year, month - 1))
       const financialYear = getFiscalYear(startDate)
+      const userId = ctx.session.user.id
       
+      // Get user's GSTIN
+      const user = await ctx.prisma.user.findUnique({
+        where: { id: userId },
+        select: { gstin: true }
+      })
+
+      if (!user?.gstin) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'GSTIN not configured for user'
+        })
+      }
+
       // Check if return already exists
       const existingReturn = await ctx.prisma.gSTReturn.findUnique({
         where: {
           userId_returnType_period: {
-            userId: ctx.session.user.id,
+            userId,
             returnType: 'GSTR3B',
             period: input.period
           }
@@ -496,10 +530,10 @@ export const gstReturnsRouter = createTRPCRouter({
         })
       }
       
-      // 1. Calculate outward supplies (Table 3.1)
+      // Fetch all invoices for the period
       const invoices = await ctx.prisma.invoice.findMany({
         where: {
-          userId: ctx.session.user.id,
+          userId,
           invoiceDate: {
             gte: startDate,
             lte: endDate
@@ -509,28 +543,26 @@ export const gstReturnsRouter = createTRPCRouter({
           }
         },
         include: {
-          lineItems: true
+          lineItems: true,
+          client: true
         }
       })
       
-      // Calculate outward supplies
-      const outwardTaxable = invoices
-        .filter(inv => inv.invoiceType !== 'EXPORT')
-        .reduce((sum, inv) => sum + Number(inv.taxableAmount || inv.subtotal), 0)
-      
-      const outwardZeroRated = invoices
-        .filter(inv => inv.invoiceType === 'EXPORT')
-        .reduce((sum, inv) => sum + Number(inv.totalInINR), 0)
-      
-      const outwardExempted = 0 // No exempted supplies for now
-      const inwardReverseCharge = 0 // Not applicable for service exports
-      const outwardNonGst = 0 // Not applicable
-      
-      // 2. Calculate eligible ITC (Table 4)
+      // Transform invoices to match our generator interface
+      const transformedInvoices = invoices.map(inv => ({
+        ...inv,
+        taxableAmount: inv.taxableAmount || inv.subtotal,
+        cgstAmount: inv.cgstAmount || new Decimal(0),
+        sgstAmount: inv.sgstAmount || new Decimal(0),
+        igstAmount: inv.igstAmount || new Decimal(0),
+        placeOfSupply: inv.placeOfSupply || inv.client.stateCode || '00',
+        supplierStateCode: '27' // Maharashtra - should be from user profile
+      }))
+
       // Fetch purchase invoices for ITC calculation
       const purchaseInvoices = await ctx.prisma.purchaseInvoice.findMany({
         where: {
-          userId: ctx.session.user.id,
+          userId,
           invoiceDate: {
             gte: startDate,
             lte: endDate
@@ -538,48 +570,57 @@ export const gstReturnsRouter = createTRPCRouter({
           itcEligible: true
         }
       })
+
+      // Transform purchase invoices
+      const transformedPurchases = purchaseInvoices.map(purchase => ({
+        ...purchase,
+        cgstAmount: purchase.cgstAmount || new Decimal(0),
+        sgstAmount: purchase.sgstAmount || new Decimal(0),
+        igstAmount: purchase.igstAmount || new Decimal(0),
+        itcClaimed: purchase.itcClaimed || new Decimal(0),
+        itcReversed: purchase.itcReversed || new Decimal(0)
+      }))
+
+      // Generate GSTR-3B JSON using our generator
+      const gstr3bPeriod = `${month.toString().padStart(2, '0')}${year}`
+      const gstr3bJson = generateGSTR3B(
+        transformedInvoices,
+        transformedPurchases,
+        {
+          gstin: user.gstin,
+          period: gstr3bPeriod
+        }
+      )
       
-      // Calculate ITC by category
-      const itcImportGoods = 0 // No goods imports for service company
-      const itcImportServices = purchaseInvoices
-        .filter(inv => inv.itcCategory === 'INPUT_SERVICES' && inv.vendorId.includes('IMPORT'))
-        .reduce((sum, inv) => sum + Number(inv.itcClaimed), 0)
+      // Validate the generated data
+      const validation = validateGSTR3BData({
+        ...gstr3bJson,
+        gstin: user.gstin,
+        period: gstr3bPeriod
+      })
+      if (!validation.valid) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `GSTR-3B validation failed: ${validation.errors.join(', ')}`
+        })
+      }
+
+      // Calculate summary totals
+      const outputTax = gstr3bJson.sup_details.osup_det.iamt + 
+                       gstr3bJson.sup_details.osup_det.camt + 
+                       gstr3bJson.sup_details.osup_det.samt
       
-      const itcInwardSupplies = purchaseInvoices
-        .filter(inv => inv.itcCategory === 'INPUTS')
-        .reduce((sum, inv) => sum + Number(inv.itcClaimed), 0)
+      const inputTaxClaim = gstr3bJson.itc_elg.itc_net.iamt + 
+                           gstr3bJson.itc_elg.itc_net.camt + 
+                           gstr3bJson.itc_elg.itc_net.samt
       
-      const itcOther = purchaseInvoices
-        .filter(inv => !['INPUTS', 'INPUT_SERVICES'].includes(inv.itcCategory))
-        .reduce((sum, inv) => sum + Number(inv.itcClaimed), 0)
-      
-      const itcReversed = purchaseInvoices
-        .reduce((sum, inv) => sum + Number(inv.itcReversed), 0)
-      
-      const itcNet = itcImportGoods + itcImportServices + itcInwardSupplies + itcOther - itcReversed
-      
-      // 3. Calculate tax liability (Table 6)
-      const cgstLiability = invoices
-        .filter(inv => inv.invoiceType === 'DOMESTIC_B2B' || inv.invoiceType === 'DOMESTIC_B2C')
-        .reduce((sum, inv) => sum + Number(inv.cgstAmount), 0)
-      
-      const sgstLiability = invoices
-        .filter(inv => inv.invoiceType === 'DOMESTIC_B2B' || inv.invoiceType === 'DOMESTIC_B2C')
-        .reduce((sum, inv) => sum + Number(inv.sgstAmount), 0)
-      
-      const igstLiability = invoices
-        .filter(inv => inv.invoiceType === 'DOMESTIC_B2B' || inv.invoiceType === 'DOMESTIC_B2C')
-        .reduce((sum, inv) => sum + Number(inv.igstAmount), 0)
-      
-      const cessLiability = 0 // No cess for service exports
-      
-      const totalTaxLiability = cgstLiability + sgstLiability + igstLiability + cessLiability - itcNet
+      const netTaxPayable = Math.max(0, outputTax - inputTaxClaim)
       
       // Create or update the GSTR-3B return
       const gstr3b = await ctx.prisma.gSTReturn.upsert({
         where: {
           userId_returnType_period: {
-            userId: ctx.session.user.id,
+            userId,
             returnType: 'GSTR3B',
             period: input.period
           }
@@ -587,49 +628,47 @@ export const gstReturnsRouter = createTRPCRouter({
         update: {
           financialYear,
           month,
-          outwardTaxable,
-          outwardZeroRated,
-          outwardExempted,
-          inwardReverseCharge,
-          outwardNonGst,
-          itcImportGoods,
-          itcImportServices,
-          itcInwardSupplies,
-          itcOther,
-          itcReversed,
-          itcNet,
-          cgstLiability,
-          sgstLiability,
-          igstLiability,
-          cessLiability,
-          totalTaxLiability,
-          filingStatus: 'DRAFT',
+          outwardTaxable: gstr3bJson.sup_details.osup_det.txval,
+          outwardZeroRated: gstr3bJson.sup_details.osup_zero.txval,
+          outwardExempted: gstr3bJson.sup_details.osup_nil_exmp.txval,
+          inwardReverseCharge: gstr3bJson.sup_details.isup_rev.txval,
+          outwardNonGst: gstr3bJson.sup_details.osup_nongst.txval,
+          cgstLiability: gstr3bJson.sup_details.osup_det.camt,
+          sgstLiability: gstr3bJson.sup_details.osup_det.samt,
+          igstLiability: gstr3bJson.sup_details.osup_det.iamt,
+          cessLiability: gstr3bJson.sup_details.osup_det.csamt,
+          itcNet: inputTaxClaim,
+          totalTaxLiability: netTaxPayable,
+          outputTax,
+          inputTaxClaim,
+          netTaxPayable,
+          jsonOutput: gstr3bJson,
+          filingStatus: existingReturn?.filingStatus === 'FILED' ? 'FILED' : 'DRAFT',
           preparedBy: ctx.session.user.name || ctx.session.user.email,
           preparedAt: new Date(),
           updatedAt: new Date()
         },
         create: {
-          userId: ctx.session.user.id,
+          userId,
           returnType: 'GSTR3B',
           period: input.period,
           financialYear,
           month,
-          outwardTaxable,
-          outwardZeroRated,
-          outwardExempted,
-          inwardReverseCharge,
-          outwardNonGst,
-          itcImportGoods,
-          itcImportServices,
-          itcInwardSupplies,
-          itcOther,
-          itcReversed,
-          itcNet,
-          cgstLiability,
-          sgstLiability,
-          igstLiability,
-          cessLiability,
-          totalTaxLiability,
+          outwardTaxable: gstr3bJson.sup_details.osup_det.txval,
+          outwardZeroRated: gstr3bJson.sup_details.osup_zero.txval,
+          outwardExempted: gstr3bJson.sup_details.osup_nil_exmp.txval,
+          inwardReverseCharge: gstr3bJson.sup_details.isup_rev.txval,
+          outwardNonGst: gstr3bJson.sup_details.osup_nongst.txval,
+          cgstLiability: gstr3bJson.sup_details.osup_det.camt,
+          sgstLiability: gstr3bJson.sup_details.osup_det.samt,
+          igstLiability: gstr3bJson.sup_details.osup_det.iamt,
+          cessLiability: gstr3bJson.sup_details.osup_det.csamt,
+          itcNet: inputTaxClaim,
+          totalTaxLiability: netTaxPayable,
+          outputTax,
+          inputTaxClaim,
+          netTaxPayable,
+          jsonOutput: gstr3bJson,
           filingStatus: 'DRAFT',
           preparedBy: ctx.session.user.name || ctx.session.user.email,
           preparedAt: new Date()
@@ -641,28 +680,24 @@ export const gstReturnsRouter = createTRPCRouter({
         period: gstr3b.period,
         returnType: gstr3b.returnType,
         filingStatus: gstr3b.filingStatus,
+        data: gstr3bJson,
         summary: {
           outwardSupplies: {
-            taxable: outwardTaxable,
-            zeroRated: outwardZeroRated,
-            exempted: outwardExempted,
-            reverseCharge: inwardReverseCharge,
-            nonGst: outwardNonGst
+            taxable: gstr3bJson.sup_details.osup_det.txval,
+            zeroRated: gstr3bJson.sup_details.osup_zero.txval,
+            exempted: gstr3bJson.sup_details.osup_nil_exmp.txval,
+            reverseCharge: gstr3bJson.sup_details.isup_rev.txval,
+            nonGst: gstr3bJson.sup_details.osup_nongst.txval
           },
           eligibleITC: {
-            importGoods: itcImportGoods,
-            importServices: itcImportServices,
-            inwardSupplies: itcInwardSupplies,
-            other: itcOther,
-            reversed: itcReversed,
-            net: itcNet
+            net: inputTaxClaim
           },
           taxLiability: {
-            cgst: cgstLiability,
-            sgst: sgstLiability,
-            igst: igstLiability,
-            cess: cessLiability,
-            total: totalTaxLiability
+            cgst: gstr3bJson.tx_pmt.tx_pay[0].camt,
+            sgst: gstr3bJson.tx_pmt.tx_pay[0].samt,
+            igst: gstr3bJson.tx_pmt.tx_pay[0].iamt,
+            cess: gstr3bJson.tx_pmt.tx_pay[0].csamt,
+            total: netTaxPayable
           }
         }
       }

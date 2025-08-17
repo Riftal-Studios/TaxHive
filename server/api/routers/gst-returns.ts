@@ -6,8 +6,9 @@
 import { z } from "zod"
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc"
 import { TRPCError } from "@trpc/server"
-import { generateGSTR1, generateGSTR3B } from "@/lib/gst-returns"
-import { getStateCodeFromGSTIN } from "@/lib/gst"
+import { generateGSTR1, validateGSTR1Data } from "@/lib/gst-returns/gstr1-generator"
+import { generateGSTR3B, validateGSTR3BData } from "@/lib/gst-returns/gstr3b-generator"
+import { Decimal } from '@prisma/client/runtime/library'
 
 export const gstReturnsRouter = createTRPCRouter({
   /**
@@ -34,13 +35,27 @@ export const gstReturnsRouter = createTRPCRouter({
         })
       }
 
-      const supplierStateCode = getStateCodeFromGSTIN(user.gstin)
-      if (!supplierStateCode) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Invalid GSTIN format"
-        })
-      }
+      // Get turnover for HSN code length determination
+      const yearStart = new Date(input.year - 1, 3, 1) // April of previous year
+      const yearEnd = new Date(input.year, 2, 31, 23, 59, 59) // March of current year
+      
+      const yearInvoices = await ctx.prisma.invoice.findMany({
+        where: {
+          userId,
+          invoiceDate: {
+            gte: yearStart,
+            lte: yearEnd
+          },
+          status: { not: "DRAFT" }
+        },
+        select: {
+          subtotal: true,
+          taxableAmount: true
+        }
+      })
+      
+      const turnover = yearInvoices.reduce((sum, inv) => 
+        sum + (inv.taxableAmount || inv.subtotal).toNumber(), 0)
 
       // Get start and end dates for the period
       const startDate = new Date(input.year, input.month - 1, 1)
@@ -64,13 +79,42 @@ export const gstReturnsRouter = createTRPCRouter({
         }
       })
 
+      // Transform invoices to match our generator interface
+      const transformedInvoices = invoices.map(inv => ({
+        ...inv,
+        taxableAmount: inv.taxableAmount || inv.subtotal,
+        cgstAmount: inv.cgstAmount || new Decimal(0),
+        sgstAmount: inv.sgstAmount || new Decimal(0),
+        igstAmount: inv.igstAmount || new Decimal(0),
+        placeOfSupply: inv.placeOfSupply || inv.client.stateCode || '00',
+        lineItems: inv.lineItems.map(item => ({
+          ...item,
+          serviceCode: item.serviceCode || '998314',
+          cgstAmount: item.cgstAmount || new Decimal(0),
+          sgstAmount: item.sgstAmount || new Decimal(0),
+          igstAmount: item.igstAmount || new Decimal(0),
+          cgstRate: item.cgstRate || new Decimal(0),
+          sgstRate: item.sgstRate || new Decimal(0),
+          igstRate: item.igstRate || new Decimal(0),
+          uqc: item.uqc || 'OTH'
+        }))
+      }))
+
+      // Get credit notes and debit notes
+      const creditNotes: any[] = [] // Implement later if needed
+      const debitNotes: any[] = [] // Implement later if needed
+
       // Generate GSTR-1 JSON
+      const period = `${input.month.toString().padStart(2, '0')}${input.year}`
       const gstr1Json = generateGSTR1(
-        invoices,
-        user.gstin,
-        input.month,
-        input.year,
-        supplierStateCode
+        transformedInvoices,
+        creditNotes,
+        debitNotes,
+        {
+          gstin: user.gstin,
+          period,
+          turnover
+        }
       )
 
       // Check if return already exists
@@ -176,13 +220,30 @@ export const gstReturnsRouter = createTRPCRouter({
         }
       })
 
+      // Transform invoices to match our generator interface
+      const transformedInvoices = invoices.map(inv => ({
+        ...inv,
+        taxableAmount: inv.taxableAmount || inv.subtotal,
+        cgstAmount: inv.cgstAmount || new Decimal(0),
+        sgstAmount: inv.sgstAmount || new Decimal(0),
+        igstAmount: inv.igstAmount || new Decimal(0)
+      }))
+
+      const transformedPurchases = purchaseInvoices.map(purchase => ({
+        ...purchase,
+        itcClaimed: purchase.itcClaimed || new Decimal(0),
+        itcReversed: purchase.itcReversed || new Decimal(0)
+      }))
+
       // Generate GSTR-3B JSON
+      const period = `${input.month.toString().padStart(2, '0')}${input.year}`
       const gstr3bJson = generateGSTR3B(
-        invoices,
-        purchaseInvoices,
-        user.gstin,
-        input.month,
-        input.year
+        transformedInvoices,
+        transformedPurchases,
+        {
+          gstin: user.gstin,
+          period
+        }
       )
 
       // Calculate totals for storage

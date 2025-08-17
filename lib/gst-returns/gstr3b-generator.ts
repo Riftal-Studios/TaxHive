@@ -1,445 +1,510 @@
-/**
- * GSTR-3B Generation Logic
- * Generates GSTR-3B return data from invoices and purchase invoices
- */
-
-import { Invoice, PurchaseInvoice } from '@prisma/client'
 import { Decimal } from '@prisma/client/runtime/library'
 
-// Types for GSTR-3B JSON structure as per GST Portal
-export interface GSTR3BJson {
-  gstin: string
-  ret_period: string // Format: MMYYYY
-  sup_details: SupplyDetails
-  inter_sup: InterStateSupplies
-  itc_elg: ITCEligible
-  inward_sup: InwardSupplies
-  intr_ltfee: InterestLateFee
-}
+/**
+ * GSTR-3B Generator - Generates monthly summary GST return
+ * Compliant with GST Portal format
+ */
 
-// 3.1 Details of Outward Supplies and inward supplies liable to reverse charge
-export interface SupplyDetails {
-  osup_det: OutwardSupplies
-  osup_zero: ZeroRatedSupplies
-  osup_nil_exmp: NilExemptSupplies
-  isup_rev: InwardReverseCharge
-  osup_nongst: NonGSTSupplies
-}
-
-export interface OutwardSupplies {
-  txval: number // Taxable value
-  iamt: number // IGST amount
-  camt: number // CGST amount
-  samt: number // SGST amount
-  csamt: number // Cess amount
-}
-
-export interface ZeroRatedSupplies {
-  txval: number
-  iamt: number
-  csamt: number
-}
-
-export interface NilExemptSupplies {
-  txval: number
-}
-
-export interface InwardReverseCharge {
-  txval: number
-  iamt: number
-  camt: number
-  samt: number
-  csamt: number
-}
-
-export interface NonGSTSupplies {
-  txval: number
-}
-
-// 3.2 Inter-State supplies to unregistered persons
-export interface InterStateSupplies {
-  unreg_details?: Array<{
-    pos: string // Place of supply (state code)
-    txval: number
-    iamt: number
-  }>
-  comp_details?: Array<{
-    pos: string
-    txval: number
-    iamt: number
-  }>
-  uin_details?: Array<{
-    pos: string
-    txval: number
-    iamt: number
-  }>
-}
-
-// 4. Eligible ITC
-export interface ITCEligible {
-  itc_avl: Array<{
-    ty: string // Type of ITC
-    iamt: number
-    camt: number
-    samt: number
-    csamt: number
-  }>
-  itc_rev: Array<{
-    ty: string
-    iamt: number
-    camt: number
-    samt: number
-    csamt: number
-  }>
-  itc_net: {
-    iamt: number
-    camt: number
-    samt: number
-    csamt: number
+interface Invoice {
+  id: string
+  invoiceDate: Date
+  invoiceType: string
+  taxableAmount: Decimal
+  cgstAmount: Decimal
+  sgstAmount: Decimal
+  igstAmount: Decimal
+  totalAmount: Decimal
+  reverseCharge?: boolean
+  client?: {
+    gstin: string | null
+    stateCode?: string
   }
-  itc_inelg: Array<{
-    ty: string
-    iamt: number
-    camt: number
-    samt: number
-    csamt: number
-  }>
+  placeOfSupply?: string
+  supplierStateCode?: string
 }
 
-// 5. Values of exempt, nil rated and non-GST inward supplies
-export interface InwardSupplies {
-  isup_details: Array<{
-    ty: string
-    inter: number // Inter-state
-    intra: number // Intra-state
-  }>
+interface PurchaseInvoice {
+  id: string
+  invoiceDate: Date
+  vendorGstin: string
+  taxableAmount: Decimal
+  cgstAmount: Decimal
+  sgstAmount: Decimal
+  igstAmount: Decimal
+  itcEligible: boolean
+  itcCategory?: string
+  itcClaimed: Decimal
+  itcReversed?: Decimal
+  reversalReason?: string
+  reverseCharge?: boolean
+  blockedCategory?: string
 }
 
-// 6.1 Interest and late fee
-export interface InterestLateFee {
-  intr: {
-    iamt: number
-    camt: number
-    samt: number
-    csamt: number
-  }
-  ltfee: {
-    central: number
-    state: number
-  }
+interface OutwardSupplies {
+  totalTaxableValue: number
+  cgstLiability: number
+  sgstLiability: number
+  igstLiability: number
+  cessLiability?: number
+  zeroRatedSupply?: number
+  exemptSupply?: number
+  nilRatedSupply?: number
+  interStateUnregistered?: number
+  reverseChargeSupply?: number
 }
 
-// Helper to convert Decimal to number
-function toNumber(value: Decimal | number | null | undefined): number {
-  if (value === null || value === undefined) return 0
-  if (typeof value === 'number') return value
-  return Number(value.toString())
+interface ITCAvailable {
+  cgstITC: number
+  sgstITC: number
+  igstITC: number
+  cessITC?: number
+  totalITC: number
+  inputsITC?: number
+  capitalGoodsITC?: number
+  inputServicesITC?: number
+  blockedITC?: number
+  reversedITC?: number
+  reverseChargeITC?: number
 }
 
-// Helper function to format return period
-function formatReturnPeriod(month: number, year: number): string {
-  return `${month.toString().padStart(2, '0')}${year}`
+interface NetTaxLiability {
+  cgstPayable: number
+  sgstPayable: number
+  igstPayable: number
+  cessPayable: number
+  totalTaxPayable: number
+  igstCreditUsedForCGST?: number
+  igstCreditUsedForSGST?: number
 }
 
 /**
- * Calculate outward supplies (sales) for GSTR-3B
+ * Calculate outward taxable supplies for the period
  */
-export function calculateOutwardSupplies(invoices: Invoice[]): OutwardSupplies {
-  let txval = 0
-  let iamt = 0
-  let camt = 0
-  let samt = 0
+export function calculateOutwardTaxableSupplies(invoices: Invoice[]): OutwardSupplies {
+  let totalTaxableValue = 0
+  let cgstLiability = 0
+  let sgstLiability = 0
+  let igstLiability = 0
+  let zeroRatedSupply = 0
+  const exemptSupply = 0
+  const nilRatedSupply = 0
+  let interStateUnregistered = 0
+  let reverseChargeSupply = 0
 
-  const domesticInvoices = invoices.filter(inv => 
-    inv.invoiceType === 'DOMESTIC_B2B' || inv.invoiceType === 'DOMESTIC_B2C'
-  )
+  for (const invoice of invoices) {
+    const taxableAmount = invoice.taxableAmount.toNumber()
+    const cgst = invoice.cgstAmount.toNumber()
+    const sgst = invoice.sgstAmount.toNumber()
+    const igst = invoice.igstAmount.toNumber()
 
-  for (const invoice of domesticInvoices) {
-    txval += toNumber(invoice.taxableAmount || invoice.subtotal)
-    iamt += toNumber(invoice.igstAmount)
-    camt += toNumber(invoice.cgstAmount)
-    samt += toNumber(invoice.sgstAmount)
-  }
+    if (invoice.invoiceType === 'EXPORT') {
+      // Exports are zero-rated
+      zeroRatedSupply += taxableAmount
+    } else if (invoice.reverseCharge) {
+      // Reverse charge supplies - tax liability on recipient
+      reverseChargeSupply += taxableAmount
+    } else {
+      // All domestic supplies (including exports which are also included in total)
+      totalTaxableValue += taxableAmount
+      
+      if (!invoice.reverseCharge) {
+        cgstLiability += cgst
+        sgstLiability += sgst
+        igstLiability += igst
+      }
 
-  return {
-    txval,
-    iamt,
-    camt,
-    samt,
-    csamt: 0 // Cess not implemented yet
-  }
-}
-
-/**
- * Calculate zero-rated supplies (exports) for GSTR-3B
- */
-export function calculateZeroRatedSupplies(invoices: Invoice[]): ZeroRatedSupplies {
-  let txval = 0
-
-  const exportInvoices = invoices.filter(inv => inv.invoiceType === 'EXPORT')
-
-  for (const invoice of exportInvoices) {
-    txval += toNumber(invoice.subtotal)
-  }
-
-  return {
-    txval,
-    iamt: 0, // Zero-rated
-    csamt: 0
-  }
-}
-
-/**
- * Calculate eligible ITC from purchase invoices
- */
-export function calculateEligibleITC(purchaseInvoices: PurchaseInvoice[]): ITCEligible {
-  // Calculate available ITC
-  let availableIGST = 0
-  let availableCGST = 0
-  let availableSGST = 0
-
-  const eligiblePurchases = purchaseInvoices.filter(p => p.itcEligible)
-
-  for (const purchase of eligiblePurchases) {
-    availableIGST += toNumber(purchase.igstAmount)
-    availableCGST += toNumber(purchase.cgstAmount)
-    availableSGST += toNumber(purchase.sgstAmount)
-  }
-
-  // Calculate reversed ITC
-  let reversedIGST = 0
-  let reversedCGST = 0
-  let reversedSGST = 0
-
-  for (const purchase of purchaseInvoices) {
-    if (toNumber(purchase.itcReversed) > 0) {
-      // Proportionally allocate reversed amount
-      const totalTax = toNumber(purchase.igstAmount) + toNumber(purchase.cgstAmount) + toNumber(purchase.sgstAmount)
-      if (totalTax > 0) {
-        const reversalRatio = toNumber(purchase.itcReversed) / totalTax
-        reversedIGST += toNumber(purchase.igstAmount) * reversalRatio
-        reversedCGST += toNumber(purchase.cgstAmount) * reversalRatio
-        reversedSGST += toNumber(purchase.sgstAmount) * reversalRatio
+      // Check for inter-state B2C large invoices
+      if (invoice.invoiceType === 'DOMESTIC_B2C' && 
+          !invoice.client?.gstin &&
+          invoice.placeOfSupply !== invoice.supplierStateCode &&
+          invoice.totalAmount.toNumber() > 250000) {
+        interStateUnregistered += taxableAmount
       }
     }
   }
-
-  return {
-    itc_avl: [
-      {
-        ty: 'IMPG', // Import of goods
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      },
-      {
-        ty: 'IMPS', // Import of services
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      },
-      {
-        ty: 'ISRC', // ISD
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      },
-      {
-        ty: 'ISD', // Inward supplies from ISD
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      },
-      {
-        ty: 'OTH', // All other ITC
-        iamt: availableIGST,
-        camt: availableCGST,
-        samt: availableSGST,
-        csamt: 0
-      }
-    ],
-    itc_rev: [
-      {
-        ty: 'RUL', // As per rules
-        iamt: reversedIGST,
-        camt: reversedCGST,
-        samt: reversedSGST,
-        csamt: 0
-      },
-      {
-        ty: 'OTH', // Others
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      }
-    ],
-    itc_net: {
-      iamt: availableIGST - reversedIGST,
-      camt: availableCGST - reversedCGST,
-      samt: availableSGST - reversedSGST,
-      csamt: 0
-    },
-    itc_inelg: [
-      {
-        ty: 'RUL', // As per rules
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      },
-      {
-        ty: 'OTH', // Others
-        iamt: 0,
-        camt: 0,
-        samt: 0,
-        csamt: 0
-      }
-    ]
-  }
-}
-
-/**
- * Calculate net tax payable
- */
-export function calculateNetTaxPayable(
-  outputTax: OutwardSupplies,
-  eligibleITC: ITCEligible
-): {
-  igst: number
-  cgst: number
-  sgst: number
-  cess: number
-  total: number
-} {
-  const igstPayable = Math.max(0, outputTax.iamt - eligibleITC.itc_net.iamt)
-  const cgstPayable = Math.max(0, outputTax.camt - eligibleITC.itc_net.camt)
-  const sgstPayable = Math.max(0, outputTax.samt - eligibleITC.itc_net.samt)
-  const cessPayable = Math.max(0, outputTax.csamt - eligibleITC.itc_net.csamt)
-
-  return {
-    igst: igstPayable,
-    cgst: cgstPayable,
-    sgst: sgstPayable,
-    cess: cessPayable,
-    total: igstPayable + cgstPayable + sgstPayable + cessPayable
-  }
-}
-
-/**
- * Calculate late fee based on due date
- */
-export function calculateLateFee(
-  filingDate: Date,
-  dueDate: Date,
-  isNilReturn: boolean = false
-): { central: number; state: number; total: number } {
-  if (filingDate <= dueDate) {
-    return { central: 0, state: 0, total: 0 }
-  }
-
-  const daysLate = Math.floor((filingDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
   
-  // Late fee rates (as per GST rules)
-  // Normal return: Rs 50 per day (Rs 25 CGST + Rs 25 SGST) max Rs 5000 each
-  // Nil return: Rs 20 per day (Rs 10 CGST + Rs 10 SGST) max Rs 5000 each
-  const dailyRateCentral = isNilReturn ? 10 : 25
-  const dailyRateState = isNilReturn ? 10 : 25
-  const maxFee = 5000
-
-  const centralFee = Math.min(daysLate * dailyRateCentral, maxFee)
-  const stateFee = Math.min(daysLate * dailyRateState, maxFee)
+  // Include exports in the total taxable value
+  totalTaxableValue += zeroRatedSupply
 
   return {
-    central: centralFee,
-    state: stateFee,
-    total: centralFee + stateFee
+    totalTaxableValue,
+    cgstLiability,
+    sgstLiability,
+    igstLiability,
+    cessLiability: 0,
+    zeroRatedSupply,
+    exemptSupply,
+    nilRatedSupply,
+    interStateUnregistered,
+    reverseChargeSupply
   }
 }
 
 /**
- * Main function to generate complete GSTR-3B JSON
+ * Calculate available Input Tax Credit
+ */
+export function calculateITCAvailable(purchaseInvoices: PurchaseInvoice[]): ITCAvailable {
+  let cgstITC = 0
+  let sgstITC = 0
+  let igstITC = 0
+  let totalITC = 0
+  let inputsITC = 0
+  let capitalGoodsITC = 0
+  let inputServicesITC = 0
+  let blockedITC = 0
+  let reversedITC = 0
+  let reverseChargeITC = 0
+
+  for (const purchase of purchaseInvoices) {
+    const cgst = purchase.cgstAmount.toNumber()
+    const sgst = purchase.sgstAmount.toNumber()
+    const igst = purchase.igstAmount.toNumber()
+    const claimed = purchase.itcClaimed.toNumber()
+    const reversed = purchase.itcReversed?.toNumber() || 0
+
+    if (purchase.itcEligible && !purchase.blockedCategory) {
+      // Eligible ITC
+      cgstITC += cgst
+      sgstITC += sgst
+      igstITC += igst
+
+      // Handle reversal
+      if (reversed > 0) {
+        reversedITC += reversed
+        // Deduct reversal from ITC
+        const totalTax = cgst + sgst + igst
+        if (totalTax > 0) {
+          const reversalRatio = reversed / totalTax
+          cgstITC -= cgst * reversalRatio
+          sgstITC -= sgst * reversalRatio
+          igstITC -= igst * reversalRatio
+        }
+      }
+
+      // Categorize ITC
+      if (purchase.itcCategory === 'INPUTS') {
+        inputsITC += claimed
+      } else if (purchase.itcCategory === 'CAPITAL_GOODS') {
+        capitalGoodsITC += claimed
+      } else if (purchase.itcCategory === 'INPUT_SERVICES') {
+        inputServicesITC += claimed
+      }
+
+      // Reverse charge ITC
+      if (purchase.reverseCharge) {
+        reverseChargeITC += claimed
+      }
+    } else {
+      // Blocked ITC
+      blockedITC += cgst + sgst + igst
+    }
+  }
+
+  totalITC = cgstITC + sgstITC + igstITC
+
+  return {
+    cgstITC,
+    sgstITC,
+    igstITC,
+    cessITC: 0,
+    totalITC,
+    inputsITC,
+    capitalGoodsITC,
+    inputServicesITC,
+    blockedITC,
+    reversedITC,
+    reverseChargeITC
+  }
+}
+
+/**
+ * Calculate net tax liability after adjusting ITC
+ */
+export function calculateNetTaxLiability(
+  outwardSupplies: OutwardSupplies,
+  itcAvailable: ITCAvailable
+): NetTaxLiability {
+  let cgstPayable = outwardSupplies.cgstLiability - itcAvailable.cgstITC
+  let sgstPayable = outwardSupplies.sgstLiability - itcAvailable.sgstITC
+  let igstPayable = outwardSupplies.igstLiability - itcAvailable.igstITC
+  
+  let igstCreditUsedForCGST = 0
+  let igstCreditUsedForSGST = 0
+
+  // If IGST credit is available after setting off IGST liability
+  if (igstPayable < 0) {
+    const excessIGST = Math.abs(igstPayable)
+    
+    // First set off CGST liability
+    if (cgstPayable > 0) {
+      const cgstSetOff = Math.min(cgstPayable, excessIGST)
+      cgstPayable -= cgstSetOff
+      igstCreditUsedForCGST = cgstSetOff
+    }
+    
+    // Then set off SGST liability with remaining IGST credit
+    const remainingIGST = excessIGST - igstCreditUsedForCGST
+    if (sgstPayable > 0 && remainingIGST > 0) {
+      const sgstSetOff = Math.min(sgstPayable, remainingIGST)
+      sgstPayable -= sgstSetOff
+      igstCreditUsedForSGST = sgstSetOff
+    }
+    
+    igstPayable = 0
+  }
+
+  // Ensure no negative values
+  cgstPayable = Math.max(0, cgstPayable)
+  sgstPayable = Math.max(0, sgstPayable)
+  igstPayable = Math.max(0, igstPayable)
+
+  const cessPayable = (outwardSupplies.cessLiability || 0) - (itcAvailable.cessITC || 0)
+  const totalTaxPayable = cgstPayable + sgstPayable + igstPayable + Math.max(0, cessPayable)
+
+  return {
+    cgstPayable,
+    sgstPayable,
+    igstPayable,
+    cessPayable: Math.max(0, cessPayable),
+    totalTaxPayable,
+    igstCreditUsedForCGST,
+    igstCreditUsedForSGST
+  }
+}
+
+/**
+ * Calculate interest and late fee for delayed filing
+ */
+export function calculateInterestAndLateFee(
+  taxPayable: number,
+  daysLate: number
+): { interest: number; lateFee: number } {
+  // Interest calculation: 18% per annum
+  const interestRate = 18
+  const interest = Math.round((taxPayable * interestRate * daysLate) / (365 * 100))
+  
+  // Late fee: Rs 25 per day (CGST) + Rs 25 per day (SGST) = Rs 50 per day
+  // Maximum Rs 5000 each = Rs 10000 total
+  const lateFeePerDay = 25
+  const lateFee = Math.min(daysLate * lateFeePerDay, 5000) // Cap at Rs 5000 for CGST/SGST each
+
+  return {
+    interest,
+    lateFee
+  }
+}
+
+/**
+ * Validate GSTR-3B data
+ */
+export function validateGSTR3BData(data: Record<string, unknown>): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  // Check if ITC claimed exceeds available ITC
+  if (data.itcClaimed) {
+    if (data.itcClaimed.cgst > (data.itcAvailable?.cgst || 0)) {
+      errors.push('ITC claimed cannot exceed available ITC')
+    }
+    if (data.itcClaimed.sgst > (data.itcAvailable?.sgst || 0)) {
+      errors.push('ITC claimed cannot exceed available ITC')
+    }
+    if (data.itcClaimed.igst > (data.itcAvailable?.igst || 0)) {
+      errors.push('ITC claimed cannot exceed available ITC')
+    }
+  }
+
+  // Check if tax payment matches liability minus ITC
+  if (data.outwardLiability && data.itcClaimed && data.taxPayment) {
+    const expectedCGST = data.outwardLiability.cgst - data.itcClaimed.cgst
+    const expectedSGST = data.outwardLiability.sgst - data.itcClaimed.sgst
+    const expectedIGST = data.outwardLiability.igst - data.itcClaimed.igst
+
+    if (Math.abs(data.taxPayment.cgst - expectedCGST) > 0.01) {
+      errors.push('Tax payment does not match calculated liability')
+    }
+    if (Math.abs(data.taxPayment.sgst - expectedSGST) > 0.01) {
+      errors.push('Tax payment does not match calculated liability')
+    }
+    if (Math.abs(data.taxPayment.igst - expectedIGST) > 0.01) {
+      errors.push('Tax payment does not match calculated liability')
+    }
+  }
+
+  // Check mandatory fields
+  if (!data.gstin) {
+    errors.push('GSTIN is required')
+  }
+  if (!data.period) {
+    errors.push('Period is required')
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  }
+}
+
+/**
+ * Generate complete GSTR-3B JSON
  */
 export function generateGSTR3B(
   invoices: Invoice[],
   purchaseInvoices: PurchaseInvoice[],
-  gstin: string,
-  month: number,
-  year: number,
-  filingDate?: Date
-): GSTR3BJson {
-  // Calculate outward supplies
-  const outwardSupplies = calculateOutwardSupplies(invoices)
-  const zeroRatedSupplies = calculateZeroRatedSupplies(invoices)
-  
-  // Calculate ITC
-  const eligibleITC = calculateEligibleITC(purchaseInvoices)
-  
-  // Calculate net tax payable
-  const netTax = calculateNetTaxPayable(outwardSupplies, eligibleITC)
-  
-  // Calculate late fee if filing date provided
-  let lateFee = { central: 0, state: 0 }
-  if (filingDate) {
-    // Due date is 20th of next month
-    const dueDate = new Date(year, month, 20) // Note: month is 0-indexed in JS
-    const isNilReturn = netTax.total === 0
-    const lateFeeCalc = calculateLateFee(filingDate, dueDate, isNilReturn)
-    lateFee = { central: lateFeeCalc.central, state: lateFeeCalc.state }
+  config: {
+    gstin: string
+    period: string
   }
+): Record<string, unknown> {
+  const outwardSupplies = calculateOutwardTaxableSupplies(invoices)
+  const itcAvailable = calculateITCAvailable(purchaseInvoices)
+  const netTaxLiability = calculateNetTaxLiability(outwardSupplies, itcAvailable)
 
   return {
-    gstin,
-    ret_period: formatReturnPeriod(month, year),
+    gstin: config.gstin,
+    ret_period: config.period,
+    
+    // Section 3.1 - Outward supplies
     sup_details: {
-      osup_det: outwardSupplies,
-      osup_zero: zeroRatedSupplies,
+      osup_det: {
+        txval: outwardSupplies.totalTaxableValue,
+        camt: outwardSupplies.cgstLiability,
+        samt: outwardSupplies.sgstLiability,
+        iamt: outwardSupplies.igstLiability,
+        csamt: outwardSupplies.cessLiability || 0
+      },
+      osup_zero: {
+        txval: outwardSupplies.zeroRatedSupply || 0,
+        iamt: 0,
+        csamt: 0
+      },
       osup_nil_exmp: {
-        txval: 0 // Nil/Exempt supplies not implemented
+        txval: (outwardSupplies.exemptSupply || 0) + (outwardSupplies.nilRatedSupply || 0)
       },
       isup_rev: {
-        txval: 0,
-        iamt: 0,
+        txval: outwardSupplies.reverseChargeSupply || 0,
         camt: 0,
         samt: 0,
+        iamt: 0,
         csamt: 0
       },
       osup_nongst: {
         txval: 0
       }
     },
+    
+    // Section 3.2 - Inter-state supplies to unregistered persons
     inter_sup: {
-      unreg_details: [], // To be implemented based on B2C inter-state
-      comp_details: [],
-      uin_details: []
+      unreg_details: outwardSupplies.interStateUnregistered ? [{
+        pos: '00', // To be determined from actual data
+        txval: outwardSupplies.interStateUnregistered,
+        iamt: outwardSupplies.igstLiability
+      }] : []
     },
-    itc_elg: eligibleITC,
-    inward_sup: {
-      isup_details: [
+    
+    // Section 4 - Eligible ITC
+    itc_elg: {
+      itc_avl: [
         {
-          ty: 'GST',
-          inter: 0,
-          intra: 0
+          ty: 'IMPG', // Import of goods
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
         },
         {
-          ty: 'NONGST',
-          inter: 0,
-          intra: 0
+          ty: 'IMPS', // Import of services  
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
+        },
+        {
+          ty: 'ISRC', // ISD
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
+        },
+        {
+          ty: 'ISD', // Inward supplies from ISD
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
+        },
+        {
+          ty: 'OTH', // All other ITC
+          camt: itcAvailable.cgstITC,
+          samt: itcAvailable.sgstITC,
+          iamt: itcAvailable.igstITC,
+          csamt: 0
+        }
+      ],
+      itc_rev: [
+        {
+          ty: 'RUL', // As per rules
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
+        },
+        {
+          ty: 'OTH', // Others
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
+        }
+      ],
+      itc_net: {
+        camt: itcAvailable.cgstITC,
+        samt: itcAvailable.sgstITC,
+        iamt: itcAvailable.igstITC,
+        csamt: 0
+      },
+      itc_inelg: [
+        {
+          ty: 'RUL', // As per Section 17(5)
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
+        },
+        {
+          ty: 'OTH', // Others
+          camt: 0,
+          samt: 0,
+          iamt: 0,
+          csamt: 0
         }
       ]
     },
+    
+    // Section 5 - Tax payment
+    tx_pmt: {
+      tx_pay: [
+        {
+          ty: 'TX', // Tax payment
+          camt: netTaxLiability.cgstPayable,
+          samt: netTaxLiability.sgstPayable,
+          iamt: netTaxLiability.igstPayable,
+          csamt: netTaxLiability.cessPayable
+        }
+      ]
+    },
+    
+    // Section 6.1 - Interest and late fee
     intr_ltfee: {
       intr: {
-        iamt: 0,
         camt: 0,
         samt: 0,
+        iamt: 0,
         csamt: 0
       },
-      ltfee: lateFee
+      ltfee: {
+        central: 0,
+        state: 0
+      }
     }
   }
 }

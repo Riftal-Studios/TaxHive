@@ -46,6 +46,9 @@ model User {
   tdsPayments TDSPayment[]
   tdsCertificates TDSCertificate[]
   tdsReturns TDSReturn[]
+  eInvoiceConfig EInvoiceConfig?
+  eInvoices EInvoice[]
+  ewayBills EWayBill[]
 }
 
 model Account {
@@ -189,6 +192,7 @@ model Invoice {
   debitNotes  DebitNote[]
   recurringInvoice RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id])
   advanceAdjustments AdvanceAdjustment[]
+  eInvoice    EInvoice?
 
   @@index([userId])
   @@index([clientId])
@@ -1237,4 +1241,228 @@ model TDSReturn {
   @@index([returnType])
   @@index([financialYear, quarter])
   @@index([filingStatus])
+}
+
+// E-Invoice Models
+
+model EInvoiceConfig {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  
+  // GSP Configuration
+  gspProvider       String   // 'CLEARTAX' | 'VAYANA' | 'CYGNET' | 'CUSTOM'
+  gspUrl            String?  // Custom GSP API URL
+  environment       String   @default("SANDBOX") // 'SANDBOX' | 'PRODUCTION'
+  
+  // Credentials
+  clientId          String?
+  clientSecret      String?  // Encrypted
+  username          String
+  password          String   // Encrypted
+  gstin             String   // GSTIN for e-invoicing
+  
+  // Settings
+  autoGenerate      Boolean  @default(false)
+  autoCancel        Boolean  @default(false)
+  cancelWithin      Int      @default(24) // Hours
+  includeQRCode     Boolean  @default(true)
+  bulkGeneration    Boolean  @default(false)
+  
+  // E-Way Bill Integration
+  ewayBillEnabled   Boolean  @default(false)
+  ewayBillThreshold Decimal  @default(50000) // Amount threshold
+  transportMode     String?  // Default transport mode
+  transporterId     String?  // Default transporter ID
+  
+  isActive          Boolean  @default(true)
+  lastSyncAt        DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authTokens        EInvoiceAuthToken[]
+  
+  @@index([userId])
+  @@index([gstin])
+}
+
+model EInvoiceAuthToken {
+  id                String   @id @default(cuid())
+  configId          String
+  
+  // Token Details
+  authToken         String   @db.Text // JWT token
+  sessionKey        String?  // SEK for encryption
+  tokenExpiry       DateTime // Token expiry time (6 hours)
+  
+  // Token Type
+  tokenType         String   @default("IRP") // 'IRP' | 'EWAY'
+  
+  // Status
+  isActive          Boolean  @default(true)
+  revokedAt         DateTime?
+  
+  createdAt         DateTime @default(now())
+  
+  config            EInvoiceConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  
+  @@index([configId])
+  @@index([tokenExpiry])
+  @@index([isActive])
+}
+
+model EInvoice {
+  id                String   @id @default(cuid())
+  userId            String
+  invoiceId         String   @unique
+  
+  // IRN Details
+  irn               String?  @unique // 64-character Invoice Reference Number
+  ackNo             String?  // Acknowledgment number (15 digits)
+  ackDate           DateTime? // Acknowledgment date from IRP
+  
+  // QR Code
+  signedQRCode      String?  @db.Text // Signed QR code data
+  qrCodeUrl         String?  // URL to QR code image
+  
+  // Document Details
+  docType           String   // 'INV' | 'CRN' | 'DBN'
+  docNo             String   // Invoice/Credit/Debit Note number
+  docDate           DateTime
+  
+  // Supply Type
+  supplyType        String   // 'B2B' | 'SEZWP' | 'SEZWOP' | 'EXPWP' | 'EXPWOP' | 'DEXP'
+  
+  // Seller Details (cached)
+  sellerGstin       String
+  sellerName        String
+  sellerAddress     String
+  
+  // Buyer Details (cached)
+  buyerGstin        String?
+  buyerName         String
+  buyerAddress      String
+  buyerStateCode    String
+  
+  // Values
+  totalValue        Decimal
+  totalGstValue     Decimal
+  totalInvoiceValue Decimal
+  
+  // JSON Payload
+  requestPayload    Json     // Complete JSON sent to IRP
+  responsePayload   Json?    // Complete response from IRP
+  
+  // Status
+  status            String   @default("PENDING") // 'PENDING' | 'GENERATED' | 'CANCELLED' | 'FAILED'
+  errorMessage      String?
+  errorCode         String?
+  
+  // Cancellation
+  cancelledAt       DateTime?
+  cancelReason      String?
+  cancelRemarks     String?
+  cancelIRN         String?  // Cancellation IRN
+  
+  // E-Way Bill
+  ewayBillNo        String?
+  ewayBillDate      DateTime?
+  ewayBillValidTill DateTime?
+  
+  // Retry Management
+  retryCount        Int      @default(0)
+  lastRetryAt       DateTime?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([invoiceId])
+  @@index([irn])
+  @@index([status])
+  @@index([docDate])
+  @@index([ackDate])
+}
+
+model EWayBill {
+  id                String   @id @default(cuid())
+  userId            String
+  eInvoiceId        String?  // Optional link to e-invoice
+  
+  // E-Way Bill Details
+  ewayBillNo        String   @unique
+  ewayBillDate      DateTime
+  validFrom         DateTime
+  validUntil        DateTime
+  
+  // Document Reference
+  docType           String   // 'INV' | 'CRN' | 'DBN' | 'CHL'
+  docNo             String
+  docDate           DateTime
+  
+  // Supply Details
+  supplyType        String   // 'I' (Inward) | 'O' (Outward)
+  subSupplyType     String   // Supply sub-type code
+  transactionType   String   // 'Regular' | 'Bill To Ship To' | 'Bill From Dispatch From' | 'Combination'
+  
+  // Transport Details
+  transportMode     String   // 'Road' | 'Rail' | 'Air' | 'Ship'
+  transporterId     String?
+  transporterName   String?
+  transportDocNo    String?  // LR/RR/Airway Bill No
+  transportDocDate  DateTime?
+  vehicleNo         String?
+  vehicleType       String?  // 'Regular' | 'ODC'
+  
+  // From/To Details
+  fromGstin         String?
+  fromTradeName     String
+  fromAddress       String
+  fromPlace         String
+  fromPincode       String
+  fromStateCode     String
+  
+  toGstin           String?
+  toTradeName       String
+  toAddress         String
+  toPlace           String
+  toPincode         String
+  toStateCode       String
+  
+  // Distance & Values
+  distance          Int      // in KM
+  totalValue        Decimal
+  totalGstValue     Decimal
+  cessValue         Decimal?
+  cessNonAdvolValue Decimal?
+  otherValue        Decimal?
+  totalInvoiceValue Decimal
+  
+  // Items (simplified)
+  mainHsnCode       String   // Main HSN code
+  itemList          Json     // List of items
+  
+  // Status
+  status            String   @default("ACTIVE") // 'ACTIVE' | 'CANCELLED' | 'EXPIRED'
+  cancelledAt       DateTime?
+  cancelReason      String?
+  cancelRemarks     String?
+  
+  // Part B Updates (for multi-vehicle transport)
+  partBUpdates      Json?    // Array of vehicle updates
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([ewayBillNo])
+  @@index([status])
+  @@index([validUntil])
+  @@index([docNo])
 }

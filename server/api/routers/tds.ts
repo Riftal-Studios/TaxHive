@@ -136,8 +136,8 @@ export const tdsRouter = createTRPCRouter({
 
       const result = calculateTDS({
         amount: input.amount,
-        sectionCode: input.sectionCode as any,
-        vendorType: vendor.vendorType as any,
+        sectionCode: input.sectionCode as keyof typeof TDS_CONSTANTS,
+        vendorType: vendor.vendorType as 'INDIVIDUAL' | 'COMPANY' | 'HUF' | 'FIRM' | 'TRUST',
         hasLowerCertificate: vendor.lowerTDSRate !== null,
         lowerRate: vendor.lowerTDSRate?.toNumber(),
         previousPayments,
@@ -265,7 +265,7 @@ export const tdsRouter = createTRPCRouter({
       offset: z.number().default(0),
     }))
     .query(async ({ ctx, input }) => {
-      const where: any = {
+      const where: Record<string, unknown> = {
         userId: ctx.session.user.id,
       }
 
@@ -504,7 +504,7 @@ export const tdsRouter = createTRPCRouter({
       filingStatus: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const where: any = {
+      const where: Record<string, unknown> = {
         userId: ctx.session.user.id,
       }
 
@@ -604,7 +604,7 @@ export const tdsRouter = createTRPCRouter({
       const totalDeposited = payments.reduce((sum, p) => sum + p.totalAmount.toNumber(), 0)
 
       // Section-wise summary
-      const sectionWiseSummary: any = {}
+      const sectionWiseSummary: Record<string, { count: number; totalTDS: number; totalPaid: number }> = {}
       for (const deduction of deductions) {
         const sectionCode = deduction.section.sectionCode
         if (!sectionWiseSummary[sectionCode]) {

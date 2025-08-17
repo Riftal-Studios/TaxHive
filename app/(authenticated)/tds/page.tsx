@@ -32,13 +32,11 @@ import {
   Payment as PaymentIcon,
   Description as DescriptionIcon,
   Assessment as AssessmentIcon,
-  Download as DownloadIcon,
-  Email as EmailIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material'
 import { format } from 'date-fns'
-import { getCurrentFinancialYear, getCurrentQuarter, formatTDSAmount } from '@/lib/tds/calculations'
+import { getCurrentFinancialYear, getCurrentQuarter } from '@/lib/tds/constants'
 
 interface TabPanelProps {
   children?: React.ReactNode

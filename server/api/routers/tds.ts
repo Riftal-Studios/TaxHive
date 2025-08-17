@@ -20,7 +20,7 @@ import { addDays, startOfMonth, endOfMonth } from 'date-fns'
 export const tdsRouter = createTRPCRouter({
   // Get TDS configuration for user
   getConfiguration: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db.tDSConfiguration.findUnique({
+    return ctx.prisma.tDSConfiguration.findUnique({
       where: { userId: ctx.session.user.id },
     })
   }),
@@ -60,17 +60,17 @@ export const tdsRouter = createTRPCRouter({
         })
       }
 
-      const existing = await ctx.db.tDSConfiguration.findUnique({
+      const existing = await ctx.prisma.tDSConfiguration.findUnique({
         where: { userId: ctx.session.user.id },
       })
 
       if (existing) {
-        return ctx.db.tDSConfiguration.update({
+        return ctx.prisma.tDSConfiguration.update({
           where: { id: existing.id },
           data: input,
         })
       } else {
-        return ctx.db.tDSConfiguration.create({
+        return ctx.prisma.tDSConfiguration.create({
           data: {
             ...input,
             userId: ctx.session.user.id,
@@ -81,7 +81,7 @@ export const tdsRouter = createTRPCRouter({
 
   // Get all TDS sections
   getSections: protectedProcedure.query(async ({ ctx }) => {
-    const sections = await ctx.db.tDSSection.findMany({
+    const sections = await ctx.prisma.tDSSection.findMany({
       where: { isActive: true },
       orderBy: { sectionCode: 'asc' },
     })
@@ -119,7 +119,7 @@ export const tdsRouter = createTRPCRouter({
       previousPayments: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const vendor = await ctx.db.vendor.findUnique({
+      const vendor = await ctx.prisma.vendor.findUnique({
         where: { id: input.vendorId },
       })
 
@@ -162,7 +162,7 @@ export const tdsRouter = createTRPCRouter({
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const vendor = await ctx.db.vendor.findUnique({
+      const vendor = await ctx.prisma.vendor.findUnique({
         where: { id: input.vendorId },
       })
 
@@ -181,7 +181,7 @@ export const tdsRouter = createTRPCRouter({
       }
 
       // Get or create TDS section
-      let section = await ctx.db.tDSSection.findUnique({
+      let section = await ctx.prisma.tDSSection.findUnique({
         where: { sectionCode: input.sectionCode },
       })
 
@@ -194,7 +194,7 @@ export const tdsRouter = createTRPCRouter({
           })
         }
 
-        section = await ctx.db.tDSSection.create({
+        section = await ctx.prisma.tDSSection.create({
           data: {
             sectionCode: input.sectionCode,
             description: sectionData.description,
@@ -214,7 +214,7 @@ export const tdsRouter = createTRPCRouter({
       const quarter = getCurrentQuarter()
       const depositDueDate = getDepositDueDate(input.deductionDate)
 
-      const deduction = await ctx.db.tDSDeduction.create({
+      const deduction = await ctx.prisma.tDSDeduction.create({
         data: {
           userId: ctx.session.user.id,
           purchaseInvoiceId: input.purchaseInvoiceId,
@@ -239,7 +239,7 @@ export const tdsRouter = createTRPCRouter({
 
       // Update purchase invoice if linked
       if (input.purchaseInvoiceId) {
-        await ctx.db.purchaseInvoice.update({
+        await ctx.prisma.purchaseInvoice.update({
           where: { id: input.purchaseInvoiceId },
           data: {
             tdsApplicable: true,
@@ -283,7 +283,7 @@ export const tdsRouter = createTRPCRouter({
       }
 
       const [deductions, total] = await Promise.all([
-        ctx.db.tDSDeduction.findMany({
+        ctx.prisma.tDSDeduction.findMany({
           where,
           include: {
             vendor: true,
@@ -296,7 +296,7 @@ export const tdsRouter = createTRPCRouter({
           take: input.limit,
           skip: input.offset,
         }),
-        ctx.db.tDSDeduction.count({ where }),
+        ctx.prisma.tDSDeduction.count({ where }),
       ])
 
       return { deductions, total }
@@ -316,7 +316,7 @@ export const tdsRouter = createTRPCRouter({
     }))
     .mutation(async ({ ctx, input }) => {
       // Get deductions to be paid
-      const deductions = await ctx.db.tDSDeduction.findMany({
+      const deductions = await ctx.prisma.tDSDeduction.findMany({
         where: {
           id: { in: input.deductionIds },
           userId: ctx.session.user.id,
@@ -338,7 +338,7 @@ export const tdsRouter = createTRPCRouter({
       const totalAmount = tdsAmount + surcharge + eduCess + (input.interest || 0) + (input.penalty || 0)
 
       // Generate challan number
-      const challanCount = await ctx.db.tDSPayment.count({
+      const challanCount = await ctx.prisma.tDSPayment.count({
         where: { bsrCode: input.bsrCode },
       })
       const challanNumber = generateChallanNumber(
@@ -353,7 +353,7 @@ export const tdsRouter = createTRPCRouter({
       const quarter = firstDeduction.quarter
 
       // Create payment record
-      const payment = await ctx.db.tDSPayment.create({
+      const payment = await ctx.prisma.tDSPayment.create({
         data: {
           userId: ctx.session.user.id,
           challanNumber,
@@ -378,7 +378,7 @@ export const tdsRouter = createTRPCRouter({
       })
 
       // Update deduction status
-      await ctx.db.tDSDeduction.updateMany({
+      await ctx.prisma.tDSDeduction.updateMany({
         where: { id: { in: input.deductionIds } },
         data: {
           depositStatus: 'DEPOSITED',
@@ -397,7 +397,7 @@ export const tdsRouter = createTRPCRouter({
       quarter: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const vendor = await ctx.db.vendor.findUnique({
+      const vendor = await ctx.prisma.vendor.findUnique({
         where: { id: input.vendorId },
       })
 
@@ -409,7 +409,7 @@ export const tdsRouter = createTRPCRouter({
       }
 
       // Get deductions for the period
-      const deductions = await ctx.db.tDSDeduction.findMany({
+      const deductions = await ctx.prisma.tDSDeduction.findMany({
         where: {
           userId: ctx.session.user.id,
           vendorId: input.vendorId,
@@ -436,7 +436,7 @@ export const tdsRouter = createTRPCRouter({
       const totalPaid = deductions.reduce((sum, d) => sum + d.taxableAmount.toNumber(), 0)
 
       // Generate certificate number
-      const config = await ctx.db.tDSConfiguration.findUnique({
+      const config = await ctx.prisma.tDSConfiguration.findUnique({
         where: { userId: ctx.session.user.id },
       })
 
@@ -447,7 +447,7 @@ export const tdsRouter = createTRPCRouter({
         })
       }
 
-      const certificateCount = await ctx.db.tDSCertificate.count({
+      const certificateCount = await ctx.prisma.tDSCertificate.count({
         where: {
           userId: ctx.session.user.id,
           financialYear: input.financialYear,
@@ -463,7 +463,7 @@ export const tdsRouter = createTRPCRouter({
       )
 
       // Create certificate
-      const certificate = await ctx.db.tDSCertificate.create({
+      const certificate = await ctx.prisma.tDSCertificate.create({
         data: {
           userId: ctx.session.user.id,
           certificateNumber,
@@ -483,7 +483,7 @@ export const tdsRouter = createTRPCRouter({
       })
 
       // Mark deductions as certificate issued
-      await ctx.db.tDSDeduction.updateMany({
+      await ctx.prisma.tDSDeduction.updateMany({
         where: {
           id: { in: deductions.map(d => d.id) },
         },
@@ -518,7 +518,7 @@ export const tdsRouter = createTRPCRouter({
         where.filingStatus = input.filingStatus
       }
 
-      return ctx.db.tDSReturn.findMany({
+      return ctx.prisma.tDSReturn.findMany({
         where,
         orderBy: [
           { financialYear: 'desc' },
@@ -535,7 +535,7 @@ export const tdsRouter = createTRPCRouter({
       returnType: z.enum(['24Q', '26Q', '27Q']),
     }))
     .mutation(async ({ ctx, input }) => {
-      const config = await ctx.db.tDSConfiguration.findUnique({
+      const config = await ctx.prisma.tDSConfiguration.findUnique({
         where: { userId: ctx.session.user.id },
       })
 
@@ -547,7 +547,7 @@ export const tdsRouter = createTRPCRouter({
       }
 
       // Check if return already exists
-      const existing = await ctx.db.tDSReturn.findUnique({
+      const existing = await ctx.prisma.tDSReturn.findUnique({
         where: {
           userId_returnType_financialYear_quarter: {
             userId: ctx.session.user.id,
@@ -566,7 +566,7 @@ export const tdsRouter = createTRPCRouter({
       }
 
       // Get deductions for the period
-      const deductions = await ctx.db.tDSDeduction.findMany({
+      const deductions = await ctx.prisma.tDSDeduction.findMany({
         where: {
           userId: ctx.session.user.id,
           financialYear: input.financialYear,
@@ -581,7 +581,7 @@ export const tdsRouter = createTRPCRouter({
       })
 
       // Get payments for the period
-      const payments = await ctx.db.tDSPayment.findMany({
+      const payments = await ctx.prisma.tDSPayment.findMany({
         where: {
           userId: ctx.session.user.id,
           financialYear: input.financialYear,
@@ -590,7 +590,7 @@ export const tdsRouter = createTRPCRouter({
       })
 
       // Get certificates issued
-      const certificates = await ctx.db.tDSCertificate.findMany({
+      const certificates = await ctx.prisma.tDSCertificate.findMany({
         where: {
           userId: ctx.session.user.id,
           financialYear: input.financialYear,
@@ -647,12 +647,12 @@ export const tdsRouter = createTRPCRouter({
       }
 
       if (existing) {
-        return ctx.db.tDSReturn.update({
+        return ctx.prisma.tDSReturn.update({
           where: { id: existing.id },
           data: returnData,
         })
       } else {
-        return ctx.db.tDSReturn.create({
+        return ctx.prisma.tDSReturn.create({
           data: returnData,
         })
       }

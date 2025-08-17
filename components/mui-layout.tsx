@@ -35,6 +35,12 @@ import {
   Payment as PaymentIcon,
   Work as WorkIcon,
   Assignment as ReturnsIcon,
+  Repeat as RecurringIcon,
+  CreditCard as SubscriptionIcon,
+  ShoppingCart as PurchasesIcon,
+  Assessment as ITCIcon,
+  NoteAdd as NotesIcon,
+  AttachMoney as AdvanceIcon,
 } from '@mui/icons-material'
 import { signOut } from 'next-auth/react'
 import { useTheme as useAppTheme } from '@/components/theme-provider'
@@ -53,8 +59,14 @@ interface MUILayoutProps {
 const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, href: '/dashboard' },
   { text: 'Invoices', icon: <InvoiceIcon />, href: '/invoices' },
+  { text: 'Recurring Invoices', icon: <RecurringIcon />, href: '/recurring' },
+  { text: 'Subscriptions', icon: <SubscriptionIcon />, href: '/subscriptions' },
   { text: 'Clients', icon: <ClientsIcon />, href: '/clients' },
   { text: 'Payments', icon: <PaymentIcon />, href: '/payments' },
+  { text: 'Advance Receipts', icon: <AdvanceIcon />, href: '/advances' },
+  { text: 'Purchase Invoices', icon: <PurchasesIcon />, href: '/purchases' },
+  { text: 'ITC Management', icon: <ITCIcon />, href: '/itc' },
+  { text: 'Credit/Debit Notes', icon: <NotesIcon />, href: '/notes' },
   { text: 'GST Returns', icon: <ReturnsIcon />, href: '/returns' },
   { text: 'LUT Management', icon: <LUTIcon />, href: '/luts' },
 ]

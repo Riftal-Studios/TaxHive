@@ -14,18 +14,10 @@ import { getNextInvoiceSequence } from '@/lib/invoice-number-utils'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
-import { getQueueService, isQueueServiceAvailable } from '@/lib/queue'
+import { queueManager } from '@/lib/queue/manager'
+import { JOB_PRIORITIES } from '@/lib/queue/config'
 import { db } from '@/lib/prisma'
 import type { StateCode } from '@/lib/gst'
-
-// Get queue service lazily to avoid connection during build
-const getQueue = () => {
-  if (!isQueueServiceAvailable()) {
-    console.warn('Queue service is not available. PDF generation will not be queued.')
-    return null
-  }
-  return getQueueService()
-}
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
@@ -145,13 +137,22 @@ export const invoiceRouter = createTRPCRouter({
         
         // Queue PDF generation for new invoice
         try {
-          const queueService = getQueue()
-          if (queueService) {
-            const job = await queueService.enqueue('PDF_GENERATION', {
-              invoiceId: invoice.id,
+          const job = await queueManager.addPDFGenerationJob(
+            {
+              type: 'invoice',
+              entityId: invoice.id,
               userId: ctx.session.user.id,
-            })
-            
+              options: {
+                sendEmail: false, // Can be configured based on user preferences
+                saveToS3: !!process.env.AWS_S3_BUCKET,
+              },
+            },
+            {
+              priority: JOB_PRIORITIES.HIGH,
+            }
+          )
+          
+          if (job) {
             // Update invoice with job ID and status
             await tx.invoice.update({
               where: { id: invoice.id },
@@ -182,17 +183,79 @@ export const invoiceRouter = createTRPCRouter({
           })
         }
         
+        // Queue email notification if client has email
+        try {
+          const client = await tx.client.findUnique({
+            where: { id: input.clientId },
+            select: { email: true, name: true },
+          })
+          
+          if (client?.email) {
+            await queueManager.addEmailNotificationJob(
+              {
+                type: 'invoice-created',
+                to: client.email,
+                data: {
+                  invoiceId: invoice.id,
+                  invoiceNumber: invoice.invoiceNumber,
+                  clientName: client.name,
+                  totalAmount: totalAmount,
+                  currency: input.currency,
+                  dueDate: input.dueDate.toISOString(),
+                },
+                userId: ctx.session.user.id,
+              },
+              {
+                priority: JOB_PRIORITIES.NORMAL,
+                delay: 5000, // Delay 5 seconds to ensure PDF is generated
+              }
+            )
+          }
+        } catch (error) {
+          console.error('Failed to queue email notification:', error)
+          // Don't fail invoice creation for email issues
+        }
+        
         return invoice
       })
     }),
 
-  list: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.prisma.invoice.findMany({
-      where: { userId: ctx.session.user.id },
-      include: { client: true },
-      orderBy: { createdAt: 'desc' },
-    })
-  }),
+  list: protectedProcedure
+    .input(z.object({
+      clientId: z.string().optional(),
+      status: z.enum(['UNPAID', 'PAID', 'PARTIALLY_PAID', 'OVERDUE']).optional(),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const where: any = { 
+        userId: ctx.session.user.id 
+      }
+      
+      if (input?.clientId) {
+        where.clientId = input.clientId
+      }
+      
+      if (input?.status) {
+        // Map status to paymentStatus field
+        if (input.status === 'UNPAID') {
+          where.paymentStatus = 'UNPAID'
+        } else if (input.status === 'PAID') {
+          where.paymentStatus = 'PAID'
+        } else if (input.status === 'PARTIALLY_PAID') {
+          where.paymentStatus = 'PARTIAL'
+        } else if (input.status === 'OVERDUE') {
+          where.AND = [
+            { paymentStatus: { not: 'PAID' } },
+            { dueDate: { lt: new Date() } }
+          ]
+        }
+      }
+      
+      return await ctx.prisma.invoice.findMany({
+        where,
+        include: { client: true },
+        orderBy: { createdAt: 'desc' },
+      })
+    }),
 
   getById: protectedProcedure
     .input(z.object({ 

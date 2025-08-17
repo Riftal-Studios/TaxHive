@@ -7,9 +7,14 @@ import { lutRouter } from '@/server/api/routers/lut'
 import { dashboardRouter } from '@/server/api/routers/dashboard'
 import { paymentRouter } from '@/server/api/routers/payment'
 import { authRouter } from '@/server/api/routers/auth'
-import { gstReturnsRouter } from '@/server/api/routers/gst-returns'
+import { gstReturnsRouter } from '@/server/api/routers/gstReturns'
 import { creditDebitNotesRouter } from '@/server/api/routers/credit-debit-notes'
 import { purchaseInvoicesRouter } from '@/server/api/routers/purchase-invoices'
+import { recurringInvoicesRouter } from '@/server/api/routers/recurring-invoices'
+import { subscriptionsRouter } from '@/server/api/routers/subscriptions'
+import { advanceReceiptsRouter } from '@/server/api/routers/advance-receipts'
+import { queuesRouter } from '@/server/api/routers/queues'
+import { tdsRouter } from '@/server/api/routers/tds'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -23,6 +28,11 @@ export const appRouter = createTRPCRouter({
   gstReturns: gstReturnsRouter,
   creditDebitNotes: creditDebitNotesRouter,
   purchaseInvoices: purchaseInvoicesRouter,
+  recurringInvoices: recurringInvoicesRouter,
+  subscriptions: subscriptionsRouter,
+  advanceReceipts: advanceReceiptsRouter,
+  queues: queuesRouter,
+  tds: tdsRouter,
 })
 
 export type AppRouter = typeof appRouter

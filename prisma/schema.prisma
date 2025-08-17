@@ -32,11 +32,20 @@ model User {
   emailHistory EmailHistory[]
   otps     OTP[]
   gstReturns GSTReturn[]
+  gstReconciliations GSTReconciliation[]
   vendors Vendor[]
   purchaseInvoices PurchaseInvoice[]
   creditNotes CreditNote[]
   debitNotes DebitNote[]
   itcRegisters ITCRegister[]
+  recurringInvoices RecurringInvoice[]
+  subscriptions Subscription[]
+  advanceReceipts AdvanceReceipt[]
+  tdsConfiguration TDSConfiguration?
+  tdsDeductions TDSDeduction[]
+  tdsPayments TDSPayment[]
+  tdsCertificates TDSCertificate[]
+  tdsReturns TDSReturn[]
 }
 
 model Account {
@@ -92,6 +101,9 @@ model Client {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoices Invoice[]
+  recurringInvoices RecurringInvoice[]
+  subscriptions Subscription[]
+  advanceReceipts AdvanceReceipt[]
 
   @@index([userId])
 }
@@ -141,6 +153,7 @@ model Invoice {
   // Payment Status
   paymentStatus  String        @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID
   amountPaid     Decimal       @default(0)
+  advanceAdjusted Decimal      @default(0) // Amount adjusted from advance receipts
   balanceDue     Decimal       @default(0)
   
   // Additional Info
@@ -148,6 +161,9 @@ model Invoice {
   paymentTerms   String?
   bankDetails    String?
   notes          String?
+  
+  // Recurring Invoice Reference
+  recurringInvoiceId String?
   
   // PDF Storage
   pdfUrl         String?
@@ -171,11 +187,14 @@ model Invoice {
   emailHistory EmailHistory[]
   creditNotes CreditNote[]
   debitNotes  DebitNote[]
+  recurringInvoice RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id])
+  advanceAdjustments AdvanceAdjustment[]
 
   @@index([userId])
   @@index([clientId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([recurringInvoiceId])
 }
 
 model InvoiceItem {
@@ -242,6 +261,7 @@ model LUT {
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoices Invoice[]
+  recurringInvoices RecurringInvoice[]
 
   @@index([userId])
   @@index([isActive])
@@ -313,28 +333,81 @@ model GSTReturn {
   userId        String
   returnType    String    // 'GSTR1' | 'GSTR3B' | 'GSTR2A' | 'GSTR9'
   period        String    // 'MM-YYYY' for monthly, 'FY-YYYY' for annual
+  financialYear String    // 'FY24-25'
+  month         Int?      // 1-12 for monthly returns
+  quarter       String?   // 'Q1', 'Q2', 'Q3', 'Q4' for quarterly
+  
+  // Filing Status
   filingStatus  String    @default("DRAFT") // 'DRAFT' | 'READY' | 'FILED' | 'AMENDED'
   filingDate    DateTime?
   arn           String?   // Acknowledgment Reference Number
+  filingMode    String?   // 'ONLINE' | 'OFFLINE'
   
-  // GSTR-1 Data (stored as JSON for flexibility)
-  b2bInvoices   Json?     // B2B supplies
-  b2cInvoices   Json?     // B2C supplies > 2.5L
-  b2csInvoices  Json?     // B2C supplies < 2.5L (state-wise)
-  exportInvoices Json?    // Zero-rated supplies
+  // GSTR-1 Data (Outward Supplies)
+  b2bInvoices   Json?     // B2B supplies (business to business)
+  b2cLargeInvoices Json?  // B2C supplies > 2.5L  
+  b2cSmallInvoices Json?  // B2C supplies < 2.5L (state-wise)
+  exportInvoices Json?    // Zero-rated supplies under LUT
   creditNotes   Json?     // Credit notes issued
   debitNotes    Json?     // Debit notes issued
-  hsnSummary    Json?     // HSN-wise summary
+  nilRated      Json?     // Nil, exempted, non-GST supplies
+  advances      Json?     // Advance receipts
+  adjustments   Json?     // Adjustments to advances
+  hsnSummary    Json?     // HSN-wise summary (mandatory if turnover > 5cr)
+  docSummary    Json?     // Document issued summary
   
-  // GSTR-3B Data
-  outputTax     Decimal?  // Total output tax
-  inputTaxClaim Decimal?  // Total ITC claimed
-  netTaxPayable Decimal?  // Net tax liability
-  lateFee       Decimal?  // Late fee if any
-  interest      Decimal?  // Interest if any
+  // GSTR-3B Data (Summary Return)
+  outwardTaxable   Decimal? // 3.1(a) - Outward taxable supplies
+  outwardZeroRated Decimal? // 3.1(b) - Zero rated supplies
+  outwardExempted  Decimal? // 3.1(c) - Exempted supplies
+  inwardReverseCharge Decimal? // 3.1(d) - Inward supplies liable to reverse charge
+  outwardNonGst    Decimal? // 3.1(e) - Non-GST supplies
   
-  // Complete JSON output for GST portal
-  jsonOutput    Json      // GST portal format JSON
+  // ITC Data (Table 4)
+  itcImportGoods   Decimal? // 4(A)(1) - Import of goods
+  itcImportServices Decimal? // 4(A)(2) - Import of services
+  itcInwardSupplies Decimal? // 4(A)(3) - Inward supplies from ISD
+  itcInwardISD     Decimal? // 4(A)(4) - Inward supplies from ISD
+  itcOther         Decimal? // 4(A)(5) - All other ITC
+  itcReversed      Decimal? // 4(B) - ITC reversed
+  itcNet           Decimal? // 4(C) - Net ITC available
+  itcIneligible    Decimal? // 4(D) - Ineligible ITC
+  
+  // Tax Liability (Table 6)
+  cgstLiability    Decimal? // Central GST
+  sgstLiability    Decimal? // State GST
+  igstLiability    Decimal? // Integrated GST
+  cessLiability    Decimal? // Cess
+  totalTaxLiability Decimal? // Total tax liability
+  
+  // Tax Payment
+  cgstPaid         Decimal?
+  sgstPaid         Decimal?
+  igstPaid         Decimal?
+  cessPaid         Decimal?
+  totalTaxPaid     Decimal?
+  
+  // Interest & Late Fee
+  interest         Decimal?
+  lateFee          Decimal?
+  penalty          Decimal?
+  
+  // JSON Output for GST Portal
+  jsonOutput    Json?      // Complete JSON in GST portal format
+  validationErrors Json?    // Validation errors if any
+  
+  // Reconciliation
+  matchedInvoices  Int?     // Count of matched invoices with GSTR-2A
+  mismatchedInvoices Int?   // Count of mismatched invoices
+  pendingInvoices  Int?     // Count of pending invoices
+  
+  // Audit Trail
+  preparedBy       String?
+  preparedAt       DateTime?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  approvedBy       String?
+  approvedAt       DateTime?
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -346,6 +419,7 @@ model GSTReturn {
   @@index([returnType])
   @@index([period])
   @@index([filingStatus])
+  @@index([financialYear])
 }
 
 model Vendor {
@@ -354,20 +428,31 @@ model Vendor {
   name          String
   gstin         String?  // GSTIN for registered vendors
   pan           String?  // PAN for unregistered vendors
+  vendorType    String   @default("COMPANY") // 'INDIVIDUAL' | 'COMPANY' | 'HUF' | 'FIRM' | 'TRUST'
   address       String
   stateCode     String   // State code for place of supply
   email         String?
   phone         String?
   isRegistered  Boolean  @default(true) // GST registered or not
   isActive      Boolean  @default(true)
+  
+  // TDS Settings
+  tdsApplicable Boolean  @default(true) // Whether TDS should be deducted
+  lowerTDSRate  Decimal? // Lower TDS rate if certificate provided
+  lowerTDSCertificateNo String? // Certificate number for lower TDS
+  lowerTDSValidTill DateTime? // Validity of lower TDS certificate
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   purchases PurchaseInvoice[]
+  tdsDeductions TDSDeduction[]
+  tdsCertificates TDSCertificate[]
   
   @@index([userId])
   @@index([gstin])
+  @@index([pan])
 }
 
 model PurchaseInvoice {
@@ -389,6 +474,13 @@ model PurchaseInvoice {
   cessAmount      Decimal  @default(0)
   totalGSTAmount  Decimal  @default(0)
   totalAmount     Decimal
+  
+  // TDS Details
+  tdsApplicable   Boolean  @default(false)
+  tdsSection      String?  // TDS section code (e.g., '194C', '194J')
+  tdsRate         Decimal  @default(0)
+  tdsAmount       Decimal  @default(0)
+  netPayableAmount Decimal? // Total amount - TDS amount
   
   // ITC Details
   itcEligible     Boolean  @default(true)
@@ -413,6 +505,7 @@ model PurchaseInvoice {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   vendor Vendor @relation(fields: [vendorId], references: [id])
   lineItems PurchaseLineItem[]
+  tdsDeductions TDSDeduction[]
   
   @@unique([userId, vendorId, invoiceNumber])
   @@index([userId])
@@ -597,4 +690,551 @@ model ITCRegister {
   @@index([userId])
   @@index([period])
   @@index([financialYear])
+}
+
+// Recurring Invoice & Subscription Models
+
+model RecurringInvoice {
+  id              String   @id @default(cuid())
+  userId          String
+  templateName    String
+  clientId        String
+  
+  // Schedule Configuration
+  frequency       String    // 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
+  interval        Int       // Every N periods
+  dayOfWeek       Int?      // For weekly (0-6)
+  dayOfMonth      Int?      // For monthly (1-31)
+  monthOfYear     Int?      // For yearly (1-12)
+  
+  // Period
+  startDate       DateTime
+  endDate         DateTime?
+  nextRunDate     DateTime
+  occurrences     Int?      // Total number of invoices to generate
+  generatedCount  Int       @default(0)
+  
+  // Invoice Template
+  invoiceType     String    // 'EXPORT' | 'DOMESTIC_B2B' | 'DOMESTIC_B2C'
+  currency        String
+  paymentTerms    Int       // Days
+  serviceCode     String    // Default HSN/SAC code
+  placeOfSupply   String    @default("Outside India (Section 2-6)")
+  lutId           String?   // Reference to LUT (for exports)
+  
+  // Status
+  status          String    @default("ACTIVE") // 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
+  pausedAt        DateTime?
+  
+  // Notifications
+  sendAutomatically Boolean @default(false)
+  ccEmails        String[]
+  emailTemplate   String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client          Client    @relation(fields: [clientId], references: [id])
+  lut             LUT?      @relation(fields: [lutId], references: [id])
+  lineItems       RecurringLineItem[]
+  generatedInvoices Invoice[]
+  subscriptions   Subscription[]
+  
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+  @@index([nextRunDate])
+}
+
+model RecurringLineItem {
+  id                String   @id @default(cuid())
+  recurringInvoiceId String
+  description       String
+  hsnCode           String
+  quantity          Decimal
+  rate              Decimal
+  
+  // For usage-based billing
+  isVariable        Boolean  @default(false)
+  minimumQuantity   Decimal?
+  maximumQuantity   Decimal?
+  
+  recurringInvoice  RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([recurringInvoiceId])
+}
+
+model Subscription {
+  id                 String   @id @default(cuid())
+  userId             String
+  clientId           String
+  planName           String
+  
+  // Billing
+  billingCycle       String    // 'MONTHLY' | 'QUARTERLY' | 'YEARLY'
+  amount             Decimal
+  currency           String
+  
+  // Period
+  startDate          DateTime
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelledAt        DateTime?
+  
+  // Trial
+  trialStart         DateTime?
+  trialEnd           DateTime?
+  
+  // Status
+  status             String    @default("ACTIVE") // 'TRIALING' | 'ACTIVE' | 'CANCELLED' | 'PAST_DUE'
+  
+  // Prorated billing
+  prorateChanges     Boolean   @default(true)
+  
+  // Associated recurring invoice
+  recurringInvoiceId String?
+  
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client             Client    @relation(fields: [clientId], references: [id])
+  recurringInvoice   RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id])
+  
+  @@index([userId])
+  @@index([clientId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+}
+
+// Advance Payments & Receipts Management
+model AdvanceReceipt {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receiptNumber     String    // Format: ADV-FY24-25/001
+  receiptDate       DateTime
+  clientId          String
+  client            Client    @relation(fields: [clientId], references: [id])
+  
+  // Amount Details
+  currency          String
+  amount            Decimal
+  exchangeRate      Decimal
+  amountINR         Decimal
+  
+  // Payment Details
+  paymentMode       String    // 'WIRE' | 'CHEQUE' | 'UPI' | 'CASH'
+  bankReference     String?
+  bankName          String?
+  chequeNumber      String?
+  chequeDate        DateTime?
+  
+  // GST on Advance (rarely applicable for exports)
+  isGSTApplicable   Boolean   @default(false)
+  gstRate           Decimal?
+  cgstAmount        Decimal?
+  sgstAmount        Decimal?
+  igstAmount        Decimal?
+  
+  // Adjustment Details
+  adjustedAmount    Decimal   @default(0)
+  unadjustedAmount  Decimal
+  status            String    // 'RECEIVED' | 'PARTIALLY_ADJUSTED' | 'FULLY_ADJUSTED' | 'REFUNDED'
+  
+  // Links
+  adjustments       AdvanceAdjustment[]
+  refunds           AdvanceRefund[]
+  
+  // Documents
+  receiptPDF        String?
+  acknowledgment    String?
+  
+  // Metadata
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([userId, receiptNumber])
+  @@index([clientId])
+  @@index([status])
+}
+
+model AdvanceAdjustment {
+  id                String    @id @default(cuid())
+  advanceReceiptId  String
+  advanceReceipt    AdvanceReceipt @relation(fields: [advanceReceiptId], references: [id], onDelete: Cascade)
+  invoiceId         String
+  invoice           Invoice   @relation(fields: [invoiceId], references: [id])
+  
+  adjustmentDate    DateTime
+  adjustedAmount    Decimal
+  
+  // GST Adjustment (if advance had GST)
+  gstAdjusted       Decimal?
+  
+  remarks           String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([advanceReceiptId])
+  @@index([invoiceId])
+}
+
+model AdvanceRefund {
+  id                String    @id @default(cuid())
+  advanceReceiptId  String
+  advanceReceipt    AdvanceReceipt @relation(fields: [advanceReceiptId], references: [id], onDelete: Cascade)
+  refundNumber      String
+  refundDate        DateTime
+  refundAmount      Decimal
+  
+  // Refund Details
+  refundMode        String
+  bankReference     String?
+  
+  // GST on Refund
+  gstRefunded       Decimal?
+  
+  reason            String
+  approvedBy        String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@unique([refundNumber])
+  @@index([advanceReceiptId])
+}
+
+// GST Return Management Models
+
+model GSTReconciliation {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Period
+  period           String    // 'MM-YYYY'
+  reconciliationType String  // 'GSTR1_GSTR3B' | 'GSTR2A_PURCHASES' | 'GSTR2B_ITC'
+  
+  // Status
+  status           String    @default("PENDING") // 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
+  startedAt        DateTime?
+  completedAt      DateTime?
+  
+  // Summary
+  totalRecords     Int       @default(0)
+  matchedRecords   Int       @default(0)
+  mismatchedRecords Int      @default(0)
+  missingInPortal  Int       @default(0)
+  missingInSystem  Int       @default(0)
+  
+  // Mismatch Details
+  mismatchDetails  Json?     // Detailed mismatch information
+  
+  // Actions Taken
+  actionsRequired  Json?     // List of required actions
+  actionsTaken     Json?     // List of completed actions
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  @@unique([userId, period, reconciliationType])
+  @@index([userId])
+  @@index([period])
+  @@index([status])
+}
+
+// TDS/TCS Management Models
+
+model TDSConfiguration {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  tanNumber         String    // 10-character TAN (Tax Deduction Account Number)
+  deductorName      String    // Name of the deductor (business name)
+  deductorPAN       String    // PAN of the deductor
+  deductorType      String    // 'COMPANY' | 'INDIVIDUAL' | 'HUF' | 'FIRM' | 'TRUST'
+  responsiblePerson String    // Person responsible for TDS
+  designation       String    // Designation of responsible person
+  address           String    // Deductor address
+  city              String
+  stateCode         String
+  pincode           String
+  email             String
+  phone             String
+  
+  // Settings
+  isActive          Boolean   @default(true)
+  autoDeduct        Boolean   @default(true) // Automatically calculate TDS
+  emailCertificates Boolean   @default(true) // Email Form 16A to vendors
+  
+  // Audit Trail
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([tanNumber])
+}
+
+model TDSSection {
+  id                String    @id @default(cuid())
+  sectionCode       String    @unique // '194C', '194J', '194H', etc.
+  description       String    // 'Contracts', 'Professional Services', etc.
+  
+  // Rates (in percentage)
+  individualRate    Decimal   // Rate for individuals
+  companyRate       Decimal   // Rate for companies
+  hufRate           Decimal?  // Rate for HUF (if different)
+  
+  // Threshold
+  thresholdLimit    Decimal   // Annual threshold amount
+  singleLimit       Decimal?  // Single transaction limit (if applicable)
+  
+  // Applicability
+  applicableFor     String[]  // ['GOODS', 'SERVICES', 'BOTH']
+  natureOfPayment   String[]  // Types of payments covered
+  
+  // Additional Info
+  surchargeRate     Decimal   @default(0) // Surcharge rate if applicable
+  eduCessRate       Decimal   @default(4) // Education cess (usually 4%)
+  
+  isActive          Boolean   @default(true)
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  deductions        TDSDeduction[]
+  
+  @@index([sectionCode])
+  @@index([isActive])
+}
+
+model TDSDeduction {
+  id                String    @id @default(cuid())
+  userId            String
+  
+  // Link to Purchase Invoice or Payment
+  purchaseInvoiceId String?
+  paymentId         String?
+  vendorId          String
+  
+  // TDS Details
+  sectionId         String    // Reference to TDSSection
+  section           TDSSection @relation(fields: [sectionId], references: [id])
+  
+  // Financial Details
+  taxableAmount     Decimal   // Amount on which TDS is calculated
+  tdsRate           Decimal   // Actual rate applied (considering vendor type)
+  tdsAmount         Decimal   // TDS amount
+  surcharge         Decimal   @default(0)
+  eduCess           Decimal   @default(0)
+  totalTDS          Decimal   // Total TDS including surcharge and cess
+  
+  // Vendor Details (captured at time of deduction)
+  vendorName        String
+  vendorPAN         String
+  vendorType        String    // 'INDIVIDUAL' | 'COMPANY' | 'HUF' | 'FIRM' | 'TRUST'
+  
+  // Deduction Date
+  deductionDate     DateTime
+  financialYear     String    // 'FY24-25'
+  quarter           String    // 'Q1', 'Q2', 'Q3', 'Q4'
+  
+  // Payment Status
+  depositStatus     String    @default("PENDING") // 'PENDING' | 'DEPOSITED' | 'LATE'
+  depositDueDate    DateTime  // Due date for deposit (7th of next month typically)
+  
+  // Certificate Details
+  certificateId     String?
+  certificateIssued Boolean   @default(false)
+  
+  // Payment Details
+  tdsPaymentId      String?   // Link to TDS payment
+  
+  // Notes
+  notes             String?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor            Vendor    @relation(fields: [vendorId], references: [id])
+  purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+  certificate       TDSCertificate? @relation(fields: [certificateId], references: [id])
+  tdsPayment        TDSPayment? @relation(fields: [tdsPaymentId], references: [id])
+  
+  @@index([userId])
+  @@index([vendorId])
+  @@index([purchaseInvoiceId])
+  @@index([financialYear, quarter])
+  @@index([depositStatus])
+  @@index([deductionDate])
+}
+
+model TDSPayment {
+  id                String    @id @default(cuid())
+  userId            String
+  
+  // Challan Details
+  challanNumber     String    @unique // BSR Code + Date + Serial
+  challanDate       DateTime
+  bsrCode           String    // Bank BSR code (7 digits)
+  bankName          String
+  
+  // Period
+  financialYear     String    // 'FY24-25'
+  quarter           String    // 'Q1', 'Q2', 'Q3', 'Q4'
+  assessmentYear    String    // 'AY25-26'
+  
+  // Tax Types
+  section           String    // TDS section or 'MULTIPLE' for combined payment
+  
+  // Amounts
+  tdsAmount         Decimal   // Basic TDS
+  surcharge         Decimal   @default(0)
+  eduCess           Decimal   @default(0)
+  interest          Decimal   @default(0) // Interest for late payment
+  penalty           Decimal   @default(0) // Penalty if any
+  totalAmount       Decimal   // Total amount paid
+  
+  // Deductions Covered
+  deductionIds      String[]  // IDs of TDSDeduction records covered
+  deductionCount    Int       // Number of deductions covered
+  
+  // Payment Mode
+  paymentMode       String    // 'ONLINE' | 'OFFLINE' | 'NEFT' | 'RTGS'
+  paymentReference  String?
+  
+  // Status
+  status            String    @default("PAID") // 'PAID' | 'REVERSED' | 'CANCELLED'
+  acknowledgmentNo  String?   // CIN number from bank
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deductions        TDSDeduction[]
+  
+  @@index([userId])
+  @@index([financialYear, quarter])
+  @@index([challanNumber])
+  @@index([challanDate])
+}
+
+model TDSCertificate {
+  id                String    @id @default(cuid())
+  userId            String
+  
+  // Certificate Details
+  certificateNumber String    @unique // Unique certificate number
+  form              String    // '16A' for non-salary TDS
+  
+  // Period
+  financialYear     String    // 'FY24-25'
+  quarter           String    // 'Q1', 'Q2', 'Q3', 'Q4'
+  
+  // Vendor Details
+  vendorId          String
+  vendorName        String
+  vendorPAN         String
+  vendorAddress     String
+  
+  // Summary
+  totalTDS          Decimal   // Total TDS for the period
+  totalPaid         Decimal   // Total amount paid to vendor
+  
+  // Deductions
+  deductions        TDSDeduction[]
+  deductionDetails  Json      // Detailed breakdown of deductions
+  
+  // Generation
+  generatedDate     DateTime
+  issuedDate        DateTime?
+  
+  // Documents
+  pdfUrl            String?
+  pdfGeneratedAt    DateTime?
+  
+  // Email Status
+  emailSent         Boolean   @default(false)
+  emailSentAt       DateTime?
+  emailTo           String?
+  
+  // Status
+  status            String    @default("DRAFT") // 'DRAFT' | 'ISSUED' | 'CANCELLED' | 'REVISED'
+  revisedFrom       String?   // Previous certificate number if revised
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor            Vendor    @relation(fields: [vendorId], references: [id])
+  
+  @@index([userId])
+  @@index([vendorId])
+  @@index([financialYear, quarter])
+  @@index([certificateNumber])
+}
+
+model TDSReturn {
+  id                String    @id @default(cuid())
+  userId            String
+  
+  // Return Details
+  returnType        String    // '24Q' (non-salary), '26Q' (other than salary), '27Q' (non-resident)
+  financialYear     String    // 'FY24-25'
+  quarter           String    // 'Q1', 'Q2', 'Q3', 'Q4'
+  formType          String    // 'ORIGINAL' | 'REVISED'
+  
+  // TAN Details
+  tanNumber         String
+  assessmentYear    String    // 'AY25-26'
+  
+  // Summary
+  totalDeductions   Int       // Number of deduction records
+  totalTDS          Decimal   // Total TDS amount
+  totalDeposited    Decimal   // Total amount deposited
+  totalCertificates Int       // Number of certificates issued
+  
+  // Deduction Details by Section
+  sectionWiseSummary Json     // Summary by TDS section
+  
+  // Challan Details
+  challanCount      Int       // Number of challans
+  challanDetails    Json      // Challan information
+  
+  // Filing Details
+  filingStatus      String    @default("DRAFT") // 'DRAFT' | 'READY' | 'FILED' | 'ACCEPTED' | 'REJECTED'
+  filingDate        DateTime?
+  acknowledgmentNo  String?   // Receipt number from TRACES
+  tokenNumber       String?   // Token number for filing
+  
+  // Validation
+  validationErrors  Json?     // List of validation errors
+  validationStatus  String?   // 'PASSED' | 'FAILED' | 'WARNINGS'
+  
+  // Documents
+  returnFileUrl     String?   // FVU file or return file
+  formFileUrl       String?   // Form 27A (summary)
+  
+  // Audit Trail
+  preparedBy        String?
+  preparedAt        DateTime?
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, returnType, financialYear, quarter])
+  @@index([userId])
+  @@index([returnType])
+  @@index([financialYear, quarter])
+  @@index([filingStatus])
 }

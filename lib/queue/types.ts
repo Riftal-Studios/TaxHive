@@ -1,168 +1,162 @@
-import { z } from 'zod'
+import { Job } from 'bullmq'
 
-// Job Types
-export const JobTypeEnum = z.enum([
-  'PDF_GENERATION',
-  'EMAIL_NOTIFICATION',
-  'EXCHANGE_RATE_FETCH',
-  'PAYMENT_REMINDER',
-])
-
-export type JobType = z.infer<typeof JobTypeEnum>
-
-// Job Status
-export const JobStatusEnum = z.enum([
-  'pending',
-  'active',
-  'completed',
-  'failed',
-  'delayed',
-])
-
-export type JobStatus = z.infer<typeof JobStatusEnum>
-
-// Job Progress
-export interface JobProgress {
-  current: number
-  total: number
-  percentage: number
+// PDF Generation Job Types
+export interface PDFGenerationJobData {
+  type: 'invoice' | 'credit-note' | 'debit-note' | 'receipt'
+  entityId: string // Invoice ID, Credit Note ID, etc.
+  userId: string
+  options?: {
+    sendEmail?: boolean
+    saveToS3?: boolean
+  }
 }
 
-// Job Error
-export interface JobError {
-  message: string
-  stack?: string
-  code?: string
+export interface PDFGenerationJobResult {
+  pdfUrl: string
+  pdfPath?: string
+  s3Key?: string
+  generatedAt: Date
 }
 
-// Base Job Interface
-export interface Job<T = unknown> {
+// Email Notification Job Types
+export interface EmailNotificationJobData {
+  type: 'invoice-created' | 'payment-reminder' | 'payment-received' | 'credit-note' | 'debit-note' | 'welcome' | 'gst-return-reminder'
+  to: string | string[]
+  subject?: string // Override default subject
+  data: Record<string, any> // Template-specific data
+  attachments?: Array<{
+    filename: string
+    path?: string
+    content?: Buffer | string
+    contentType?: string
+  }>
+  userId: string
+}
+
+export interface EmailNotificationJobResult {
+  messageId: string
+  accepted: string[]
+  rejected: string[]
+  sentAt: Date
+}
+
+// Exchange Rate Job Types
+export interface ExchangeRateJobData {
+  source: 'RBI' | 'EXCHANGE_RATE_API' | 'CURRENCY_API' | 'FIXER'
+  date?: string // YYYY-MM-DD format, defaults to today
+  currencies?: string[] // Specific currencies to fetch, defaults to all
+}
+
+export interface ExchangeRateJobResult {
+  source: string
+  date: string
+  rates: Record<string, number>
+  baseCurrency: string
+  fetchedAt: Date
+}
+
+// Invoice Processing Job Types
+export interface InvoiceProcessingJobData {
+  invoiceId: string
+  userId: string
+  tasks: Array<'generate-pdf' | 'send-email' | 'update-gst-return' | 'sync-accounting'>
+}
+
+export interface InvoiceProcessingJobResult {
+  invoiceId: string
+  completedTasks: string[]
+  failedTasks: string[]
+  results: Record<string, any>
+}
+
+// GST Return Job Types
+export interface GSTReturnJobData {
+  userId: string
+  period: string // YYYY-MM format
+  type: 'GSTR1' | 'GSTR3B' | 'GSTR2A'
+  action: 'generate' | 'file' | 'download'
+  data?: Record<string, any>
+}
+
+export interface GSTReturnJobResult {
+  returnId: string
+  status: 'generated' | 'filed' | 'downloaded'
+  fileUrl?: string
+  arn?: string // Acknowledgment Reference Number
+  generatedAt: Date
+}
+
+// Generic Job Types
+export type JobData =
+  | PDFGenerationJobData
+  | EmailNotificationJobData
+  | ExchangeRateJobData
+  | InvoiceProcessingJobData
+  | GSTReturnJobData
+
+export type JobResult =
+  | PDFGenerationJobResult
+  | EmailNotificationJobResult
+  | ExchangeRateJobResult
+  | InvoiceProcessingJobResult
+  | GSTReturnJobResult
+
+// Job Status Types
+export interface JobStatus {
   id: string
-  type: JobType
-  data: T
-  status: JobStatus
-  attempts: number
-  maxAttempts: number
-  priority?: number
-  progress?: JobProgress
-  error?: JobError
-  result?: unknown
+  name: string
+  queue: string
+  status: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed' | 'paused'
+  progress: number
+  data: JobData
+  result?: JobResult
+  error?: string
   createdAt: Date
-  updatedAt: Date
   processedAt?: Date
   completedAt?: Date
   failedAt?: Date
 }
 
-// Job Options
-export interface JobOptions {
-  delay?: number // Delay in milliseconds
-  priority?: number // Job priority (1-10, 1 being highest)
-  attempts?: number // Max retry attempts
-  backoff?: {
-    type: 'fixed' | 'exponential'
-    delay: number
-  }
-  removeOnComplete?: boolean | number // Remove job after completion
-  removeOnFail?: boolean | number // Remove job after failure
-}
-
-// Queue Stats
-export interface QueueStats {
-  pending: number
+// Queue Metrics
+export interface QueueMetrics {
+  name: string
+  waiting: number
   active: number
   completed: number
   failed: number
   delayed: number
-  paused: boolean
+  paused: number
+  avgProcessingTime?: number
+  throughput?: number // jobs per minute
 }
 
-// Job Filter Options
-export interface JobFilterOptions {
-  type?: JobType
-  status?: JobStatus[]
-  limit?: number
-  offset?: number
-  order?: 'asc' | 'desc'
+// Processor function type
+export type JobProcessor<T extends JobData, R extends JobResult> = (
+  job: Job<T>
+) => Promise<R>
+
+// Schedule patterns for recurring jobs
+export interface SchedulePattern {
+  pattern: string // Cron pattern or RRule
+  timezone?: string
+  startDate?: Date
+  endDate?: Date
 }
 
-// Clean Options
-export interface CleanOptions {
-  grace: number // Grace period in milliseconds
-  status: JobStatus
-  limit?: number
-}
-
-// Processor Options
-export interface ProcessorOptions {
-  concurrency?: number
-}
-
-// Job Processor Function
-export type JobProcessor<T = unknown> = (job: Job<T>) => Promise<unknown>
-
-// Queue Service Interface
-export interface QueueService {
-  // Job Management
-  enqueue<T = unknown>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>>
-  process<T = unknown>(type: JobType, processor: JobProcessor<T>, options?: ProcessorOptions): Promise<void>
+// Common schedule patterns
+export const SCHEDULE_PATTERNS = {
+  // RBI rates are published daily at 1:30 PM IST
+  RBI_DAILY: '30 13 * * *', // 1:30 PM IST daily
   
-  // Job Queries
-  getJob(jobId: string): Promise<Job | null>
-  getJobs(options?: JobFilterOptions): Promise<Job[]>
+  // GST Return reminders
+  GSTR1_REMINDER: '0 9 8 * *', // 9 AM on 8th of every month
+  GSTR3B_REMINDER: '0 9 18 * *', // 9 AM on 18th of every month
   
-  // Queue Management
-  getStats(): Promise<QueueStats>
-  pause(): Promise<void>
-  resume(): Promise<void>
-  clean(options: CleanOptions): Promise<void>
-  close(): Promise<void>
-}
-
-// Job Type Specific Data Schemas
-export const PdfGenerationJobSchema = z.object({
-  invoiceId: z.string(),
-  userId: z.string(),
-})
-
-export const EmailNotificationJobSchema = z.object({
-  to: z.string().email(),
-  cc: z.string().email().optional(),
-  bcc: z.string().email().optional(),
-  subject: z.string(),
-  template: z.string(),
-  data: z.record(z.string(), z.any()),
-  userId: z.string().optional(),
-})
-
-export const ExchangeRateFetchJobSchema = z.object({
-  date: z.date(),
-  currencies: z.array(z.string()),
-  source: z.enum(['RBI', 'FALLBACK']).optional(),
-})
-
-export const PaymentReminderJobSchema = z.object({
-  invoiceId: z.string(),
-  clientId: z.string(),
-  userId: z.string(),
-  reminderNumber: z.number(),
-})
-
-// Type helpers
-export type PdfGenerationJobData = z.infer<typeof PdfGenerationJobSchema>
-export type EmailNotificationJobData = z.infer<typeof EmailNotificationJobSchema>
-export type ExchangeRateFetchJobData = z.infer<typeof ExchangeRateFetchJobSchema>
-export type PaymentReminderJobData = z.infer<typeof PaymentReminderJobSchema>
-
-// Job Events
-export interface QueueEvents {
-  'job:created': (job: Job) => void
-  'job:active': (job: Job) => void
-  'job:progress': (job: Job, progress: JobProgress) => void
-  'job:completed': (job: Job, result: unknown) => void
-  'job:failed': (job: Job, error: JobError) => void
-  'job:retrying': (job: Job, attempt: number) => void
-  'queue:paused': () => void
-  'queue:resumed': () => void
-  'queue:error': (error: Error) => void
-}
+  // Payment reminders
+  WEEKLY_PAYMENT_REMINDER: '0 10 * * MON', // 10 AM every Monday
+  MONTHLY_PAYMENT_REMINDER: '0 10 1 * *', // 10 AM on 1st of every month
+  
+  // Backup and maintenance
+  DAILY_BACKUP: '0 2 * * *', // 2 AM daily
+  WEEKLY_CLEANUP: '0 3 * * SUN', // 3 AM every Sunday
+} as const

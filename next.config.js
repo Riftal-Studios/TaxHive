@@ -4,6 +4,7 @@ const nextConfig = {
   output: 'standalone',
   experimental: {
     typedRoutes: false,
+    instrumentationHook: true,
   },
 }
 

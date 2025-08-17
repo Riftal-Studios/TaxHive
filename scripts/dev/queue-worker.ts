@@ -13,6 +13,7 @@ import { BullMQService } from '../../lib/queue/bullmq.service'
 import { pdfGenerationHandler } from '../../lib/queue/handlers/pdf-generation.handler'
 import { emailNotificationHandler } from '../../lib/queue/handlers/email-notification.handler'
 import { exchangeRateFetchHandler } from '../../lib/queue/handlers/exchange-rate-fetch.handler'
+import { recurringInvoiceGenerationHandler } from '../../lib/queue/handlers/recurring-invoice-generation.handler'
 
 // Debug environment loading
 console.log('Environment check:')
@@ -73,6 +74,7 @@ const queueService = new BullMQService({
 queueService.registerHandler('PDF_GENERATION', pdfGenerationHandler)
 queueService.registerHandler('EMAIL_NOTIFICATION', emailNotificationHandler)
 queueService.registerHandler('EXCHANGE_RATE_FETCH', exchangeRateFetchHandler)
+queueService.registerHandler('RECURRING_INVOICE_GENERATION', recurringInvoiceGenerationHandler)
 
 // Start processing jobs
 async function start() {

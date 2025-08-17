@@ -16,6 +16,7 @@ import { advanceReceiptsRouter } from '@/server/api/routers/advance-receipts'
 import { queuesRouter } from '@/server/api/routers/queues'
 import { tdsRouter } from '@/server/api/routers/tds'
 import { einvoiceRouter } from '@/server/api/routers/einvoice'
+import { vendorsRouter } from '@/server/api/routers/vendors'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -35,6 +36,7 @@ export const appRouter = createTRPCRouter({
   queues: queuesRouter,
   tds: tdsRouter,
   einvoice: einvoiceRouter,
+  vendors: vendorsRouter,
 })
 
 export type AppRouter = typeof appRouter

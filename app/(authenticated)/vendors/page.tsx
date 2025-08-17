@@ -103,8 +103,9 @@ export default function VendorsPage() {
   })
   const [formErrors, setFormErrors] = useState<Partial<VendorFormData>>({})
 
-  const { data: vendors, isLoading, refetch } = api.purchaseInvoices.getVendors.useQuery()
-  const createVendorMutation = api.purchaseInvoices.createVendor.useMutation({
+  const { data, isLoading, refetch } = api.vendors.list.useQuery()
+  const vendors = data?.vendors
+  const createVendorMutation = api.vendors.create.useMutation({
     onSuccess: () => {
       refetch()
       setShowAddDialog(false)
@@ -170,13 +171,14 @@ export default function VendorsPage() {
     if (validateForm()) {
       createVendorMutation.mutate({
         name: formData.name,
-        gstin: formData.isRegistered && formData.gstin ? formData.gstin : null,
-        pan: !formData.isRegistered && formData.pan ? formData.pan : null,
+        gstin: formData.isRegistered && formData.gstin ? formData.gstin : undefined,
+        pan: !formData.isRegistered && formData.pan ? formData.pan : undefined,
         address: formData.address,
         stateCode: formData.stateCode,
-        email: formData.email || null,
-        phone: formData.phone || null,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
         isRegistered: formData.isRegistered,
+        vendorType: formData.isRegistered ? 'REGULAR' : 'UNREGISTERED',
       })
     }
   }

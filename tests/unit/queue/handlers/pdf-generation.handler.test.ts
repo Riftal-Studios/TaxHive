@@ -7,6 +7,7 @@ import { db } from '@/lib/prisma'
 
 vi.mock('@/lib/pdf-generator')
 vi.mock('@/lib/pdf-uploader')
+vi.mock('@/lib/pdf-cleanup')
 vi.mock('@/lib/prisma', () => ({
   db: {
     invoice: {
@@ -95,22 +96,32 @@ describe('PDF Generation Handler', () => {
         client: true,
         lineItems: true,
         lut: true,
+        payments: {
+          orderBy: {
+            paymentDate: 'asc'
+          }
+        },
       },
     })
 
     // Verify PDF generation
     expect(pdfGenerator.generateInvoicePDF).toHaveBeenCalledWith(mockInvoice, mockInvoice.user)
 
-    // Verify PDF upload
+    // Verify PDF upload (with timestamp)
     expect(pdfUploader.uploadPDF).toHaveBeenCalledWith(
       mockPdfBuffer,
-      'invoice-123.pdf'
+      expect.stringMatching(/^invoice-123-\d+\.pdf$/)
     )
 
     // Verify invoice update
     expect(db.invoice.update).toHaveBeenCalledWith({
       where: { id: 'invoice-123' },
-      data: { pdfUrl: mockPdfUrl },
+      data: { 
+        pdfUrl: mockPdfUrl,
+        pdfStatus: 'completed',
+        pdfGeneratedAt: expect.any(Date),
+        pdfError: null,
+      },
     })
 
     // Verify result
@@ -125,6 +136,7 @@ describe('PDF Generation Handler', () => {
     vi.mocked(db.invoice.findUniqueOrThrow).mockRejectedValue(
       new Error('Invoice not found')
     )
+    vi.mocked(db.invoice.update).mockResolvedValue({} as any)
 
     await expect(pdfGenerationHandler(mockJob)).rejects.toThrow(
       'Invoice not found'
@@ -132,7 +144,14 @@ describe('PDF Generation Handler', () => {
 
     expect(pdfGenerator.generateInvoicePDF).not.toHaveBeenCalled()
     expect(pdfUploader.uploadPDF).not.toHaveBeenCalled()
-    expect(db.invoice.update).not.toHaveBeenCalled()
+    // Invoice update is called to mark as failed
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'invoice-123' },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: 'Failed after 3 attempts: Invoice not found',
+      },
+    })
   })
 
   it('should handle PDF generation error', async () => {
@@ -140,13 +159,21 @@ describe('PDF Generation Handler', () => {
     vi.mocked(pdfGenerator.generateInvoicePDF).mockRejectedValue(
       new Error('PDF generation failed')
     )
+    vi.mocked(db.invoice.update).mockResolvedValue({} as any)
 
     await expect(pdfGenerationHandler(mockJob)).rejects.toThrow(
       'PDF generation failed'
     )
 
     expect(pdfUploader.uploadPDF).not.toHaveBeenCalled()
-    expect(db.invoice.update).not.toHaveBeenCalled()
+    // Invoice update is called to mark as failed
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'invoice-123' },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: 'Failed after 3 attempts: PDF generation failed',
+      },
+    })
   })
 
   it('should handle PDF upload error', async () => {
@@ -157,10 +184,18 @@ describe('PDF Generation Handler', () => {
     vi.mocked(pdfUploader.uploadPDF).mockRejectedValue(
       new Error('Upload failed')
     )
+    vi.mocked(db.invoice.update).mockResolvedValue({} as any)
 
     await expect(pdfGenerationHandler(mockJob)).rejects.toThrow('Upload failed')
 
-    expect(db.invoice.update).not.toHaveBeenCalled()
+    // Invoice update is called to mark as failed
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'invoice-123' },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: 'Failed after 3 attempts: Upload failed',
+      },
+    })
   })
 
   it('should update job progress during processing', async () => {

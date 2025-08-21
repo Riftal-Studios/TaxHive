@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import {
   Box,
@@ -30,10 +30,8 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   AttachMoney as AttachMoneyIcon,
-  Receipt as ReceiptIcon,
   Download as DownloadIcon,
   Print as PrintIcon,
-  Edit as EditIcon,
   MoreVert as MoreVertIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
@@ -45,13 +43,8 @@ import { enqueueSnackbar } from 'notistack'
 import NextLink from 'next/link'
 import { useState } from 'react'
 
-interface ReceiptDetailPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default function AdvanceReceiptDetailPage({ params }: ReceiptDetailPageProps) {
+export default function AdvanceReceiptDetailPage() {
+  const params = useParams() as { id: string }
   const router = useRouter()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 

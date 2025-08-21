@@ -1,4 +1,102 @@
-import { Job } from 'bullmq'
+import { Job as BullMQJob } from 'bullmq'
+
+// Re-export BullMQ Job as our Job type
+export type Job<T = unknown> = BullMQJob<T>
+
+// Job Type Enum
+export enum JobTypeEnum {
+  PDF_GENERATION = 'pdf-generation',
+  EMAIL_NOTIFICATION = 'email-notification',
+  EXCHANGE_RATE_FETCH = 'exchange-rate-fetch',
+  INVOICE_PROCESSING = 'invoice-processing',
+  GST_RETURN = 'gst-return',
+  PAYMENT_REMINDER = 'payment-reminder'
+}
+
+// Job Type
+export type JobType = 
+  | 'pdf-generation'
+  | 'email-notification'
+  | 'exchange-rate-fetch'
+  | 'invoice-processing'
+  | 'gst-return'
+  | 'payment-reminder'
+
+// Job Options
+export interface JobOptions {
+  delay?: number
+  attempts?: number
+  backoff?: {
+    type: 'exponential' | 'fixed'
+    delay: number
+  }
+  removeOnComplete?: boolean | number
+  removeOnFail?: boolean | number
+  priority?: number
+  repeat?: {
+    cron?: string
+    every?: number
+    tz?: string
+  }
+}
+
+// Job Progress
+export interface JobProgress {
+  percentage: number
+  message?: string
+  data?: unknown
+}
+
+// Job Filter Options
+export interface JobFilterOptions {
+  type?: JobType
+  status?: Array<'pending' | 'active' | 'completed' | 'failed' | 'delayed'>
+  limit?: number
+  offset?: number
+}
+
+// Clean Options
+export interface CleanOptions {
+  status: 'completed' | 'failed' | 'active' | 'delayed'
+  grace: number // milliseconds
+  limit?: number
+}
+
+// Processor Options
+export interface ProcessorOptions {
+  concurrency?: number
+  limiter?: {
+    max: number
+    duration: number
+  }
+}
+
+// Queue Stats
+export interface QueueStats {
+  pending: number
+  active: number
+  completed: number
+  failed: number
+  delayed: number
+  paused: boolean
+}
+
+// Queue Service Interface
+export interface QueueService {
+  enqueue<T = JobData>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>>
+  process<T = JobData>(type: JobType, processor: JobProcessor<T, JobResult>, options?: ProcessorOptions): Promise<void>
+  getJob(jobId: string): Promise<Job | null>
+  getJobs(options?: JobFilterOptions): Promise<Job[]>
+  getStats(): Promise<QueueStats>
+  pause(): Promise<void>
+  resume(): Promise<void>
+  clean(options: CleanOptions): Promise<void>
+  close(): Promise<void>
+  
+  // Alias methods for backward compatibility
+  enqueueJob<T = JobData>(type: JobType, data: T, options?: JobOptions): Promise<Job<T>>
+  registerHandler<T = JobData>(type: JobType, handler: JobProcessor<T, JobResult>, options?: ProcessorOptions): Promise<void>
+}
 
 // PDF Generation Job Types
 export interface PDFGenerationJobData {
@@ -20,9 +118,11 @@ export interface PDFGenerationJobResult {
 
 // Email Notification Job Types
 export interface EmailNotificationJobData {
-  type: 'invoice-created' | 'payment-reminder' | 'payment-received' | 'credit-note' | 'debit-note' | 'welcome' | 'gst-return-reminder'
   to: string | string[]
-  subject?: string // Override default subject
+  cc?: string | string[]
+  bcc?: string | string[]
+  subject: string
+  template: string
   data: Record<string, any> // Template-specific data
   attachments?: Array<{
     filename: string
@@ -30,7 +130,7 @@ export interface EmailNotificationJobData {
     content?: Buffer | string
     contentType?: string
   }>
-  userId: string
+  userId?: string
 }
 
 export interface EmailNotificationJobResult {
@@ -42,9 +142,11 @@ export interface EmailNotificationJobResult {
 
 // Exchange Rate Job Types
 export interface ExchangeRateJobData {
-  source: 'RBI' | 'EXCHANGE_RATE_API' | 'CURRENCY_API' | 'FIXER'
-  date?: string // YYYY-MM-DD format, defaults to today
+  source?: 'RBI' | 'EXCHANGE_RATE_API' | 'CURRENCY_API' | 'FIXER'
+  date?: Date | string // Date object or YYYY-MM-DD format, defaults to today
   currencies?: string[] // Specific currencies to fetch, defaults to all
+  cleanOldRates?: boolean // Whether to clean old exchange rates
+  cleanOlderThan?: number // Days threshold for cleaning old rates
 }
 
 export interface ExchangeRateJobResult {
@@ -160,3 +262,9 @@ export const SCHEDULE_PATTERNS = {
   DAILY_BACKUP: '0 2 * * *', // 2 AM daily
   WEEKLY_CLEANUP: '0 3 * * SUN', // 3 AM every Sunday
 } as const
+
+// Zod Schemas for job validation (placeholder exports - actual schemas would be defined elsewhere)
+export const PdfGenerationJobSchema = {} as any
+export const EmailNotificationJobSchema = {} as any
+export const ExchangeRateFetchJobSchema = {} as any
+export const PaymentReminderJobSchema = {} as any

@@ -6,33 +6,76 @@ import type { Job, JobType, JobProcessor } from '@/lib/queue/types'
 
 // Mock Redis for testing
 vi.mock('ioredis', () => {
-  const Redis = vi.fn()
-  Redis.prototype.connect = vi.fn()
-  Redis.prototype.disconnect = vi.fn()
-  Redis.prototype.duplicate = vi.fn(() => new Redis())
+  const mockRedisInstance = {
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    duplicate: vi.fn()
+  }
+  
+  mockRedisInstance.duplicate.mockReturnValue(mockRedisInstance)
+  
+  const Redis = vi.fn(() => mockRedisInstance)
   return { default: Redis }
 })
 
 // Mock BullMQ
 vi.mock('bullmq', () => {
-  const Queue = vi.fn()
-  Queue.prototype.add = vi.fn()
-  Queue.prototype.getJob = vi.fn()
-  Queue.prototype.getJobs = vi.fn()
-  Queue.prototype.getJobCounts = vi.fn()
-  Queue.prototype.pause = vi.fn()
-  Queue.prototype.resume = vi.fn()
-  Queue.prototype.clean = vi.fn()
-  Queue.prototype.close = vi.fn()
+  const mockQueueInstance = {
+    add: vi.fn(),
+    getJob: vi.fn(),
+    getJobs: vi.fn(),
+    getJobCounts: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    clean: vi.fn(),
+    close: vi.fn()
+  }
 
-  const Worker = vi.fn()
-  Worker.prototype.close = vi.fn()
-  Worker.prototype.on = vi.fn()
+  const Queue = vi.fn(() => mockQueueInstance)
   
-  const QueueEvents = vi.fn()
-  QueueEvents.prototype.close = vi.fn()
+  const mockWorkerInstance = {
+    close: vi.fn(),
+    on: vi.fn()
+  }
+  
+  const Worker = vi.fn(() => mockWorkerInstance)
+  
+  const mockQueueEventsInstance = {
+    close: vi.fn()
+  }
+  
+  const QueueEvents = vi.fn(() => mockQueueEventsInstance)
 
   return { Queue, Worker, QueueEvents }
+})
+
+// Mock JobTypeEnum for testing
+vi.mock('@/lib/queue/types', async () => {
+  const actual = await vi.importActual('@/lib/queue/types')
+  return {
+    ...actual as any,
+    JobTypeEnum: {
+      options: ['PDF_GENERATION', 'EMAIL_NOTIFICATION', 'EXCHANGE_RATE_FETCH', 'PAYMENT_REMINDER'],
+      parse: vi.fn((value) => value)
+    },
+    PdfGenerationJobSchema: {
+      parse: vi.fn((data) => {
+        if (!data.invoiceId || !data.userId) {
+          throw new Error('Invalid PDF generation job data')
+        }
+        return data
+      })
+    },
+    EmailNotificationJobSchema: {
+      parse: vi.fn((data) => data)
+    },
+    ExchangeRateFetchJobSchema: {
+      parse: vi.fn((data) => data)
+    },
+    PaymentReminderJobSchema: {
+      parse: vi.fn((data) => data)
+    }
+  }
 })
 
 describe('BullMQService', () => {
@@ -42,6 +85,7 @@ describe('BullMQService', () => {
   let mockWorker: Worker
 
   beforeEach(() => {
+    vi.clearAllMocks()
     mockRedis = new Redis()
     bullmqService = new BullMQService({
       redis: {
@@ -92,11 +136,13 @@ describe('BullMQService', () => {
         processedOn: mockBullMQJob.processedOn,
         failedReason: mockBullMQJob.failedReason
       }
-      vi.mocked(Queue.prototype.add).mockResolvedValue(mockAddReturn as any)
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.add.mockResolvedValue(mockAddReturn as any)
 
       const job = await bullmqService.enqueue('PDF_GENERATION', jobData)
 
-      expect(Queue.prototype.add).toHaveBeenCalledWith(
+      expect(mockQueueInstance.add).toHaveBeenCalledWith(
         'PDF_GENERATION',
         jobData,
         expect.objectContaining({
@@ -135,7 +181,9 @@ describe('BullMQService', () => {
         },
       }
 
-      vi.mocked(Queue.prototype.add).mockResolvedValue({ 
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.add.mockResolvedValue({ 
         id: 'job-1', 
         name: 'EMAIL_NOTIFICATION',
         data: jobData,
@@ -146,7 +194,7 @@ describe('BullMQService', () => {
 
       await bullmqService.enqueue('EMAIL_NOTIFICATION', jobData, options)
 
-      expect(Queue.prototype.add).toHaveBeenCalledWith(
+      expect(mockQueueInstance.add).toHaveBeenCalledWith(
         'EMAIL_NOTIFICATION',
         jobData,
         expect.objectContaining({
@@ -232,11 +280,13 @@ describe('BullMQService', () => {
         returnvalue: { pdfUrl: 'https://example.com/invoice.pdf' },
       }
 
-      vi.mocked(Queue.prototype.getJob).mockResolvedValue(mockBullMQJob as any)
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.getJob.mockResolvedValue(mockBullMQJob as any)
 
       const job = await bullmqService.getJob('job-1')
 
-      expect(Queue.prototype.getJob).toHaveBeenCalledWith('job-1')
+      expect(mockQueueInstance.getJob).toHaveBeenCalledWith('job-1')
       expect(job).toMatchObject({
         id: 'job-1',
         type: 'PDF_GENERATION',
@@ -248,7 +298,9 @@ describe('BullMQService', () => {
     })
 
     it('should return null for non-existent job', async () => {
-      vi.mocked(Queue.prototype.getJob).mockResolvedValue(null)
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.getJob.mockResolvedValue(null)
 
       const job = await bullmqService.getJob('non-existent')
 
@@ -278,7 +330,9 @@ describe('BullMQService', () => {
         },
       ]
 
-      vi.mocked(Queue.prototype.getJobs).mockResolvedValue(mockJobs as any)
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.getJobs.mockResolvedValue(mockJobs as any)
 
       const jobs = await bullmqService.getJobs({
         type: 'PDF_GENERATION',
@@ -286,7 +340,7 @@ describe('BullMQService', () => {
         limit: 10,
       })
 
-      expect(Queue.prototype.getJobs).toHaveBeenCalledWith(
+      expect(mockQueueInstance.getJobs).toHaveBeenCalledWith(
         ['wait', 'completed'],
         0,
         9
@@ -306,11 +360,13 @@ describe('BullMQService', () => {
         paused: 0,
       }
 
-      vi.mocked(Queue.prototype.getJobCounts).mockResolvedValue(mockCounts as any)
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.getJobCounts.mockResolvedValue(mockCounts as any)
 
       const stats = await bullmqService.getStats()
 
-      expect(Queue.prototype.getJobCounts).toHaveBeenCalled()
+      expect(mockQueueInstance.getJobCounts).toHaveBeenCalled()
       // The service creates 4 queues, so stats are multiplied by 4
       expect(stats).toEqual({
         pending: 40,  // 10 * 4 queues
@@ -325,13 +381,19 @@ describe('BullMQService', () => {
 
   describe('queue control', () => {
     it('should pause the queue', async () => {
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      
       await bullmqService.pause()
-      expect(Queue.prototype.pause).toHaveBeenCalled()
+      expect(mockQueueInstance.pause).toHaveBeenCalled()
     })
 
     it('should resume the queue', async () => {
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      
       await bullmqService.resume()
-      expect(Queue.prototype.resume).toHaveBeenCalled()
+      expect(mockQueueInstance.resume).toHaveBeenCalled()
     })
 
     it('should clean old jobs', async () => {
@@ -341,7 +403,9 @@ describe('BullMQService', () => {
         limit: 100,
       })
 
-      expect(Queue.prototype.clean).toHaveBeenCalledWith(
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      expect(mockQueueInstance.clean).toHaveBeenCalledWith(
         3600000,
         100,
         'completed'
@@ -357,15 +421,22 @@ describe('BullMQService', () => {
       
       await bullmqService.close()
       
-      expect(Queue.prototype.close).toHaveBeenCalled()
-      expect(Worker.prototype.close).toHaveBeenCalled()
+      const mockQueue = vi.mocked(Queue)
+      const mockWorker = vi.mocked(Worker)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      const mockWorkerInstance = mockWorker.mock.results[0]?.value
+      
+      expect(mockQueueInstance.close).toHaveBeenCalled()
+      expect(mockWorkerInstance.close).toHaveBeenCalled()
     })
   })
 
   describe('error handling', () => {
     it('should handle Redis connection errors', async () => {
       const connectionError = new Error('Redis connection failed')
-      vi.mocked(Queue.prototype.add).mockRejectedValue(connectionError)
+      const mockQueue = vi.mocked(Queue)
+      const mockQueueInstance = mockQueue.mock.results[0]?.value
+      mockQueueInstance.add.mockRejectedValue(connectionError)
 
       await expect(
         bullmqService.enqueue('PDF_GENERATION', { invoiceId: '123', userId: 'user-1' })

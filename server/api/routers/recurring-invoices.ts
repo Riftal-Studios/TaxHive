@@ -13,8 +13,12 @@ import {
   isAfter,
   isBefore,
   startOfDay,
-  endOfDay
+  endOfDay,
+  getDay,
+  isWeekend,
+  formatInTimeZone
 } from "date-fns"
+import { fromZonedTime, toZonedTime } from "date-fns-tz"
 import { Prisma } from "@prisma/client"
 
 // Input validation schemas
@@ -52,6 +56,16 @@ const createRecurringInvoiceSchema = z.object({
   placeOfSupply: z.string().optional(),
   lutId: z.string().optional(),
   
+  // Template Management
+  customFields: z.record(z.any()).optional(),
+  
+  // Advanced Scheduling
+  skipWeekends: z.boolean().default(false),
+  skipHolidays: z.boolean().default(false),
+  holidayCalendar: z.array(z.date()).optional(),
+  timezone: z.string().default('Asia/Kolkata'),
+  scheduleTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(), // HH:mm format
+  
   // Notifications
   sendAutomatically: z.boolean().default(false),
   ccEmails: z.array(z.string().email()).optional(),
@@ -73,51 +87,120 @@ const subscriptionSchema = z.object({
   prorateChanges: z.boolean().default(true),
 })
 
-// Helper function to calculate next run date
+// Utility function to check if a date is a weekend
+function isDateWeekend(date: Date): boolean {
+  return isWeekend(date)
+}
+
+// Utility function to check if a date is in the holiday calendar
+function isDateHoliday(date: Date, holidayCalendar?: Date[]): boolean {
+  if (!holidayCalendar || holidayCalendar.length === 0) return false
+  
+  const dateString = date.toISOString().split('T')[0]
+  return holidayCalendar.some(holiday => {
+    const holidayString = holiday.toISOString().split('T')[0]
+    return holidayString === dateString
+  })
+}
+
+// Utility function to adjust date to skip weekends and holidays
+function adjustDateForSkipping(
+  date: Date, 
+  skipWeekends: boolean = false, 
+  skipHolidays: boolean = false, 
+  holidayCalendar?: Date[]
+): Date {
+  let adjustedDate = new Date(date)
+  
+  // Keep adjusting until we find a valid date
+  while (
+    (skipWeekends && isDateWeekend(adjustedDate)) ||
+    (skipHolidays && isDateHoliday(adjustedDate, holidayCalendar))
+  ) {
+    adjustedDate = addDays(adjustedDate, 1)
+  }
+  
+  return adjustedDate
+}
+
+// Utility function to convert time between timezones
+function convertToTimezone(date: Date, timezone: string): Date {
+  return toZonedTime(date, timezone)
+}
+
+// Utility function to apply schedule time to a date
+function applyScheduleTime(date: Date, scheduleTime?: string, timezone: string = 'Asia/Kolkata'): Date {
+  if (!scheduleTime) return date
+  
+  const [hours, minutes] = scheduleTime.split(':').map(Number)
+  const dateWithTime = new Date(date)
+  dateWithTime.setHours(hours, minutes, 0, 0)
+  
+  // Convert to UTC for storage
+  return fromZonedTime(dateWithTime, timezone)
+}
+
+// Helper function to calculate next run date with advanced scheduling
 function calculateNextRunDate(
   frequency: string,
   interval: number,
   currentDate: Date,
   dayOfWeek?: number | null,
   dayOfMonth?: number | null,
-  monthOfYear?: number | null
+  monthOfYear?: number | null,
+  skipWeekends: boolean = false,
+  skipHolidays: boolean = false,
+  holidayCalendar?: Date[],
+  timezone: string = 'Asia/Kolkata',
+  scheduleTime?: string
 ): Date {
   const date = startOfDay(currentDate)
+  let nextDate: Date
   
   switch (frequency) {
     case 'DAILY':
-      return addDays(date, interval)
+      nextDate = addDays(date, interval)
+      break
       
     case 'WEEKLY':
-      let nextWeekly = addWeeks(date, interval)
+      nextDate = addWeeks(date, interval)
       if (dayOfWeek !== null && dayOfWeek !== undefined) {
-        nextWeekly = setDay(nextWeekly, dayOfWeek)
+        nextDate = setDay(nextDate, dayOfWeek)
       }
-      return nextWeekly
+      break
       
     case 'MONTHLY':
-      let nextMonthly = addMonths(date, interval)
+      nextDate = addMonths(date, interval)
       if (dayOfMonth !== null && dayOfMonth !== undefined) {
         // Handle edge case where dayOfMonth doesn't exist in the month
-        const lastDayOfMonth = new Date(nextMonthly.getFullYear(), nextMonthly.getMonth() + 1, 0).getDate()
+        const lastDayOfMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate()
         const effectiveDay = Math.min(dayOfMonth, lastDayOfMonth)
-        nextMonthly = setDate(nextMonthly, effectiveDay)
+        nextDate = setDate(nextDate, effectiveDay)
       }
-      return nextMonthly
+      break
       
     case 'QUARTERLY':
-      return addQuarters(date, interval)
+      nextDate = addQuarters(date, interval)
+      break
       
     case 'YEARLY':
-      let nextYearly = addYears(date, interval)
+      nextDate = addYears(date, interval)
       if (monthOfYear !== null && monthOfYear !== undefined) {
-        nextYearly = setMonth(nextYearly, monthOfYear - 1) // JS months are 0-indexed
+        nextDate = setMonth(nextDate, monthOfYear - 1) // JS months are 0-indexed
       }
-      return nextYearly
+      break
       
     default:
       throw new Error(`Invalid frequency: ${frequency}`)
   }
+  
+  // Apply weekend and holiday skipping
+  nextDate = adjustDateForSkipping(nextDate, skipWeekends, skipHolidays, holidayCalendar)
+  
+  // Apply schedule time and timezone
+  nextDate = applyScheduleTime(nextDate, scheduleTime, timezone)
+  
+  return nextDate
 }
 
 // Helper function to calculate proration
@@ -150,14 +233,19 @@ export const recurringInvoicesRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id
       
-      // Calculate the first run date
+      // Calculate the first run date with advanced scheduling
       const nextRunDate = calculateNextRunDate(
         input.frequency,
         input.interval,
         input.startDate,
         input.dayOfWeek,
         input.dayOfMonth,
-        input.monthOfYear
+        input.monthOfYear,
+        input.skipWeekends,
+        input.skipHolidays,
+        input.holidayCalendar,
+        input.timezone,
+        input.scheduleTime
       )
       
       // Verify client belongs to user
@@ -196,6 +284,12 @@ export const recurringInvoicesRouter = createTRPCRouter({
           serviceCode: input.serviceCode,
           placeOfSupply: input.placeOfSupply || (input.invoiceType === 'EXPORT' ? 'Outside India (Section 2-6)' : undefined),
           lutId: input.lutId,
+          customFields: input.customFields,
+          skipWeekends: input.skipWeekends,
+          skipHolidays: input.skipHolidays,
+          holidayCalendar: input.holidayCalendar,
+          timezone: input.timezone,
+          scheduleTime: input.scheduleTime,
           sendAutomatically: input.sendAutomatically,
           ccEmails: input.ccEmails || [],
           emailTemplate: input.emailTemplate,
@@ -215,6 +309,36 @@ export const recurringInvoicesRouter = createTRPCRouter({
           lineItems: true,
           client: true,
         },
+      })
+      
+      // Create initial version (1.0.0) for the template
+      const initialVersion = await ctx.db.templateVersion.create({
+        data: {
+          templateId: recurringInvoice.id,
+          version: '1.0.0',
+          changes: {
+            type: 'initial_creation',
+            templateData: {
+              templateName: input.templateName,
+              frequency: input.frequency,
+              interval: input.interval,
+              invoiceType: input.invoiceType,
+              currency: input.currency,
+              paymentTerms: input.paymentTerms,
+              serviceCode: input.serviceCode,
+              customFields: input.customFields,
+              lineItems: input.lineItems
+            }
+          },
+          effectiveDate: new Date(),
+          createdBy: userId
+        }
+      })
+      
+      // Update the template to reference this initial version as current
+      await ctx.db.recurringInvoice.update({
+        where: { id: recurringInvoice.id },
+        data: { currentVersionId: initialVersion.id }
       })
       
       return recurringInvoice
@@ -314,6 +438,11 @@ export const recurringInvoicesRouter = createTRPCRouter({
       monthOfYear: z.number().int().min(1).max(12).optional().nullable(),
       endDate: z.date().optional().nullable(),
       occurrences: z.number().int().positive().optional().nullable(),
+      skipWeekends: z.boolean().optional(),
+      skipHolidays: z.boolean().optional(),
+      holidayCalendar: z.array(z.date()).optional(),
+      timezone: z.string().optional(),
+      scheduleTime: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session.user.id
@@ -342,7 +471,12 @@ export const recurringInvoicesRouter = createTRPCRouter({
         new Date(),
         input.dayOfWeek !== undefined ? input.dayOfWeek : existing.dayOfWeek,
         input.dayOfMonth !== undefined ? input.dayOfMonth : existing.dayOfMonth,
-        input.monthOfYear !== undefined ? input.monthOfYear : existing.monthOfYear
+        input.monthOfYear !== undefined ? input.monthOfYear : existing.monthOfYear,
+        input.skipWeekends !== undefined ? input.skipWeekends : existing.skipWeekends,
+        input.skipHolidays !== undefined ? input.skipHolidays : existing.skipHolidays,
+        input.holidayCalendar || (existing.holidayCalendar as Date[] | undefined),
+        input.timezone || existing.timezone,
+        input.scheduleTime !== undefined ? input.scheduleTime : (existing.scheduleTime || undefined)
       )
       
       const updated = await ctx.db.recurringInvoice.update({
@@ -355,6 +489,11 @@ export const recurringInvoicesRouter = createTRPCRouter({
           monthOfYear: input.monthOfYear,
           endDate: input.endDate,
           occurrences: input.occurrences,
+          skipWeekends: input.skipWeekends,
+          skipHolidays: input.skipHolidays,
+          holidayCalendar: input.holidayCalendar,
+          timezone: input.timezone,
+          scheduleTime: input.scheduleTime,
           nextRunDate,
         },
       })
@@ -413,7 +552,12 @@ export const recurringInvoicesRouter = createTRPCRouter({
         new Date(),
         existing.dayOfWeek,
         existing.dayOfMonth,
-        existing.monthOfYear
+        existing.monthOfYear,
+        existing.skipWeekends,
+        existing.skipHolidays,
+        existing.holidayCalendar as Date[] | undefined,
+        existing.timezone,
+        existing.scheduleTime || undefined
       )
       
       const updated = await ctx.db.recurringInvoice.update({
@@ -499,7 +643,12 @@ export const recurringInvoicesRouter = createTRPCRouter({
           currentDate,
           recurringInvoice.dayOfWeek,
           recurringInvoice.dayOfMonth,
-          recurringInvoice.monthOfYear
+          recurringInvoice.monthOfYear,
+          recurringInvoice.skipWeekends,
+          recurringInvoice.skipHolidays,
+          recurringInvoice.holidayCalendar as Date[] | undefined,
+          recurringInvoice.timezone,
+          recurringInvoice.scheduleTime || undefined
         )
         
         // Check if we've exceeded end date or occurrences
@@ -636,7 +785,12 @@ export const recurringInvoicesRouter = createTRPCRouter({
         recurringInvoice.nextRunDate,
         recurringInvoice.dayOfWeek,
         recurringInvoice.dayOfMonth,
-        recurringInvoice.monthOfYear
+        recurringInvoice.monthOfYear,
+        recurringInvoice.skipWeekends,
+        recurringInvoice.skipHolidays,
+        recurringInvoice.holidayCalendar as Date[] | undefined,
+        recurringInvoice.timezone,
+        recurringInvoice.scheduleTime || undefined
       )
       
       await ctx.db.recurringInvoice.update({

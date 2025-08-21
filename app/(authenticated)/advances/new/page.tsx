@@ -7,7 +7,6 @@ import { AdvanceReceiptForm } from '@/components/advances/advance-receipt-form'
 import {
   Box,
   Typography,
-  Paper,
   Alert,
   Button,
   CircularProgress,
@@ -27,7 +26,7 @@ export default function NewAdvanceReceiptPage() {
   const router = useRouter()
   const utils = api.useUtils()
   const [selectedCurrency, setSelectedCurrency] = useState('USD')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate] = useState(new Date().toISOString().split('T')[0])
   
   // Fetch clients
   const { data: clients, isLoading: clientsLoading, error: clientsError } = api.clients.list.useQuery()
@@ -42,7 +41,7 @@ export default function NewAdvanceReceiptPage() {
   
   // Create advance receipt mutation
   const createAdvanceReceiptMutation = api.advanceReceipts.createAdvanceReceipt.useMutation({
-    onSuccess: (receipt) => {
+    onSuccess: () => {
       utils.advanceReceipts.getAdvanceReceipts.invalidate()
       utils.advanceReceipts.getAdvanceMetrics.invalidate()
       enqueueSnackbar('Advance receipt created successfully', { variant: 'success' })

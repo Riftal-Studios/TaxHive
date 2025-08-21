@@ -1,4 +1,4 @@
-import { db } from '@/server/db'
+import { db } from '@/lib/prisma'
 import { GSP_PROVIDERS, type GSPProvider, TOKEN_EXPIRY_BUFFER_MINUTES } from './constants'
 import { encryptCredentials, decryptCredentials, encryptWithAES256, decryptWithAES256, generateTransactionId } from './crypto'
 import { addMinutes, isBefore } from 'date-fns'

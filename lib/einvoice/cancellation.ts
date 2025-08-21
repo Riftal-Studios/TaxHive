@@ -1,4 +1,4 @@
-import { db } from '@/server/db'
+import { db } from '@/lib/prisma'
 import { getIRPAuthToken } from './auth'
 import { 
   GSP_PROVIDERS, 

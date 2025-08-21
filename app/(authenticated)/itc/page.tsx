@@ -25,36 +25,28 @@ import {
   AlertTitle,
   LinearProgress,
   IconButton,
-  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Snackbar,
   Grid
 } from "@mui/material"
 import { 
-  Assessment,
   CheckCircle,
   Cancel,
   Warning,
-  Info,
   Refresh,
   Download,
   Upload,
   VerifiedUser,
   TrendingUp,
-  TrendingDown,
   AccountBalance,
-  Receipt,
   ErrorOutline,
   FileUpload,
   Visibility
 } from "@mui/icons-material"
 import { 
-  BarChart, 
-  Bar, 
   LineChart, 
   Line, 
   PieChart, 
@@ -67,7 +59,7 @@ import {
   Legend, 
   ResponsiveContainer 
 } from "recharts"
-import { format, subMonths, startOfMonth, endOfMonth } from "date-fns"
+import { format, subMonths } from "date-fns"
 
 // Color palette for charts
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
@@ -313,7 +305,7 @@ export default function ITCReconciliationDashboard() {
       
       {/* Summary Cards */}
       <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -331,7 +323,7 @@ export default function ITCReconciliationDashboard() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -349,7 +341,7 @@ export default function ITCReconciliationDashboard() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -367,7 +359,7 @@ export default function ITCReconciliationDashboard() {
           </Card>
         </Grid>
         
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -608,7 +600,7 @@ export default function ITCReconciliationDashboard() {
                 type="file"
                 hidden
                 accept=".json"
-                onChange={(e) => {
+                onChange={() => {
                   // Handle file upload
                   setSnackbar({
                     open: true,

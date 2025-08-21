@@ -1,8 +1,7 @@
-import { Queue, Worker, QueueEvents, Job } from 'bullmq'
+import { Queue, QueueEvents, Job } from 'bullmq'
 import { createRedisConnection, QUEUE_NAMES, DEFAULT_JOB_OPTIONS, isRedisConfigured } from './config'
 import type { 
   JobData, 
-  JobResult, 
   QueueMetrics,
   PDFGenerationJobData,
   EmailNotificationJobData,
@@ -43,7 +42,7 @@ export function initializeQueues(): Map<string, Queue> {
 
     // Log queue events in development
     if (process.env.NODE_ENV === 'development') {
-      events.on('completed', ({ jobId, returnvalue }) => {
+      events.on('completed', ({ jobId }) => {
         console.log(`[${queueName}] Job ${jobId} completed`)
       })
 

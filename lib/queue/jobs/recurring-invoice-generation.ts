@@ -1,5 +1,5 @@
 import { Job, RecurringInvoiceGenerationJobData } from '../types'
-import { prisma } from '@/lib/db'
+import { prisma } from '../../db'
 import { Prisma } from '@prisma/client'
 import { 
   addDays, 

@@ -1,3 +1,9 @@
+// Export new ITC Eligibility Rules service
+export * from './itc-eligibility-rules'
+
+// Export ITC Register service
+export * from './itc-register'
+
 // ITC Categories
 export const ITC_CATEGORIES = {
   INPUTS: 'INPUTS',

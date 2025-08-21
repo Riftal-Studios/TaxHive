@@ -26,7 +26,8 @@ export async function createTestUser(overrides = {}) {
   })
 }
 
-export async function createTestClient(userId: string, overrides = {}) {
+export async function createTestClient(params: { userId: string; [key: string]: any }) {
+  const { userId, ...overrides } = params
   return prisma.client.create({
     data: {
       userId,
@@ -73,6 +74,9 @@ export async function cleanupDatabase() {
   await prisma.payment.deleteMany()
   await prisma.invoiceItem.deleteMany()
   await prisma.invoice.deleteMany()
+  await prisma.recurringLineItem.deleteMany()
+  await prisma.recurringInvoice.deleteMany()
+  await prisma.subscription.deleteMany()
   await prisma.client.deleteMany()
   await prisma.lUT.deleteMany()
   await prisma.session.deleteMany()
@@ -81,3 +85,5 @@ export async function cleanupDatabase() {
   await prisma.user.deleteMany()
   await prisma.exchangeRate.deleteMany()
 }
+
+export const cleanupTestData = cleanupDatabase

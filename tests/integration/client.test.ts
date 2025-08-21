@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { appRouter } from '@/server/api/root'
-import { createTRPCContext } from '@/server/api/trpc'
-import { createTestUser, cleanupDatabase } from '../utils/test-helpers'
+import { createTestUser, createTestContext, cleanupDatabase } from '../utils/test-helpers'
 import type { Session } from 'next-auth'
 
 describe('Client Router', () => {
@@ -23,14 +22,8 @@ describe('Client Router', () => {
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     }
     
-    ctx = await createTRPCContext({
-      req: {
-        headers: new Headers(),
-      } as any,
-    })
-    
-    // Override session in context
-    ctx.session = session
+    // Use test context creator to avoid Next.js API issues
+    ctx = createTestContext(session)
     
     // Create caller with context
     caller = appRouter.createCaller(ctx)

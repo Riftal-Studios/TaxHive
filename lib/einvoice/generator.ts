@@ -1,4 +1,4 @@
-import { db } from '@/server/db'
+import { db } from '@/lib/prisma'
 import { getIRPAuthToken } from './auth'
 import { 
   GSP_PROVIDERS, 
@@ -10,7 +10,6 @@ import {
 import { 
   encryptWithAES256, 
   decryptWithAES256, 
-  generateIRNHash,
   generateTransactionId 
 } from './crypto'
 import { 

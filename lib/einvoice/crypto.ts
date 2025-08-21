@@ -159,7 +159,7 @@ export function validateGSTINChecksum(gstin: string): boolean {
   const mod = chars.length
   
   for (let i = gstin.length - 2; i >= 0; i--) {
-    let digit = chars.indexOf(gstin[i].toUpperCase())
+    const digit = chars.indexOf(gstin[i].toUpperCase())
     if (digit === -1) return false
     
     const addend = factor * digit

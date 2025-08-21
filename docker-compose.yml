@@ -4,8 +4,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: gsthive-redis
-    ports:
-      - "6379:6379"
+    # No external ports exposed - only accessible within Docker network
+    # ports:
+    #   - "6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes --aof-use-rdb-preamble yes
@@ -15,8 +16,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - gsthive-network
 
-  # Optional: Redis Commander for development
+  # Optional: Redis Commander for development (still accessible via port 8081)
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: gsthive-redis-commander
@@ -27,7 +30,13 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+    networks:
+      - gsthive-network
 
 volumes:
   redis-data:
     driver: local
+
+networks:
+  gsthive-network:
+    driver: bridge

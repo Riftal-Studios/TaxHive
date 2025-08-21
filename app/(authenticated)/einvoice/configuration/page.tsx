@@ -29,7 +29,6 @@ import {
   Visibility,
   VisibilityOff,
   CheckCircle as CheckIcon,
-  Error as ErrorIcon,
 } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -109,7 +108,6 @@ export default function EInvoiceConfigurationPage() {
   })
 
   const selectedProvider = watch('gspProvider')
-  const environment = watch('environment')
   const ewayBillEnabled = watch('ewayBillEnabled')
 
   useEffect(() => {
@@ -205,7 +203,7 @@ export default function EInvoiceConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="gspProvider"
                   control={control}
@@ -224,7 +222,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="environment"
                   control={control}
@@ -239,7 +237,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="gstin"
                   control={control}
@@ -257,7 +255,7 @@ export default function EInvoiceConfigurationPage() {
                 />
               </Grid>
               {selectedProvider === 'CUSTOM' && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Controller
                     name="gspUrl"
                     control={control}
@@ -282,7 +280,7 @@ export default function EInvoiceConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="username"
                   control={control}
@@ -297,7 +295,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="password"
                   control={control}
@@ -325,7 +323,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="clientId"
                   control={control}
@@ -339,7 +337,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="clientSecret"
                   control={control}
@@ -376,7 +374,7 @@ export default function EInvoiceConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="autoGenerate"
                   control={control}
@@ -393,7 +391,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="includeQRCode"
                   control={control}
@@ -410,7 +408,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="autoCancel"
                   control={control}
@@ -427,7 +425,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="bulkGeneration"
                   control={control}
@@ -444,7 +442,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="cancelWithin"
                   control={control}
@@ -471,7 +469,7 @@ export default function EInvoiceConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="ewayBillEnabled"
                   control={control}
@@ -488,7 +486,7 @@ export default function EInvoiceConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="ewayBillThreshold"
                   control={control}
@@ -506,7 +504,7 @@ export default function EInvoiceConfigurationPage() {
               </Grid>
               {ewayBillEnabled && (
                 <>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="transportMode"
                       control={control}
@@ -524,7 +522,7 @@ export default function EInvoiceConfigurationPage() {
                       )}
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid size={{ xs: 12, md: 6 }}>
                     <Controller
                       name="transporterId"
                       control={control}

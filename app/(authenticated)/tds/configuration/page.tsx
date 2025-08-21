@@ -160,7 +160,7 @@ export default function TDSConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="tanNumber"
                   control={control}
@@ -177,7 +177,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="deductorPAN"
                   control={control}
@@ -194,7 +194,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="deductorType"
                   control={control}
@@ -212,7 +212,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="deductorName"
                   control={control}
@@ -227,7 +227,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="responsiblePerson"
                   control={control}
@@ -242,7 +242,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="designation"
                   control={control}
@@ -267,7 +267,7 @@ export default function TDSConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Controller
                   name="address"
                   control={control}
@@ -284,7 +284,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="city"
                   control={control}
@@ -299,7 +299,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="stateCode"
                   control={control}
@@ -318,7 +318,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Controller
                   name="pincode"
                   control={control}
@@ -334,7 +334,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="email"
                   control={control}
@@ -350,7 +350,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="phone"
                   control={control}
@@ -375,7 +375,7 @@ export default function TDSConfigurationPage() {
             <Divider sx={{ mb: 3 }} />
             
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="autoDeduct"
                   control={control}
@@ -392,7 +392,7 @@ export default function TDSConfigurationPage() {
                   )}
                 />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Controller
                   name="emailCertificates"
                   control={control}

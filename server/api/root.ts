@@ -17,6 +17,9 @@ import { queuesRouter } from '@/server/api/routers/queues'
 import { tdsRouter } from '@/server/api/routers/tds'
 import { einvoiceRouter } from '@/server/api/routers/einvoice'
 import { vendorsRouter } from '@/server/api/routers/vendors'
+import { usageTrackingRouter } from '@/server/api/routers/usage-tracking'
+import { templateAnalyticsRouter } from '@/server/api/routers/template-analytics'
+import { templateVersioningRouter } from '@/server/api/routers/template-versioning'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -37,6 +40,9 @@ export const appRouter = createTRPCRouter({
   tds: tdsRouter,
   einvoice: einvoiceRouter,
   vendors: vendorsRouter,
+  usageTracking: usageTrackingRouter,
+  templateAnalytics: templateAnalyticsRouter,
+  templateVersioning: templateVersioningRouter,
 })
 
 export type AppRouter = typeof appRouter

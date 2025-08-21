@@ -43,7 +43,6 @@ import {
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
   Warning as WarningIcon,
-  Download as DownloadIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { format, differenceInHours } from 'date-fns'

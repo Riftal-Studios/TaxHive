@@ -344,7 +344,7 @@ export default function NewPurchaseInvoicePage() {
           <form onSubmit={handleSubmit(onSubmit)}>
             <Grid container spacing={3}>
               {/* Vendor Information */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Paper sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <BusinessIcon sx={{ mr: 1 }} />
@@ -352,7 +352,7 @@ export default function NewPurchaseInvoicePage() {
                   </Box>
                   
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Controller
                         name="vendorId"
                         control={control}
@@ -384,7 +384,7 @@ export default function NewPurchaseInvoicePage() {
                     </Grid>
                     
                     {selectedVendor && (
-                      <Grid item xs={12} md={6}>
+                      <Grid size={{ xs: 12, md: 6 }}>
                         <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
                           <Typography variant="body2" gutterBottom>
                             <strong>State Code:</strong> {selectedVendor.stateCode}
@@ -403,7 +403,7 @@ export default function NewPurchaseInvoicePage() {
               </Grid>
 
               {/* Invoice Details */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Paper sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <ReceiptIcon sx={{ mr: 1 }} />
@@ -411,7 +411,7 @@ export default function NewPurchaseInvoicePage() {
                   </Box>
                   
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <Controller
                         name="invoiceNumber"
                         control={control}
@@ -427,7 +427,7 @@ export default function NewPurchaseInvoicePage() {
                       />
                     </Grid>
                     
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <Controller
                         name="invoiceDate"
                         control={control}
@@ -448,7 +448,7 @@ export default function NewPurchaseInvoicePage() {
                       />
                     </Grid>
                     
-                    <Grid item xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                       <Controller
                         name="description"
                         control={control}
@@ -466,7 +466,7 @@ export default function NewPurchaseInvoicePage() {
               </Grid>
 
               {/* Line Items */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Paper sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6">Line Items</Typography>
@@ -650,14 +650,14 @@ export default function NewPurchaseInvoicePage() {
               </Grid>
 
               {/* ITC Configuration */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Paper sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom>
                     Input Tax Credit (ITC) Configuration
                   </Typography>
                   
                   <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Controller
                         name="itcCategory"
                         control={control}
@@ -684,7 +684,7 @@ export default function NewPurchaseInvoicePage() {
                       </Box>
                     </Grid>
                     
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                       <Controller
                         name="itcEligible"
                         control={control}
@@ -740,7 +740,7 @@ export default function NewPurchaseInvoicePage() {
               </Grid>
 
               {/* Notes */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Paper sx={{ p: 3 }}>
                   <Controller
                     name="notes"
@@ -759,7 +759,7 @@ export default function NewPurchaseInvoicePage() {
               </Grid>
 
               {/* Actions */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
                   <Button
                     variant="outlined"

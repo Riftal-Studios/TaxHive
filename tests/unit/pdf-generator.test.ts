@@ -52,6 +52,8 @@ describe('PDF Invoice Generator', () => {
     country: 'USA',
     phone: '+1-555-0123',
     taxId: 'US-TAX-123',
+    gstin: null,
+    stateCode: null,
     isActive: true,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -81,21 +83,30 @@ describe('PDF Invoice Generator', () => {
     invoiceDate: new Date('2024-04-15'),
     dueDate: new Date('2024-05-15'),
     status: 'draft',
+    invoiceType: 'EXPORT',
     placeOfSupply: 'Outside India (Section 2-6)',
     serviceCode: '99831000',
     lutId: 'lut-1',
     igstRate: new Decimal(0),
+    cgstRate: new Decimal(0),
+    sgstRate: new Decimal(0),
     currency: 'USD',
     exchangeRate: new Decimal(83.5),
     exchangeSource: 'RBI Reference Rate',
     subtotal: new Decimal(5000),
     igstAmount: new Decimal(0),
+    cgstAmount: new Decimal(0),
+    sgstAmount: new Decimal(0),
+    totalGSTAmount: new Decimal(0),
     totalAmount: new Decimal(5000),
     totalInINR: new Decimal(417500), // 5000 * 83.5
     description: 'Development services for April 2024',
     paymentTerms: 'Net 30 days',
     bankDetails: 'Account: 1234567890, IFSC: SBIN0001234',
     pdfUrl: null,
+    pdfStatus: null,
+    pdfGeneratedAt: null,
+    pdfError: null,
     notes: 'Thank you for your business',
     paymentStatus: 'UNPAID',
     amountPaid: new Decimal(0),
@@ -111,6 +122,11 @@ describe('PDF Invoice Generator', () => {
         quantity: new Decimal(1),
         rate: new Decimal(3000),
         amount: new Decimal(3000),
+        uqc: null,
+        gstRate: new Decimal(0),
+        cgstAmount: new Decimal(0),
+        sgstAmount: new Decimal(0),
+        igstAmount: new Decimal(0),
       },
       {
         id: 'item-2',
@@ -120,6 +136,11 @@ describe('PDF Invoice Generator', () => {
         quantity: new Decimal(40),
         rate: new Decimal(50),
         amount: new Decimal(2000),
+        uqc: null,
+        gstRate: new Decimal(0),
+        cgstAmount: new Decimal(0),
+        sgstAmount: new Decimal(0),
+        igstAmount: new Decimal(0),
       },
     ],
     client: mockClient,
@@ -161,7 +182,7 @@ describe('PDF Invoice Generator', () => {
     expect(htmlContent).toContain('Outside India (Section 2-6)')
     
     // Check for 0% IGST declaration
-    expect(htmlContent).toContain('IGST @ 0%')
+    expect(htmlContent).toContain('IGST @ 0% (Export)')
     
     // Check for LUT declaration
     expect(htmlContent).toContain('SUPPLY MEANT FOR EXPORT UNDER LUT NO LUT/2024/001')
@@ -197,10 +218,13 @@ describe('PDF Invoice Generator', () => {
   it('should handle invoice without LUT', async () => {
     const invoiceWithoutLUT = {
       ...mockInvoice,
+      invoiceType: 'DOMESTIC_B2B', // Change to domestic for GST to apply
+      placeOfSupply: '29', // Karnataka (different from user's state for IGST)
       lutId: null,
       lut: null,
       igstRate: new Decimal(18),
       igstAmount: new Decimal(900),
+      totalGSTAmount: new Decimal(900),
       totalAmount: new Decimal(5900),
     }
 

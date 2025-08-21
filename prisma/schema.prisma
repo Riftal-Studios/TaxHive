@@ -49,6 +49,17 @@ model User {
   eInvoiceConfig EInvoiceConfig?
   eInvoices EInvoice[]
   ewayBills EWayBill[]
+  clientPortalAccesses ClientPortalAccess[]
+  
+  // RCM Relations
+  rcmTransactions RCMTransaction[]
+  foreignSuppliers ForeignSupplier[]
+  
+  // Approval Workflow Relations
+  approvalRoles ApprovalRole[]
+  approvalRules ApprovalRule[]
+  approvalWorkflows ApprovalWorkflow[]
+  approvalDelegations ApprovalDelegation[] @relation("DelegatedToUser")
 }
 
 model Account {
@@ -107,6 +118,9 @@ model Client {
   recurringInvoices RecurringInvoice[]
   subscriptions Subscription[]
   advanceReceipts AdvanceReceipt[]
+  portalAccess ClientPortalAccess?
+  paymentSubmissions ClientPaymentSubmission[]
+  portalNotifications ClientPortalNotification[]
 
   @@index([userId])
 }
@@ -193,6 +207,11 @@ model Invoice {
   recurringInvoice RecurringInvoice? @relation(fields: [recurringInvoiceId], references: [id])
   advanceAdjustments AdvanceAdjustment[]
   eInvoice    EInvoice?
+  paymentSubmissions ClientPaymentSubmission[]
+  portalNotifications ClientPortalNotification[]
+  
+  // Approval Workflow Relations
+  approvalWorkflow ApprovalWorkflow?
 
   @@index([userId])
   @@index([clientId])
@@ -247,6 +266,7 @@ model Payment {
   createdAt     DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  clientSubmissions ClientPaymentSubmission[]
 
   @@index([invoiceId])
   @@index([fircNumber])
@@ -453,6 +473,7 @@ model Vendor {
   purchases PurchaseInvoice[]
   tdsDeductions TDSDeduction[]
   tdsCertificates TDSCertificate[]
+  rcmTransactions RCMTransaction[]
   
   @@index([userId])
   @@index([gstin])
@@ -498,6 +519,9 @@ model PurchaseInvoice {
   matchStatus     String   @default("NOT_AVAILABLE") // 'MATCHED' | 'MISMATCHED' | 'NOT_AVAILABLE'
   gstr2bReference String?  // Reference from GSTR-2B if matched
   
+  // RCM Details
+  rcmApplicable   Boolean  @default(false)
+  
   // Additional Info
   description     String?
   notes           String?
@@ -510,6 +534,7 @@ model PurchaseInvoice {
   vendor Vendor @relation(fields: [vendorId], references: [id])
   lineItems PurchaseLineItem[]
   tdsDeductions TDSDeduction[]
+  rcmTransactions RCMTransaction[]
   
   @@unique([userId, vendorId, invoiceNumber])
   @@index([userId])
@@ -726,6 +751,17 @@ model RecurringInvoice {
   placeOfSupply   String    @default("Outside India (Section 2-6)")
   lutId           String?   // Reference to LUT (for exports)
   
+  // Template Management
+  customFields    Json?     // Project metadata and custom properties
+  currentVersionId String?  // Current version ID for the template
+  
+  // Advanced Scheduling
+  skipWeekends    Boolean   @default(false) // Skip weekends for invoice generation
+  skipHolidays    Boolean   @default(false) // Skip holidays for invoice generation
+  holidayCalendar Json?     // Array of holiday dates
+  timezone        String    @default("Asia/Kolkata") // Timezone for scheduling
+  scheduleTime    String?   // Time in HH:mm format for invoice generation
+  
   // Status
   status          String    @default("ACTIVE") // 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED'
   pausedAt        DateTime?
@@ -744,6 +780,9 @@ model RecurringInvoice {
   lineItems       RecurringLineItem[]
   generatedInvoices Invoice[]
   subscriptions   Subscription[]
+  analytics       TemplateAnalytics[]
+  versions        TemplateVersion[]
+  currentVersion  TemplateVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   
   @@index([userId])
   @@index([clientId])
@@ -765,8 +804,24 @@ model RecurringLineItem {
   maximumQuantity   Decimal?
   
   recurringInvoice  RecurringInvoice @relation(fields: [recurringInvoiceId], references: [id], onDelete: Cascade)
+  usageTracking     UsageTracking[]
   
   @@index([recurringInvoiceId])
+}
+
+model UsageTracking {
+  id          String   @id @default(cuid())
+  lineItemId  String
+  period      DateTime
+  quantity    Decimal
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  lineItem    RecurringLineItem @relation(fields: [lineItemId], references: [id], onDelete: Cascade)
+  
+  @@index([lineItemId])
+  @@index([period])
 }
 
 model Subscription {
@@ -1465,4 +1520,656 @@ model EWayBill {
   @@index([status])
   @@index([validUntil])
   @@index([docNo])
+}
+
+// Template Analytics Models
+
+model TemplateAnalytics {
+  id          String   @id @default(cuid())
+  templateId  String   // Reference to RecurringInvoice
+  metric      String   // e.g., 'revenue', 'conversion_rate', 'churn_rate'
+  value       Decimal
+  period      String   // e.g., 'daily', 'weekly', 'monthly'
+  timestamp   DateTime
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  template    RecurringInvoice @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([metric])
+  @@index([period])
+  @@index([timestamp])
+}
+
+// Template Version Management Models
+
+model TemplateVersion {
+  id                String   @id @default(cuid())
+  templateId        String   // Reference to RecurringInvoice
+  version           String   // Version number (e.g., '1.0.0', '1.1.0')
+  changes           Json     // What changed in this version
+  effectiveDate     DateTime // When this version becomes effective
+  createdBy         String   // User who created this version
+  previousVersionId String?  // Link to previous version for history chain
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  template          RecurringInvoice @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  previousVersion   TemplateVersion? @relation("VersionHistory", fields: [previousVersionId], references: [id])
+  nextVersions      TemplateVersion[] @relation("VersionHistory")
+  currentVersionOf  RecurringInvoice[] @relation("CurrentVersion")
+  
+  @@index([templateId])
+  @@index([version])
+  @@index([effectiveDate])
+  @@index([createdBy])
+  @@index([previousVersionId])
+}
+
+// Client Portal Models
+
+model ClientPortalAccess {
+  id              String    @id @default(cuid())
+  clientId        String    @unique
+  userId          String    // Business owner who granted access
+  
+  // Magic Link Authentication
+  isEnabled       Boolean   @default(false)
+  email           String    // Client's email for portal access
+  
+  // Access Permissions
+  canViewInvoices Boolean   @default(true)
+  canRecordPayments Boolean @default(true)
+  canDownloadDocuments Boolean @default(true)
+  canViewPaymentHistory Boolean @default(true)
+  
+  // Security Settings
+  sessionTimeout  Int       @default(30) // minutes
+  requireMFA      Boolean   @default(false)
+  allowedIPs      String[]  // IP whitelist (optional)
+  
+  // Usage Tracking
+  lastLoginAt     DateTime?
+  loginCount      Int       @default(0)
+  isActive        Boolean   @default(true)
+  
+  // Audit Trail
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions        ClientPortalSession[]
+  loginTokens     ClientPortalLoginToken[]
+  activityLogs    ClientPortalActivity[]
+  
+  @@index([clientId])
+  @@index([userId])
+  @@index([email])
+  @@index([isActive])
+}
+
+model ClientPortalSession {
+  id              String    @id @default(cuid())
+  portalAccessId  String
+  sessionToken    String    @unique
+  
+  // Session Details
+  ipAddress       String?
+  userAgent       String?
+  location        String?   // Derived from IP
+  
+  // Session Lifecycle
+  expiresAt       DateTime
+  lastActivity    DateTime  @default(now())
+  isActive        Boolean   @default(true)
+  
+  // Security
+  csrfToken       String?
+  fingerprintHash String?   // Browser fingerprint
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  portalAccess    ClientPortalAccess @relation(fields: [portalAccessId], references: [id], onDelete: Cascade)
+  
+  @@index([portalAccessId])
+  @@index([sessionToken])
+  @@index([expiresAt])
+  @@index([isActive])
+}
+
+model ClientPortalLoginToken {
+  id              String    @id @default(cuid())
+  portalAccessId  String
+  token           String    @unique
+  
+  // Magic Link Details
+  email           String
+  purpose         String    @default("LOGIN") // 'LOGIN' | 'PASSWORD_RESET'
+  
+  // Token Lifecycle
+  expiresAt       DateTime  // Typically 15 minutes
+  usedAt          DateTime?
+  isUsed          Boolean   @default(false)
+  
+  // Security
+  ipAddress       String?
+  userAgent       String?
+  attempts        Int       @default(0)
+  maxAttempts     Int       @default(3)
+  
+  createdAt       DateTime  @default(now())
+  
+  portalAccess    ClientPortalAccess @relation(fields: [portalAccessId], references: [id], onDelete: Cascade)
+  
+  @@index([portalAccessId])
+  @@index([token])
+  @@index([email])
+  @@index([expiresAt])
+  @@index([isUsed])
+}
+
+model ClientPortalActivity {
+  id              String    @id @default(cuid())
+  portalAccessId  String
+  
+  // Activity Details
+  action          String    // 'LOGIN', 'LOGOUT', 'VIEW_INVOICE', 'DOWNLOAD_PDF', 'RECORD_PAYMENT'
+  entityType      String?   // 'INVOICE', 'PAYMENT', 'DOCUMENT'
+  entityId        String?   // ID of the entity accessed
+  
+  // Request Details
+  ipAddress       String?
+  userAgent       String?
+  requestPath     String?
+  httpMethod      String?
+  
+  // Response Details
+  statusCode      Int?
+  errorMessage    String?
+  
+  // Metadata
+  metadata        Json?     // Additional context data
+  duration        Int?      // Request duration in ms
+  
+  timestamp       DateTime  @default(now())
+  
+  portalAccess    ClientPortalAccess @relation(fields: [portalAccessId], references: [id], onDelete: Cascade)
+  
+  @@index([portalAccessId])
+  @@index([action])
+  @@index([entityType])
+  @@index([timestamp])
+  @@index([ipAddress])
+}
+
+model ClientPaymentSubmission {
+  id              String    @id @default(cuid())
+  clientId        String
+  invoiceId       String
+  
+  // Payment Details
+  amount          Decimal   // Amount client claims to have paid
+  currency        String
+  paymentDate     DateTime
+  paymentMethod   String    // 'WIRE', 'ACH', 'SWIFT', 'CARD', 'OTHER'
+  
+  // Reference Information
+  transactionRef  String?   // Bank transaction reference
+  bankName        String?
+  accountLastFour String?   // Last 4 digits of account used
+  
+  // Attachments
+  receiptUrls     String[]  // URLs to uploaded payment receipts
+  notes           String?   // Client notes about the payment
+  
+  // Verification Status
+  status          String    @default("SUBMITTED") // 'SUBMITTED', 'VERIFIED', 'REJECTED', 'PROCESSING'
+  verifiedAt      DateTime?
+  verifiedBy      String?   // User ID who verified
+  verifierNotes   String?   // Admin notes about verification
+  
+  // Auto-matching
+  autoMatched     Boolean   @default(false)
+  matchConfidence Decimal?  // 0.0 to 1.0 confidence score
+  
+  // Integration with existing Payment model
+  linkedPaymentId String?   // ID of created Payment record if verified
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  client          Client    @relation(fields: [clientId], references: [id])
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id])
+  linkedPayment   Payment?  @relation(fields: [linkedPaymentId], references: [id])
+  
+  @@index([clientId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paymentDate])
+  @@index([linkedPaymentId])
+}
+
+model ClientPortalNotification {
+  id              String    @id @default(cuid())
+  clientId        String
+  
+  // Notification Details
+  type            String    // 'INVOICE_SENT', 'PAYMENT_RECEIVED', 'INVOICE_OVERDUE', 'PORTAL_ACCESS_GRANTED'
+  title           String
+  message         String
+  
+  // Targeting
+  invoiceId       String?   // Related invoice if applicable
+  
+  // Delivery
+  channels        String[]  // ['EMAIL', 'IN_APP', 'SMS']
+  emailSent       Boolean   @default(false)
+  emailSentAt     DateTime?
+  
+  // Status
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  priority        String    @default("NORMAL") // 'LOW', 'NORMAL', 'HIGH', 'URGENT'
+  
+  // Lifecycle
+  expiresAt       DateTime? // For temporary notifications
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  
+  @@index([clientId])
+  @@index([type])
+  @@index([isRead])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// APPROVAL WORKFLOW MODELS
+// ============================================================================
+
+model ApprovalRole {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String   // 'MANAGER' | 'FINANCE_HEAD' | 'DIRECTOR' | 'CEO'
+  level           Int      // Approval hierarchy level (1 = lowest)
+  isActive        Boolean  @default(true)
+  
+  // Permissions
+  canApprove      Boolean  @default(true)
+  canReject       Boolean  @default(true)
+  canDelegate     Boolean  @default(true)
+  canModify       Boolean  @default(false)
+  
+  // Limits
+  maxApprovalAmount Decimal? // Maximum amount they can approve
+  currency        String   @default("INR")
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflows       ApprovalWorkflow[]
+  delegations     ApprovalDelegation[] @relation("FromRole")
+  actions         ApprovalAction[]
+  
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([level])
+  @@index([isActive])
+}
+
+model ApprovalRule {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  
+  // Conditions
+  minAmount       Decimal?
+  maxAmount       Decimal?
+  currency        String   @default("INR")
+  invoiceType     String?  // 'EXPORT' | 'DOMESTIC_B2B' | 'DOMESTIC_B2C'
+  clientCategory  String?  // Client risk category
+  
+  // Required Approvals
+  requiredApprovals Int    @default(1)
+  parallelApproval Boolean @default(false)
+  
+  // Roles
+  approverRoles   String[] // Array of role names
+  
+  // Settings
+  isActive        Boolean  @default(true)
+  priority        Int      @default(0) // Higher priority rules checked first
+  
+  // Timeouts
+  approvalTimeout Int?     // Hours before escalation
+  escalateToRole  String?  // Role to escalate to
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflows       ApprovalWorkflow[]
+  
+  @@index([userId])
+  @@index([priority])
+  @@index([isActive])
+  @@index([minAmount])
+  @@index([maxAmount])
+}
+
+model ApprovalWorkflow {
+  id              String   @id @default(cuid())
+  userId          String
+  invoiceId       String   @unique
+  ruleId          String
+  roleId          String?  // Current approver role
+  
+  // Workflow Status
+  status          String   @default("PENDING") // 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED'
+  currentLevel    Int      @default(1)
+  requiredLevel   Int      // Final level needed for approval
+  
+  // Metadata
+  initiatedBy     String   // User ID who submitted for approval
+  initiatedAt     DateTime @default(now())
+  completedAt     DateTime?
+  
+  // Timeouts
+  dueDate         DateTime? // When approval is due
+  escalatedAt     DateTime?
+  escalatedTo     String?   // Role escalated to
+  
+  // Final Decision
+  finalDecision   String?  // 'APPROVED' | 'REJECTED'
+  finalDecisionBy String?  // User ID who made final decision
+  finalDecisionAt DateTime?
+  
+  // Bypass
+  bypassReason    String?  // Reason for bypass if applicable
+  bypassedBy      String?  // User ID who bypassed
+  bypassedAt      DateTime?
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  rule            ApprovalRule @relation(fields: [ruleId], references: [id])
+  role            ApprovalRole? @relation(fields: [roleId], references: [id])
+  actions         ApprovalAction[]
+  notifications   ApprovalNotification[]
+  auditLogs       ApprovalAuditLog[]
+  
+  @@index([userId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([currentLevel])
+  @@index([dueDate])
+  @@index([initiatedBy])
+  @@index([finalDecision])
+  @@index([roleId])
+}
+
+model ApprovalAction {
+  id              String   @id @default(cuid())
+  workflowId      String
+  roleId          String
+  
+  // Action Details
+  action          String   // 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'DELEGATE'
+  level           Int      // Approval level at which action was taken
+  
+  // Decision Details
+  decidedBy       String   // User ID who took action
+  decidedAt       DateTime @default(now())
+  comments        String?
+  attachments     String[] // URLs to uploaded documents
+  
+  // Delegation (if action = 'DELEGATE')
+  delegatedTo     String?  // User ID delegated to
+  delegatedUntil  DateTime? // Delegation expiry
+  delegationReason String?
+  
+  // Request Changes (if action = 'REQUEST_CHANGES')
+  requestedChanges String? // Specific changes requested
+  changePriority  String?  // 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+  
+  // Metadata
+  ipAddress       String?
+  userAgent       String?
+  
+  workflow        ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  role            ApprovalRole @relation(fields: [roleId], references: [id])
+  
+  @@index([workflowId])
+  @@index([roleId])
+  @@index([decidedBy])
+  @@index([decidedAt])
+  @@index([action])
+  @@index([level])
+}
+
+model ApprovalDelegation {
+  id              String   @id @default(cuid())
+  fromRoleId      String
+  toUserId        String
+  
+  // Delegation Period
+  startDate       DateTime
+  endDate         DateTime
+  isActive        Boolean  @default(true)
+  
+  // Scope
+  delegationType  String   // 'TEMPORARY' | 'PERMANENT' | 'EMERGENCY'
+  reason          String
+  maxAmount       Decimal? // Maximum amount that can be approved
+  currency        String   @default("INR")
+  
+  // Usage Tracking
+  usageCount      Int      @default(0)
+  lastUsedAt      DateTime?
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  fromRole        ApprovalRole @relation("FromRole", fields: [fromRoleId], references: [id])
+  toUser          User     @relation("DelegatedToUser", fields: [toUserId], references: [id])
+  
+  @@index([fromRoleId])
+  @@index([toUserId])
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@index([delegationType])
+}
+
+model ApprovalNotification {
+  id              String   @id @default(cuid())
+  workflowId      String
+  
+  // Notification Details
+  type            String   // 'APPROVAL_REQUIRED' | 'APPROVED' | 'REJECTED' | 'ESCALATED' | 'REMINDER'
+  recipientId     String   // User ID to notify
+  recipientRole   String?  // Role being notified
+  
+  // Message
+  title           String
+  message         String
+  urgency         String   @default("NORMAL") // 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
+  
+  // Delivery
+  channels        String[] // ['EMAIL' | 'IN_APP' | 'SMS' | 'SLACK']
+  emailSent       Boolean  @default(false)
+  emailSentAt     DateTime?
+  inAppRead       Boolean  @default(false)
+  inAppReadAt     DateTime?
+  
+  // Scheduling
+  scheduledFor    DateTime? // For scheduled notifications
+  sentAt          DateTime?
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  workflow        ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  @@index([workflowId])
+  @@index([recipientId])
+  @@index([type])
+  @@index([emailSent])
+  @@index([scheduledFor])
+  @@index([urgency])
+}
+
+model ApprovalAuditLog {
+  id              String   @id @default(cuid())
+  workflowId      String?
+  
+  // Event Details
+  event           String   // 'WORKFLOW_CREATED' | 'ACTION_TAKEN' | 'RULE_CHANGED' | 'DELEGATION_CREATED'
+  entityType      String   // 'WORKFLOW' | 'RULE' | 'ROLE' | 'DELEGATION'
+  entityId        String
+  
+  // Actor
+  actorId         String   // User ID who performed action
+  actorRole       String?  // Role of the actor
+  
+  // Changes
+  oldValues       Json?    // Previous state
+  newValues       Json?    // New state
+  changeReason    String?
+  
+  // Context
+  ipAddress       String?
+  userAgent       String?
+  sessionId       String?
+  
+  timestamp       DateTime @default(now())
+  
+  workflow        ApprovalWorkflow? @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  
+  @@index([workflowId])
+  @@index([event])
+  @@index([entityType])
+  @@index([actorId])
+  @@index([timestamp])
+  @@index([entityId])
+}
+
+// ============================================================================
+// RCM (REVERSE CHARGE MECHANISM) MANAGEMENT MODELS
+// ============================================================================
+
+model RCMTransaction {
+  id                String   @id @default(cuid())
+  transactionType   String   // 'UNREGISTERED' | 'IMPORT_SERVICE' | 'NOTIFIED_SERVICE' | 'NOTIFIED_GOODS'
+  
+  // Reference Details
+  purchaseInvoiceId String?
+  purchaseInvoice   PurchaseInvoice? @relation(fields: [purchaseInvoiceId], references: [id])
+  vendorId          String?
+  vendor            Vendor? @relation(fields: [vendorId], references: [id])
+  vendorName        String
+  vendorGSTIN       String?
+  vendorCountry     String?
+  
+  // Transaction Details
+  invoiceNumber     String
+  invoiceDate       DateTime
+  description       String
+  hsnSacCode        String
+  
+  // Amount Details
+  taxableAmount     Decimal
+  cgstAmount        Decimal?
+  sgstAmount        Decimal?
+  igstAmount        Decimal?
+  cessAmount        Decimal?
+  totalTaxAmount    Decimal
+  
+  // Currency (for imports)
+  foreignCurrency   String?
+  exchangeRate      Decimal?
+  foreignAmount     Decimal?
+  
+  // Payment Status
+  taxPaymentStatus  String   @default("PENDING") // 'PENDING' | 'PAID' | 'OVERDUE'
+  paymentDueDate    DateTime
+  paymentDate       DateTime?
+  challanNumber     String?
+  
+  // ITC Details
+  itcEligible       Boolean  @default(true)
+  itcClaimed        Boolean  @default(false)
+  itcClaimDate      DateTime?
+  itcAmount         Decimal?
+  
+  // GSTR-3B Mapping
+  returnPeriod      String   // MM-YYYY
+  includedInReturn  Boolean  @default(false)
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([taxPaymentStatus])
+  @@index([paymentDueDate])
+  @@index([returnPeriod])
+  @@index([transactionType])
+}
+
+model ForeignSupplier {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  country         String
+  serviceType     String   // 'SOFTWARE' | 'CONSULTING' | 'CLOUD' | 'OTHER'
+  
+  // Common Suppliers
+  isKnownSupplier Boolean  @default(false)
+  supplierCode    String?  // ADOBE, MICROSOFT, GOOGLE, AWS, etc.
+  
+  // Default Settings
+  defaultHSN      String?
+  defaultGSTRate  Decimal  @default(18)
+  
+  // Currency Settings
+  defaultCurrency String   @default("USD")
+  supportedCurrencies String[] @default(["USD"])
+  
+  // Service Categories
+  serviceCategories String[] @default([])
+  billingCountry  String?
+  
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, name, country])
+  @@index([supplierCode])
+  @@index([isKnownSupplier])
+  @@index([serviceType])
+  @@index([country])
 }

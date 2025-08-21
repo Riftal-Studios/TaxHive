@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import {
   Box,
@@ -10,7 +10,6 @@ import {
   Paper,
   Card,
   CardContent,
-  CardHeader,
   Button,
   Table,
   TableBody,
@@ -24,38 +23,27 @@ import {
   CircularProgress,
   IconButton,
   Tooltip,
-  Divider,
   LinearProgress,
   Stack,
   Breadcrumbs,
   Link,
+  Grid,
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
-  AttachMoney as AttachMoneyIcon,
   Receipt as ReceiptIcon,
-  Description as InvoiceIcon,
-  SwapHoriz as SwapIcon,
   CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
   Info as InfoIcon,
   AutoFixHigh as AutoAdjustIcon,
 } from '@mui/icons-material'
-import Grid from '@mui/material/Grid'
 import { format } from 'date-fns'
 import { enqueueSnackbar } from 'notistack'
 import NextLink from 'next/link'
 
-interface AdjustPageProps {
-  params: {
-    id: string
-  }
-}
-
-export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
+export default function AdjustAdvanceReceiptPage() {
   const router = useRouter()
+  const params = useParams() as { id: string }
   const utils = api.useUtils()
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null)
   const [adjustmentAmounts, setAdjustmentAmounts] = useState<Record<string, string>>({})
   const [remarks, setRemarks] = useState('')
 
@@ -249,7 +237,7 @@ export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Grid container spacing={3} alignItems="center">
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid item xs={12} md={3}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ReceiptIcon color="primary" />
                   <Box>
@@ -260,7 +248,7 @@ export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
                   </Box>
                 </Box>
               </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid item xs={12} md={3}>
                 <Typography variant="caption" color="text.secondary">
                   Client
                 </Typography>
@@ -273,7 +261,7 @@ export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
                   )}
                 </Typography>
               </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid item xs={12} md={3}>
                 <Typography variant="caption" color="text.secondary">
                   Total Amount
                 </Typography>
@@ -281,7 +269,7 @@ export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
                   {formatCurrency(Number(receipt.amount), receipt.currency)}
                 </Typography>
               </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid item xs={12} md={3}>
                 <Typography variant="caption" color="text.secondary">
                   Available for Adjustment
                 </Typography>
@@ -310,7 +298,7 @@ export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
         {/* Main Content Grid */}
         <Grid container spacing={3}>
           {/* Unpaid Invoices */}
-          <Grid size={{ xs: 12, lg: 8 }}>
+          <Grid item xs={12} lg={8}>
             <Paper>
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                 <Typography variant="h6">
@@ -421,7 +409,7 @@ export default function AdjustAdvanceReceiptPage({ params }: AdjustPageProps) {
           </Grid>
 
           {/* Adjustment History */}
-          <Grid size={{ xs: 12, lg: 4 }}>
+          <Grid item xs={12} lg={4}>
             <Paper>
               <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                 <Typography variant="h6">

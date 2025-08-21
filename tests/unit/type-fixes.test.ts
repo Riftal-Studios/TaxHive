@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Decimal } from '@prisma/client/runtime/library'
 
+// Mock the queue types for BullMQService test
+vi.mock('@/lib/queue/types', async () => {
+  const actual = await vi.importActual('@/lib/queue/types')
+  return {
+    ...actual as any,
+    JobTypeEnum: {
+      options: ['PDF_GENERATION', 'EMAIL_NOTIFICATION', 'EXCHANGE_RATE_FETCH', 'PAYMENT_REMINDER'],
+      parse: vi.fn((value) => value)
+    }
+  }
+})
+
 describe('Type Fixes - TDD for fixing type errors', () => {
   describe('BullMQService API', () => {
     it('should use correct method names', async () => {
@@ -14,13 +26,13 @@ describe('Type Fixes - TDD for fixing type errors', () => {
         },
       })
 
-      // Method should be 'enqueue', not 'enqueueJob'
+      // Should have both 'enqueue' and 'enqueueJob' for backward compatibility
       expect(service.enqueue).toBeDefined()
-      expect((service as any).enqueueJob).toBeUndefined()
+      expect((service as any).enqueueJob).toBeDefined()
 
-      // Method should be 'process', not 'registerHandler'
+      // Should have both 'process' and 'registerHandler' for backward compatibility  
       expect(service.process).toBeDefined()
-      expect((service as any).registerHandler).toBeUndefined()
+      expect((service as any).registerHandler).toBeDefined()
 
       // getJob should only take jobId, not type
       const getJobSpy = vi.spyOn(service, 'getJob')

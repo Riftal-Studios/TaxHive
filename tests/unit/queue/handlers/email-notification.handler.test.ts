@@ -85,6 +85,7 @@ describe('Email Notification Handler', () => {
         messageId: 'msg-123',
         template: 'invoice',
         to: 'client@example.com',
+        timestamp: expect.any(Date),
       })
     })
   })
@@ -146,6 +147,7 @@ describe('Email Notification Handler', () => {
         messageId: 'msg-124',
         template: 'payment-reminder',
         to: 'client@example.com',
+        timestamp: expect.any(Date),
       })
     })
   })
@@ -196,6 +198,7 @@ describe('Email Notification Handler', () => {
         messageId: 'msg-125',
         template: 'lut-expiry',
         to: 'user@example.com',
+        timestamp: expect.any(Date),
       })
     })
   })
@@ -260,7 +263,7 @@ describe('Email Notification Handler', () => {
       } as any)
 
       await expect(emailNotificationHandler(mockJob)).rejects.toThrow(
-        'Email rejected by server'
+        'Email rejected for recipients: client@example.com'
       )
     })
   })
@@ -301,8 +304,8 @@ describe('Email Notification Handler', () => {
       await emailNotificationHandler(mockJob as any)
 
       // Verify progress updates
-      expect(mockJob.updateProgress).toHaveBeenCalledWith(25) // Data prepared
-      expect(mockJob.updateProgress).toHaveBeenCalledWith(75) // Email sent
+      expect(mockJob.updateProgress).toHaveBeenCalledWith(10) // Started
+      expect(mockJob.updateProgress).toHaveBeenCalledWith(50) // Email prepared
       expect(mockJob.updateProgress).toHaveBeenCalledWith(100) // Completed
     })
   })

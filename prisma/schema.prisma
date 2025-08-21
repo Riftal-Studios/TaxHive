@@ -2173,3 +2173,28 @@ model ForeignSupplier {
   @@index([serviceType])
   @@index([country])
 }
+
+model RCMRule {
+  id              String   @id @default(cuid())
+  ruleType        String   // 'SERVICE' | 'GOODS' | 'VENDOR_TYPE'
+  category        String   // 'NOTIFIED' | 'IMPORT' | 'UNREGISTERED'
+  
+  // Identification Criteria
+  hsnSacCodes     String[] // List of HSN/SAC codes
+  description     String
+  gstRate         Decimal
+  
+  // Conditions
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  notificationNo  String?  // Government notification reference
+  
+  isActive        Boolean  @default(true)
+  priority        Int      @default(0) // Higher number = higher priority
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([isActive, priority])
+  @@index([ruleType, category])
+}

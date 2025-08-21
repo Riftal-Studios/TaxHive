@@ -2,15 +2,16 @@
  * RCM (Reverse Charge Mechanism) Detection Logic
  * 
  * Detects when RCM is applicable based on:
- * - Vendor registration status
- * - Import of services
- * - Place of supply
- * - Notified goods/services under RCM
+ * - Phase 1: Vendor registration status, Import of services
+ * - Phase 2: Notified goods/services under RCM (NEW)
+ * 
+ * Priority Order: NOTIFIED > IMPORT > UNREGISTERED
  * 
  * Implementation follows TDD methodology - making tests pass (GREEN phase)
  */
 
 import { detectKnownSupplier } from './foreign-supplier-registry';
+import { matchRCMRule } from './rcm-rule-engine';
 
 export interface RCMDetectionInput {
   vendorGSTIN: string | null;
@@ -20,6 +21,7 @@ export interface RCMDetectionInput {
   recipientGSTIN: string | null;
   recipientState: string;
   serviceType: string;
+  hsnSacCode?: string; // NEW: HSN/SAC code for notified services/goods detection
   taxableAmount: number;
   isCompositionVendor?: boolean;
 }
@@ -30,6 +32,12 @@ export interface RCMDetectionResult {
   taxType: 'CGST_SGST' | 'IGST' | null;
   gstRate: number;
   reason: string;
+  matchedRule?: {
+    id: string;
+    description: string;
+    notificationNo?: string;
+    effectiveFrom: Date;
+  }; // NEW: Matched rule information for notified services/goods
   knownSupplier?: boolean;
   supplierCode?: string;
   defaultHSN?: string;
@@ -79,7 +87,8 @@ function getGSTRate(serviceType: string): number {
 }
 
 /**
- * Main RCM detection function
+ * Main RCM detection function with Phase 2 integration
+ * Priority Order: NOTIFIED > IMPORT > UNREGISTERED
  */
 export function detectRCM(input: RCMDetectionInput): RCMDetectionResult {
   // Input validation
@@ -104,7 +113,34 @@ export function detectRCM(input: RCMDetectionInput): RCMDetectionResult {
     knownSupplier: false,
   };
   
-  // Check for import of services
+  // PRIORITY 1: Check for notified services/goods (HIGHEST PRIORITY)
+  if (input.hsnSacCode) {
+    try {
+      const ruleMatch = matchRCMRule(input.hsnSacCode, input.vendorGSTIN);
+      if (ruleMatch && ruleMatch.isApplicable) {
+        result.isRCMApplicable = true;
+        result.rcmType = ruleMatch.rule.ruleType === 'SERVICE' ? 'NOTIFIED_SERVICE' : 'NOTIFIED_GOODS';
+        result.gstRate = ruleMatch.rule.gstRate;
+        result.reason = ruleMatch.reason;
+        result.matchedRule = {
+          id: ruleMatch.rule.id,
+          description: ruleMatch.rule.description,
+          notificationNo: ruleMatch.rule.notificationNo,
+          effectiveFrom: ruleMatch.rule.effectiveFrom,
+        };
+        
+        // Determine tax type based on place of supply
+        result.taxType = getTaxType(input.placeOfSupply, input.recipientState);
+        
+        return result;
+      }
+    } catch (error) {
+      // Continue to next priority if notified rule matching fails
+      console.warn('Error matching notified RCM rules:', error);
+    }
+  }
+  
+  // PRIORITY 2: Check for import of services
   if (input.vendorCountry.toUpperCase() !== 'INDIA' || input.placeOfSupply === 'OUTSIDE_INDIA') {
     result.isRCMApplicable = true;
     result.rcmType = 'IMPORT_SERVICE';
@@ -133,7 +169,7 @@ export function detectRCM(input: RCMDetectionInput): RCMDetectionResult {
     return result;
   }
   
-  // Check for unregistered domestic vendor or composition scheme vendor
+  // PRIORITY 3: Check for unregistered domestic vendor or composition scheme vendor
   const hasValidGSTIN = isValidGSTIN(input.vendorGSTIN);
   const isComposition = input.isCompositionVendor || false;
   
@@ -153,7 +189,7 @@ export function detectRCM(input: RCMDetectionInput): RCMDetectionResult {
     return result;
   }
   
-  // If we reach here, vendor is registered and domestic - no RCM applicable
+  // If we reach here, vendor is registered and domestic with no notified rules - no RCM applicable
   result.reason = 'No RCM applicable for registered vendor with valid GSTIN';
   return result;
 }

@@ -54,6 +54,13 @@ model User {
   // RCM Relations
   rcmTransactions RCMTransaction[]
   foreignSuppliers ForeignSupplier[]
+  rcmPaymentLiabilities RCMPaymentLiability[]
+  rcmPayments RCMPayment[]
+  gstr3bFilings GSTR3BFiling[]
+  complianceScores ComplianceScore[]
+  complianceAlerts ComplianceAlert[]
+  rcmSelfInvoices RCMSelfInvoice[]
+  rcmITCClaims RCMITCClaim[]
   
   // Approval Workflow Relations
   approvalRoles ApprovalRole[]
@@ -2131,11 +2138,23 @@ model RCMTransaction {
   userId            String
   user              User     @relation(fields: [userId], references: [id])
   
+  // Phase 3 Relations
+  paymentLiabilities RCMPaymentLiability[]
+  
+  // Self-Invoice Reference
+  selfInvoice       RCMSelfInvoice?
+  selfInvoiceStatus String?  @default("PENDING") // 'PENDING' | 'GENERATED' | 'OVERDUE'
+  selfInvoiceDueDate DateTime?
+  
+  // ITC Claims
+  itcClaims         RCMITCClaim[]
+  
   @@index([userId])
   @@index([taxPaymentStatus])
   @@index([paymentDueDate])
   @@index([returnPeriod])
   @@index([transactionType])
+  @@index([selfInvoiceStatus])
 }
 
 model ForeignSupplier {
@@ -2197,4 +2216,395 @@ model RCMRule {
   
   @@index([isActive, priority])
   @@index([ruleType, category])
+}
+
+// RCM Phase 3: Payment & Compliance Models
+
+model RCMPaymentLiability {
+  id                  String   @id @default(cuid())
+  transactionId       String   @unique
+  rcmTransactionId    String?
+  vendorName          String?
+  vendorGSTIN         String?
+  serviceDescription  String?
+  hsnSacCode          String?
+  rcmType             String   // 'UNREGISTERED' | 'IMPORT_SERVICE' | 'NOTIFIED_SERVICE' | 'NOTIFIED_GOODS'
+  
+  // Amount Details
+  taxableAmount       Decimal
+  totalGST            Decimal
+  cgst                Decimal  @default(0)
+  sgst                Decimal  @default(0)
+  igst                Decimal  @default(0)
+  cess                Decimal  @default(0)
+  
+  // Payment Details
+  dueDate             DateTime
+  status              String   @default("PENDING") // 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE'
+  paidAmount          Decimal  @default(0)
+  paidDate            DateTime?
+  interestAmount      Decimal? @default(0)
+  penaltyAmount       Decimal? @default(0)
+  
+  // ITC Details
+  itcEligible         Boolean  @default(true)
+  itcCategory         String?  // 'INPUTS' | 'INPUT_SERVICES' | 'CAPITAL_GOODS'
+  itcIneligibleReason String?
+  itcClaimed          Boolean  @default(false)
+  itcClaimDate        DateTime?
+  
+  // GSTR-3B Details
+  returnPeriod        String?  // MM-YYYY
+  includedInGSTR3B    Boolean  @default(false)
+  
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  userId              String
+  
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rcmTransaction      RCMTransaction? @relation(fields: [rcmTransactionId], references: [id])
+  payments            RCMPayment[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([returnPeriod])
+  @@index([rcmType])
+}
+
+model RCMPayment {
+  id                String   @id @default(cuid())
+  liabilityId       String
+  amount            Decimal
+  paymentDate       DateTime
+  paymentReference  String
+  paymentMethod     String?
+  
+  // Interest & Penalty
+  includesInterest  Boolean  @default(false)
+  interestAmount    Decimal? @default(0)
+  includesPenalty   Boolean  @default(false)
+  penaltyAmount     Decimal? @default(0)
+  
+  challanNumber     String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  userId            String
+  
+  liability         RCMPaymentLiability @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([liabilityId])
+  @@index([userId])
+  @@index([paymentDate])
+}
+
+model GSTR3BFiling {
+  id                          String   @id @default(cuid())
+  returnPeriod                String
+  filingType                  String   @default("MONTHLY") // 'MONTHLY' | 'QUARTERLY'
+  month                       Int
+  year                        Int
+  quarter                     String?
+  gstin                       String
+  filingStatus                String   @default("DRAFT") // 'DRAFT' | 'FILED' | 'AMENDED'
+  filedDate                   DateTime?
+  arn                         String?  // Acknowledgement Reference Number
+  
+  // Table 3.1(d) - Inward supplies liable to reverse charge
+  table31d_taxableValue       Decimal  @default(0)
+  table31d_igst               Decimal  @default(0)
+  table31d_cgst               Decimal  @default(0)
+  table31d_sgst               Decimal  @default(0)
+  table31d_cess               Decimal  @default(0)
+  
+  // Table 4(B) - ITC on reverse charge
+  table4B_inputs_igst         Decimal  @default(0)
+  table4B_inputs_cgst         Decimal  @default(0)
+  table4B_inputs_sgst         Decimal  @default(0)
+  table4B_inputs_cess         Decimal  @default(0)
+  table4B_inputServices_igst  Decimal  @default(0)
+  table4B_inputServices_cgst  Decimal  @default(0)
+  table4B_inputServices_sgst  Decimal  @default(0)
+  table4B_inputServices_cess  Decimal  @default(0)
+  table4B_capitalGoods_igst   Decimal  @default(0)
+  table4B_capitalGoods_cgst   Decimal  @default(0)
+  table4B_capitalGoods_sgst   Decimal  @default(0)
+  table4B_capitalGoods_cess   Decimal  @default(0)
+  
+  totalRCMTax                 Decimal  @default(0)
+  totalRCMITC                 Decimal  @default(0)
+  
+  jsonData                    Json?    // Full GSTR-3B JSON for filing
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  userId                      String
+  
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, returnPeriod])
+  @@index([userId])
+  @@index([returnPeriod])
+  @@index([filingStatus])
+}
+
+model ComplianceScore {
+  id                    String   @id @default(cuid())
+  period                String   // MM-YYYY
+  month                 Int
+  year                  Int
+  
+  // Scores
+  overallScore          Decimal
+  paymentScore          Decimal
+  filingScore           Decimal
+  documentationScore    Decimal
+  rating                String   // 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'
+  riskLevel             String   // 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  
+  // Metrics
+  totalTransactions     Int      @default(0)
+  paidOnTime            Int      @default(0)
+  paidLate              Int      @default(0)
+  unpaid                Int      @default(0)
+  returnsFiledOnTime    Int      @default(0)
+  returnsFiledLate      Int      @default(0)
+  documentationComplete Int      @default(0)
+  documentationPending  Int      @default(0)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  userId                String
+  
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, period])
+  @@index([userId])
+  @@index([period])
+}
+
+model ComplianceAlert {
+  id                String   @id @default(cuid())
+  type              String   // 'PAYMENT_DUE' | 'PAYMENT_OVERDUE' | 'RETURN_DUE' | 'COMPLIANCE_BREACH'
+  priority          String   // 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  message           String
+  dueDate           DateTime?
+  relatedEntityId   String?
+  relatedEntityType String?  // 'PAYMENT' | 'RETURN' | 'COMPLIANCE'
+  
+  isRead            Boolean  @default(false)
+  isResolved        Boolean  @default(false)
+  resolvedAt        DateTime?
+  resolvedBy        String?
+  notes             String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  userId            String
+  
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([type])
+  @@index([priority])
+  @@index([isResolved])
+}
+
+model RCMSelfInvoice {
+  id                String   @id @default(cuid())
+  invoiceNumber     String   @unique // Format: SI-FY24-25/001
+  invoiceDate       DateTime
+  userId            String
+  
+  // Link to RCM Transaction
+  rcmTransactionId  String   @unique
+  rcmTransaction    RCMTransaction @relation(fields: [rcmTransactionId], references: [id])
+  
+  // Supplier Details (from whom goods/services received)
+  supplierName      String
+  supplierAddress   String
+  supplierState     String
+  supplierStateCode String
+  supplierGSTIN     String?  // Null for unregistered
+  supplierPAN       String?
+  
+  // Recipient Details (self - who issues invoice)
+  recipientGSTIN    String
+  recipientName     String
+  recipientAddress  String
+  recipientState    String
+  recipientStateCode String
+  
+  // Supply Details
+  placeOfSupply     String
+  supplyType        String   // 'GOODS' | 'SERVICES'
+  rcmType           String   // 'UNREGISTERED' | 'IMPORT_SERVICE' | 'NOTIFIED_SERVICE' | 'NOTIFIED_GOODS'
+  
+  // Original Supply Reference
+  originalInvoiceNo String?  // Supplier's invoice if available
+  originalInvoiceDate DateTime?
+  goodsReceiptDate  DateTime // Critical for 30-day calculation
+  serviceReceiptDate DateTime?
+  
+  // Line Items
+  items             RCMSelfInvoiceItem[]
+  
+  // ITC Claims
+  itcClaims         RCMITCClaim[]
+  
+  // Tax Details
+  taxableAmount     Decimal  @db.Decimal(15, 2)
+  cgstRate          Decimal? @db.Decimal(5, 2)
+  cgstAmount        Decimal? @db.Decimal(15, 2)
+  sgstRate          Decimal? @db.Decimal(5, 2)
+  sgstAmount        Decimal? @db.Decimal(15, 2)
+  igstRate          Decimal? @db.Decimal(5, 2)
+  igstAmount        Decimal? @db.Decimal(15, 2)
+  cessRate          Decimal? @db.Decimal(5, 2)
+  cessAmount        Decimal? @db.Decimal(15, 2)
+  totalTaxAmount    Decimal  @db.Decimal(15, 2)
+  totalAmount       Decimal  @db.Decimal(15, 2)
+  
+  // Compliance Tracking
+  issuedWithinTime  Boolean  // Within 30 days
+  daysDelayed       Int?     // If issued late
+  
+  // GSTR Filing
+  gstr1Period       String?  // MM-YYYY
+  includedInGSTR1   Boolean  @default(false)
+  gstr3bPeriod      String?  // MM-YYYY
+  includedInGSTR3B  Boolean  @default(false)
+  
+  // Status
+  status            String   @default("DRAFT") // 'DRAFT' | 'ISSUED' | 'CANCELLED'
+  cancellationReason String?
+  cancelledAt       DateTime?
+  
+  // Documents
+  pdfPath           String?
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user              User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([invoiceDate])
+  @@index([goodsReceiptDate])
+  @@index([status])
+  @@index([gstr1Period])
+  @@index([issuedWithinTime])
+}
+
+model RCMSelfInvoiceItem {
+  id                String   @id @default(cuid())
+  selfInvoiceId     String
+  selfInvoice       RCMSelfInvoice @relation(fields: [selfInvoiceId], references: [id], onDelete: Cascade)
+  
+  description       String
+  hsnSacCode        String
+  quantity          Decimal  @db.Decimal(15, 3)
+  unit              String
+  rate              Decimal  @db.Decimal(15, 2)
+  amount            Decimal  @db.Decimal(15, 2)
+  
+  @@index([selfInvoiceId])
+}
+
+// RCM Phase 4: ITC Management Models
+model RCMITCClaim {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Link to RCM Transaction and Self-Invoice
+  rcmTransactionId  String
+  rcmTransaction    RCMTransaction @relation(fields: [rcmTransactionId], references: [id])
+  selfInvoiceId     String?
+  selfInvoice       RCMSelfInvoice? @relation(fields: [selfInvoiceId], references: [id])
+  
+  // ITC Details
+  claimNumber       String   @unique // Format: ITC-FY24-25/001
+  claimDate         DateTime
+  financialYear     String   // Format: 2024-25
+  taxPeriod         String   // Format: MM-YYYY
+  
+  // ITC Category
+  category          String   // 'INPUTS' | 'INPUT_SERVICES' | 'CAPITAL_GOODS'
+  
+  // Amount Details
+  cgstAmount        Decimal  @db.Decimal(15, 2)
+  sgstAmount        Decimal  @db.Decimal(15, 2)
+  igstAmount        Decimal  @db.Decimal(15, 2)
+  cessAmount        Decimal  @db.Decimal(15, 2)
+  totalITCAmount    Decimal  @db.Decimal(15, 2)
+  
+  // Utilization Details
+  utilizedAmount    Decimal  @db.Decimal(15, 2) @default(0)
+  balanceAmount     Decimal  @db.Decimal(15, 2)
+  
+  // Eligibility & Status
+  eligibilityStatus String   // 'ELIGIBLE' | 'INELIGIBLE' | 'BLOCKED' | 'EXPIRED'
+  ineligibilityReason String?
+  blockedCreditSection String? // Section 17(5) reference
+  
+  // Time Limit Tracking
+  selfInvoiceDate   DateTime
+  deadlineDate      DateTime // November 30th of next FY
+  daysRemaining     Int?
+  warningLevel      String?  // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  
+  // Claim Status
+  status            String   @default("PENDING") // 'PENDING' | 'CLAIMED' | 'PARTIALLY_UTILIZED' | 'FULLY_UTILIZED' | 'REVERSED' | 'EXPIRED'
+  claimedInReturn   String?  // GSTR-3B return period
+  reversalDate      DateTime?
+  reversalReason    String?
+  
+  // Business Purpose
+  businessPurpose   String
+  supportingDocs    Json?    // Array of document references
+  
+  // Audit Trail
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([rcmTransactionId])
+  @@index([selfInvoiceId])
+  @@index([status])
+  @@index([financialYear, taxPeriod])
+  @@index([deadlineDate])
+}
+
+model ITCBlockedCategory {
+  id                String   @id @default(cuid())
+  
+  // Section 17(5) Details
+  section           String   // e.g., '17(5)(a)', '17(5)(b)', etc.
+  description       String   // e.g., 'Motor vehicles and conveyances'
+  
+  // Identification Rules
+  keywords          String[] // Keywords to identify blocked items
+  hsnCodes          String[] // HSN codes that fall under this category
+  sacCodes          String[] // SAC codes that fall under this category
+  
+  // Exceptions
+  exceptions        String[] // List of exceptions where ITC is allowed
+  
+  // Configuration
+  isActive          Boolean  @default(true)
+  effectiveFrom     DateTime
+  effectiveTo       DateTime?
+  notificationRef   String?  // Government notification reference
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([section])
 }

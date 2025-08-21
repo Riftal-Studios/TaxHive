@@ -20,6 +20,7 @@ import { vendorsRouter } from '@/server/api/routers/vendors'
 import { usageTrackingRouter } from '@/server/api/routers/usage-tracking'
 import { templateAnalyticsRouter } from '@/server/api/routers/template-analytics'
 import { templateVersioningRouter } from '@/server/api/routers/template-versioning'
+import { rcmRouter } from '@/server/api/routers/rcm'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -43,6 +44,7 @@ export const appRouter = createTRPCRouter({
   usageTracking: usageTrackingRouter,
   templateAnalytics: templateAnalyticsRouter,
   templateVersioning: templateVersioningRouter,
+  rcm: rcmRouter,
 })
 
 export type AppRouter = typeof appRouter

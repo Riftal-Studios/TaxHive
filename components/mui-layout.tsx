@@ -41,6 +41,7 @@ import {
   Assessment as ITCIcon,
   NoteAdd as NotesIcon,
   AttachMoney as AdvanceIcon,
+  SwapHoriz as RCMIcon,
 } from '@mui/icons-material'
 import { signOut } from 'next-auth/react'
 import { useTheme as useAppTheme } from '@/components/theme-provider'
@@ -65,6 +66,7 @@ const menuItems = [
   { text: 'Payments', icon: <PaymentIcon />, href: '/payments' },
   { text: 'Advance Receipts', icon: <AdvanceIcon />, href: '/advances' },
   { text: 'Purchase Invoices', icon: <PurchasesIcon />, href: '/purchases' },
+  { text: 'RCM Management', icon: <RCMIcon />, href: '/rcm' },
   { text: 'ITC Management', icon: <ITCIcon />, href: '/itc' },
   { text: 'Credit/Debit Notes', icon: <NotesIcon />, href: '/notes' },
   { text: 'GST Returns', icon: <ReturnsIcon />, href: '/returns' },

@@ -1,0 +1,332 @@
+// Additional ITC Management Models for Phase 4
+
+// ITC Eligibility Determination Record
+model ITCEligibilityRecord {
+  id                String   @id @default(cuid())
+  userId            String
+  transactionId     String?  // Reference to RCMTransaction or Invoice
+  
+  // Request Details
+  category          String   // MOTOR_VEHICLE, FOOD_BEVERAGES, etc.
+  description       String?
+  amount            Decimal
+  gstAmount         Decimal
+  cgst              Decimal  @default(0)
+  sgst              Decimal  @default(0)
+  igst              Decimal  @default(0)
+  cess              Decimal  @default(0)
+  
+  // Usage Details
+  usage             String   // BUSINESS, PERSONAL, MIXED, CSR_ACTIVITY
+  businessUsePercentage Int? // For mixed use
+  
+  // Eligibility Result
+  isEligible        Boolean
+  eligibleAmount    Decimal
+  blockedAmount     Decimal  @default(0)
+  blockReason       String?
+  section           String?  // Section 17(5) reference
+  exception         String?  // Exception applied
+  
+  // RCM Specific
+  isRCM             Boolean  @default(false)
+  selfInvoiceNumber String?
+  selfInvoiceDate   DateTime?
+  
+  // Time Limit Check
+  isWithinTimeLimit Boolean  @default(true)
+  deadlineToClaim   DateTime?
+  
+  // Reversal Info
+  reversalRequired  Boolean  @default(false)
+  reversalReason    String?
+  reversalAmount    Decimal  @default(0)
+  reversalDate      DateTime?
+  
+  // Reclaim Info
+  reclaimEligible   Boolean  @default(false)
+  reclaimAmount     Decimal  @default(0)
+  reclaimMonth      String?
+  
+  // Compliance
+  complianceNote    String?
+  gstr3bTable       String?  // Table reference for GSTR-3B
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([transactionId])
+  @@index([isEligible])
+  @@index([category])
+}
+
+// GSTR-2B Entry for matching
+model GSTR2BEntry {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Supplier Details
+  gstin             String
+  tradeName         String?
+  
+  // Invoice Details
+  invoiceNumber     String
+  invoiceDate       DateTime
+  invoiceValue      Decimal
+  placeOfSupply     String?
+  
+  // Tax Details
+  cgst              Decimal  @default(0)
+  sgst              Decimal  @default(0)
+  igst              Decimal  @default(0)
+  cess              Decimal  @default(0)
+  
+  // ITC Details
+  eligibleCGST      Decimal  @default(0)
+  eligibleSGST      Decimal  @default(0)
+  eligibleIGST      Decimal  @default(0)
+  eligibleCESS      Decimal  @default(0)
+  
+  blockedCGST       Decimal  @default(0)
+  blockedSGST       Decimal  @default(0)
+  blockedIGST       Decimal  @default(0)
+  blockedCESS       Decimal  @default(0)
+  
+  // Transaction Type
+  type              String   // B2B, B2BA, CDNR, CDNRA, ISD, ISDA
+  isAmendment       Boolean  @default(false)
+  originalInvoiceNumber String?
+  originalInvoiceDate   DateTime?
+  
+  // Return Period
+  returnPeriod      String   // MM-YYYY
+  financialYear     String   // FY24-25
+  
+  // Matching Status
+  isMatched         Boolean  @default(false)
+  matchedWith       String?  // Reference to internal invoice
+  matchingDate      DateTime?
+  
+  // ITC Claim Status
+  itcClaimed        Boolean  @default(false)
+  claimMonth        String?
+  claimAmount       Decimal  @default(0)
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, gstin, invoiceNumber, invoiceDate])
+  @@index([userId])
+  @@index([returnPeriod])
+  @@index([gstin])
+  @@index([isMatched])
+}
+
+// Credit Ledger Entry
+model ITCCreditLedger {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Entry Details
+  entryDate         DateTime
+  entryType         String   // CREDIT, DEBIT, REVERSAL, ADJUSTMENT, RECLAIM
+  description       String
+  
+  // Tax Amounts
+  cgst              Decimal  @default(0)
+  sgst              Decimal  @default(0)
+  igst              Decimal  @default(0)
+  cess              Decimal  @default(0)
+  
+  // Reference
+  reference         String?  // Invoice/transaction reference
+  transactionId     String?
+  
+  // Reversal Details
+  reversalReason    String?
+  originalEntryId   String?  // Reference to original entry being reversed
+  
+  // Status
+  status            String   @default("FINAL") // PROVISIONAL, FINAL
+  
+  // Running Balance (calculated)
+  cgstBalance       Decimal  @default(0)
+  sgstBalance       Decimal  @default(0)
+  igstBalance       Decimal  @default(0)
+  cessBalance       Decimal  @default(0)
+  
+  // Return Period
+  returnPeriod      String   // MM-YYYY
+  financialYear     String   // FY24-25
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([returnPeriod])
+  @@index([entryType])
+  @@index([entryDate])
+}
+
+// ITC Reconciliation Record
+model ITCReconciliation {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Period
+  period            String   // MM-YYYY
+  financialYear     String   // FY24-25
+  
+  // Books vs GSTR-2B
+  asPerBooks        Decimal
+  asPerGSTR2B       Decimal
+  difference        Decimal
+  
+  // Reconciliation Details
+  b2bMatched        Int      @default(0)
+  b2bUnmatched      Int      @default(0)
+  rcmTransactions   Int      @default(0)
+  importTransactions Int     @default(0)
+  
+  // Adjustments
+  excessClaimed     Decimal  @default(0)
+  shortClaimed      Decimal  @default(0)
+  blockedCredits    Decimal  @default(0)
+  reversals         Decimal  @default(0)
+  
+  // Status
+  isReconciled      Boolean  @default(false)
+  reconciledDate    DateTime?
+  remarks           String?
+  
+  // Actions Required
+  pendingActions    String[] // List of actions to reconcile
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, period])
+  @@index([userId])
+  @@index([period])
+  @@index([isReconciled])
+}
+
+// ITC Utilization Record
+model ITCUtilization {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Period
+  utilizationDate   DateTime
+  returnPeriod      String   // MM-YYYY
+  
+  // Available ITC
+  availableCGST     Decimal
+  availableSGST     Decimal
+  availableIGST     Decimal
+  availableCESS     Decimal
+  
+  // Tax Liability
+  liabilityCGST     Decimal
+  liabilitySGST     Decimal
+  liabilityIGST     Decimal
+  liabilityCESS     Decimal
+  
+  // ITC Used
+  cgstUsed          Decimal
+  sgstUsed          Decimal
+  igstUsed          Decimal
+  cessUsed          Decimal
+  
+  // Cross Utilization
+  igstForCGST       Decimal  @default(0)
+  igstForSGST       Decimal  @default(0)
+  
+  // Cash Required
+  cashRequired      Decimal
+  cashPaid          Decimal  @default(0)
+  
+  // Remaining Balance
+  cgstBalance       Decimal
+  sgstBalance       Decimal
+  igstBalance       Decimal
+  cessBalance       Decimal
+  
+  // Reference
+  gstr3bReference   String?
+  challanNumber     String?
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([returnPeriod])
+  @@index([utilizationDate])
+}
+
+// ITC Claim Summary (Monthly)
+model ITCClaimSummary {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Period
+  claimMonth        String   // MM-YYYY
+  financialYear     String   // FY24-25
+  
+  // Category-wise ITC
+  b2bITC            Decimal  @default(0)
+  b2baITC           Decimal  @default(0) // Amendments
+  rcmITC            Decimal  @default(0)
+  importITC         Decimal  @default(0)
+  isdITC            Decimal  @default(0) // Input Service Distributor
+  
+  // Tax Breakup
+  totalCGST         Decimal  @default(0)
+  totalSGST         Decimal  @default(0)
+  totalIGST         Decimal  @default(0)
+  totalCESS         Decimal  @default(0)
+  
+  // Blocked and Reversed
+  blockedITC        Decimal  @default(0)
+  reversedITC       Decimal  @default(0)
+  reclaimedITC      Decimal  @default(0)
+  
+  // Net ITC
+  netITCClaimed     Decimal
+  
+  // GSTR-3B Filing
+  gstr3bFiled       Boolean  @default(false)
+  filingDate        DateTime?
+  filingReference   String?
+  
+  // Reconciliation
+  isReconciled      Boolean  @default(false)
+  matchPercentage   Decimal  @default(0)
+  
+  // Audit
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, claimMonth])
+  @@index([userId])
+  @@index([claimMonth])
+  @@index([financialYear])
+}

@@ -4,6 +4,7 @@ import { TRPCError } from '@trpc/server'
 import { Decimal } from '@prisma/client/runtime/library'
 import { generateAdvanceReceiptPDF } from '@/lib/pdf/advance-receipt-generator'
 import { uploadPDF } from '@/lib/pdf-uploader'
+import Logger from '@/lib/logger'
 
 // Input schemas
 const createAdvanceReceiptSchema = z.object({
@@ -685,7 +686,7 @@ export const advanceReceiptsRouter = createTRPCRouter({
           success: true,
         }
       } catch (error) {
-        console.error('PDF generation error:', error)
+        Logger.error('PDF generation error', { error })
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to generate PDF',

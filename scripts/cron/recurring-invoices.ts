@@ -8,34 +8,35 @@
  * - Production: Set up as a cron job or scheduled task
  */
 
+import { Logger } from '@/lib/logger'
 import { checkAndGenerateRecurringInvoices } from '@/lib/queue/jobs/recurring-invoice-generation'
 import { prisma } from '@/lib/db'
 
 async function main() {
-  console.log('=================================')
-  console.log('Recurring Invoice Generation Cron')
-  console.log(`Started at: ${new Date().toISOString()}`)
-  console.log('=================================')
+  Logger.info('=================================')
+  Logger.info('Recurring Invoice Generation Cron')
+  Logger.info(`Started at: ${new Date().toISOString()}`)
+  Logger.info('=================================')
   
   try {
     // Check database connection
     await prisma.$connect()
-    console.log('✅ Database connected')
+    Logger.info('✅ Database connected')
     
     // Run the recurring invoice check
     const result = await checkAndGenerateRecurringInvoices()
     
-    console.log('=================================')
-    console.log('Results:')
-    console.log(`- Invoices processed: ${result.processed}`)
-    console.log('=================================')
+    Logger.info('=================================')
+    Logger.info('Results:')
+    Logger.info(`- Invoices processed: ${result.processed}`)
+    Logger.info('=================================')
     
     // Also check for subscriptions that need renewal
     await checkSubscriptionRenewals()
     
-    console.log('✅ Cron job completed successfully')
+    Logger.info('✅ Cron job completed successfully')
   } catch (error) {
-    console.error('❌ Error in recurring invoice cron job:', error)
+    Logger.error('❌ Error in recurring invoice cron job:', error)
     process.exit(1)
   } finally {
     await prisma.$disconnect()
@@ -44,7 +45,7 @@ async function main() {
 
 // Check for subscriptions that need renewal
 async function checkSubscriptionRenewals() {
-  console.log('\nChecking for subscription renewals...')
+  Logger.info('\nChecking for subscription renewals...')
   
   try {
     // Find subscriptions where current period has ended
@@ -57,7 +58,7 @@ async function checkSubscriptionRenewals() {
       },
     })
     
-    console.log(`Found ${expiredSubscriptions.length} subscriptions to renew`)
+    Logger.info(`Found ${expiredSubscriptions.length} subscriptions to renew`)
     
     for (const subscription of expiredSubscriptions) {
       // Update the subscription period
@@ -95,18 +96,18 @@ async function checkSubscriptionRenewals() {
         })
       }
       
-      console.log(`Renewed subscription ${subscription.id} until ${newPeriodEnd.toISOString()}`)
+      Logger.info(`Renewed subscription ${subscription.id} until ${newPeriodEnd.toISOString()}`)
     }
     
-    console.log('✅ Subscription renewals completed')
+    Logger.info('✅ Subscription renewals completed')
   } catch (error) {
-    console.error('Error checking subscription renewals:', error)
+    Logger.error('Error checking subscription renewals:', error)
   }
 }
 
 // Handle trial expirations
 async function checkTrialExpirations() {
-  console.log('\nChecking for trial expirations...')
+  Logger.info('\nChecking for trial expirations...')
   
   try {
     // Find subscriptions where trial has ended
@@ -119,7 +120,7 @@ async function checkTrialExpirations() {
       },
     })
     
-    console.log(`Found ${expiredTrials.length} expired trials`)
+    Logger.info(`Found ${expiredTrials.length} expired trials`)
     
     for (const subscription of expiredTrials) {
       // Update status from TRIALING to ACTIVE
@@ -130,19 +131,19 @@ async function checkTrialExpirations() {
         },
       })
       
-      console.log(`Trial expired for subscription ${subscription.id}, moved to ACTIVE`)
+      Logger.info(`Trial expired for subscription ${subscription.id}, moved to ACTIVE`)
       
       // TODO: Send notification email about trial expiration
     }
     
-    console.log('✅ Trial expiration check completed')
+    Logger.info('✅ Trial expiration check completed')
   } catch (error) {
-    console.error('Error checking trial expirations:', error)
+    Logger.error('Error checking trial expirations:', error)
   }
 }
 
 // Run the main function
 main().catch((error) => {
-  console.error('Fatal error:', error)
+  Logger.error('Fatal error:', error)
   process.exit(1)
 })

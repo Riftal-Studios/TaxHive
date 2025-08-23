@@ -4,18 +4,19 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { readFile } from 'fs/promises'
 import path from 'path'
+import Logger from '@/lib/logger'
+import { withErrorHandler, createApiError } from '@/lib/api-error-handler'
 
-export async function GET(
+export const GET = withErrorHandler(async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
-  try {
+) => {
     const { id } = await params
     
     // Check authentication
     const session = await getServerSession(authOptions)
     if (!session?.user) {
-      return new NextResponse('Unauthorized', { status: 401 })
+      throw new Error('Unauthorized')
     }
 
     // Get invoice to verify ownership and get PDF URL
@@ -37,11 +38,11 @@ export async function GET(
     })
 
     if (!invoice) {
-      return new NextResponse('Invoice not found', { status: 404 })
+      throw new Error('Not found: Invoice not found')
     }
 
     if (!invoice.pdfUrl) {
-      return new NextResponse('PDF not generated yet', { status: 404 })
+      throw new Error('Not found: PDF not generated yet')
     }
 
     // For now, we're serving from local filesystem
@@ -60,11 +61,7 @@ export async function GET(
       
       return new NextResponse(pdfBuffer, { headers })
     } catch (error) {
-      console.error('Error reading PDF file:', error)
-      return new NextResponse('PDF file not found', { status: 404 })
+      Logger.error('Error reading PDF file:', error)
+      throw new Error('Not found: PDF file not found')
     }
-  } catch (error) {
-    console.error('Error serving PDF:', error)
-    return new NextResponse('Internal server error', { status: 500 })
-  }
-}
+})

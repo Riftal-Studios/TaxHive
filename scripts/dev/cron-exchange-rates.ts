@@ -5,6 +5,7 @@
  */
 
 import 'dotenv/config'
+import { Logger } from '@/lib/logger'
 import { BullMQService } from '@/lib/queue/bullmq.service'
 
 // Initialize queue service
@@ -17,7 +18,7 @@ const queueService = new BullMQService({
 
 async function fetchExchangeRates() {
   try {
-    console.log('Enqueuing exchange rate fetch job...')
+    Logger.info('Enqueuing exchange rate fetch job...')
     
     const job = await queueService.enqueue('EXCHANGE_RATE_FETCH', {
       date: new Date(),
@@ -27,9 +28,9 @@ async function fetchExchangeRates() {
       cleanOlderThan: 30, // Clean rates older than 30 days
     })
 
-    console.log(`✅ Exchange rate fetch job enqueued: ${job.id}`)
+    Logger.info(`✅ Exchange rate fetch job enqueued: ${job.id}`)
   } catch (error) {
-    console.error('Failed to enqueue exchange rate fetch job:', error)
+    Logger.error('Failed to enqueue exchange rate fetch job:', error)
     process.exit(1)
   } finally {
     await queueService.close()

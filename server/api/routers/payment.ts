@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
 import { Decimal } from '@prisma/client/runtime/library'
 import { getQueueService } from '@/lib/queue'
+import Logger from '@/lib/logger'
 
 // Get queue service lazily to avoid connection during build
 const getQueue = () => getQueueService()
@@ -68,7 +69,7 @@ export const paymentRouter = createTRPCRouter({
       const difference = new Decimal(invoice.totalAmount).minus(newTotalPaid)
       
       // Debug logging
-      console.log('Payment validation:', {
+      Logger.debug('Payment validation', {
         existingPayments: invoice.payments.map(p => ({ id: p.id, amount: p.amount.toString() })),
         totalAlreadyPaid: totalPaid.toString(),
         newPaymentAmount: input.amount.toString(),
@@ -146,7 +147,7 @@ export const paymentRouter = createTRPCRouter({
           userId: userId,
         })
       } catch (error) {
-        console.error('Failed to queue PDF regeneration after payment:', error)
+        Logger.error('Failed to queue PDF regeneration after payment', { error })
       }
 
       return payment
@@ -382,7 +383,7 @@ export const paymentRouter = createTRPCRouter({
             userId: userId,
           })
         } catch (error) {
-          console.error('Failed to queue PDF regeneration after payment update:', error)
+          Logger.error('Failed to queue PDF regeneration after payment update', { error })
         }
 
         return updatedPayment
@@ -414,7 +415,7 @@ export const paymentRouter = createTRPCRouter({
           userId: userId,
         })
       } catch (error) {
-        console.error('Failed to queue PDF regeneration after payment update:', error)
+        Logger.error('Failed to queue PDF regeneration after payment update', { error })
       }
 
       return updatedPayment
@@ -501,7 +502,7 @@ export const paymentRouter = createTRPCRouter({
           userId: userId,
         })
       } catch (error) {
-        console.error('Failed to queue PDF regeneration after payment deletion:', error)
+        Logger.error('Failed to queue PDF regeneration after payment deletion', { error })
       }
 
       return { success: true }

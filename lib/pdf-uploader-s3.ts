@@ -1,6 +1,7 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import Logger from '@/lib/logger'
 
 // S3 Configuration
 const s3Config = {
@@ -56,7 +57,7 @@ export async function uploadPDF(buffer: Buffer, filename: string): Promise<strin
         return `https://${s3Config.bucket}.s3.${s3Config.region}.amazonaws.com/${key}`
       }
     } catch (error) {
-      console.error('S3 upload failed, falling back to local storage:', error)
+      Logger.error('S3 upload failed, falling back to local storage:', error)
       // Fall back to local storage on error
     }
   }
@@ -88,7 +89,7 @@ export async function getSignedUrl(key: string, expiresIn = 3600): Promise<strin
 
     return await getSignedUrl(s3Client, command, { expiresIn })
   } catch (error) {
-    console.error('Failed to generate signed URL:', error)
+    Logger.error('Failed to generate signed URL:', error)
     return null
   }
 }

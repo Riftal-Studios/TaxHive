@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import path from 'path'
 import fs from 'fs/promises'
 import os from 'os'
+import Logger from '@/lib/logger'
 
 // Note: These PDF generator functions need to be implemented
 // import { generateInvoicePDF } from '@/lib/pdf/invoice-generator'
@@ -209,7 +210,7 @@ export default async function processPDFGeneration(
           await fs.unlink(tempPath)
           await fs.rmdir(tempDir)
         } catch (error) {
-          console.error('Error cleaning up temp PDF:', error)
+          Logger.error('Error cleaning up temp PDF:', error)
         }
       }, 5000)
     }
@@ -217,7 +218,7 @@ export default async function processPDFGeneration(
     return result
     
   } catch (error) {
-    console.error(`Error generating PDF for ${type} ${entityId}:`, error)
+    Logger.error(`Error generating PDF for ${type} ${entityId}:`, error)
     throw error
   }
 }

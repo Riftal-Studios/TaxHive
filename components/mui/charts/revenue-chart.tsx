@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { format } from 'date-fns'
+import Logger from '@/lib/logger'
 
 interface RevenueChartProps {
   data: Array<{
@@ -62,7 +63,7 @@ const useMonthFormatter = () => {
         }
         return format(date, 'MMM yyyy')
       } catch (error) {
-        console.error('Error formatting month:', error)
+        Logger.error('Error formatting month:', error)
         return monthStr || 'Invalid Date'
       }
     }

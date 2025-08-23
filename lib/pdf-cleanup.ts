@@ -1,5 +1,6 @@
 import { unlink } from 'fs/promises'
 import path from 'path'
+import Logger from '@/lib/logger'
 
 export async function cleanupOldPDF(oldPdfUrl: string | null): Promise<void> {
   if (!oldPdfUrl) return
@@ -12,9 +13,9 @@ export async function cleanupOldPDF(oldPdfUrl: string | null): Promise<void> {
     const filePath = path.join(process.cwd(), 'uploads', 'invoices', filename)
     
     await unlink(filePath)
-    console.log(`Cleaned up old PDF: ${filename}`)
+    Logger.info(`Cleaned up old PDF: ${filename}`)
   } catch (error) {
     // Ignore errors - file might not exist
-    console.log('Failed to cleanup old PDF:', error)
+    Logger.warn('Failed to cleanup old PDF:', error)
   }
 }

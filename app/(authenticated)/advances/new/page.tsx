@@ -48,6 +48,7 @@ export default function NewAdvanceReceiptPage() {
       router.push('/advances')
     },
     onError: (error) => {
+      // Keep console.error for client-side error logging
       console.error('Failed to create advance receipt:', error)
       enqueueSnackbar(`Failed to create advance receipt: ${error.message}`, { variant: 'error' })
     },
@@ -91,6 +92,7 @@ export default function NewAdvanceReceiptPage() {
       })
     } catch (error) {
       // Error is handled by mutation onError
+      // Keep console.error for client-side error logging
       console.error('Error creating advance receipt:', error)
     }
   }

@@ -1,9 +1,10 @@
+import { Logger } from '../../lib/logger'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
 async function cleanTestData() {
-  console.log('Cleaning existing test data...')
+  Logger.info('Cleaning existing test data...')
 
   try {
     const user = await prisma.user.findUnique({
@@ -11,7 +12,7 @@ async function cleanTestData() {
     })
 
     if (!user) {
-      console.log('User not found')
+      Logger.info('User not found')
       return
     }
 
@@ -23,7 +24,7 @@ async function cleanTestData() {
         }
       }
     })
-    console.log('Deleted payments')
+    Logger.info('Deleted payments')
 
     await prisma.invoiceItem.deleteMany({
       where: {
@@ -32,29 +33,29 @@ async function cleanTestData() {
         }
       }
     })
-    console.log('Deleted invoice items')
+    Logger.info('Deleted invoice items')
 
     await prisma.invoice.deleteMany({
       where: { userId: user.id }
     })
-    console.log('Deleted invoices')
+    Logger.info('Deleted invoices')
 
     await prisma.client.deleteMany({
       where: { userId: user.id }
     })
-    console.log('Deleted clients')
+    Logger.info('Deleted clients')
 
     await prisma.lUT.deleteMany({
       where: { userId: user.id }
     })
-    console.log('Deleted LUTs')
+    Logger.info('Deleted LUTs')
 
-    console.log('Test data cleaned successfully!')
+    Logger.info('Test data cleaned successfully!')
   } catch (error) {
-    console.error('Error cleaning test data:', error)
+    Logger.error('Error cleaning test data:', error)
   } finally {
     await prisma.$disconnect()
   }
 }
 
-cleanTestData().catch(console.error)
+cleanTestData().catch(Logger.error)

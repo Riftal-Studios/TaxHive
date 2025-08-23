@@ -1,3 +1,4 @@
+import { Logger } from '../../lib/logger'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -16,9 +17,9 @@ async function createUser() {
         onboardingCompleted: true,
       }
     })
-    console.log('User created/found:', user.email)
+    Logger.info('User created/found:', user.email)
   } catch (error) {
-    console.error('Error creating user:', error)
+    Logger.error('Error creating user:', error)
   } finally {
     await prisma.$disconnect()
   }

@@ -4,6 +4,7 @@ import { isTokenExpired } from '@/lib/utils/token'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
+import Logger from '@/lib/logger'
 
 async function generatePDFOnDemand(invoice: { id: string; userId: string }): Promise<Buffer> {
   // Get full invoice data with relations
@@ -106,11 +107,11 @@ export async function GET(
       
       return new NextResponse(pdfBuffer, { headers })
     } catch (error) {
-      console.error('Error generating/reading PDF:', error)
+      Logger.error('Error generating/reading PDF:', error)
       return new NextResponse('Failed to generate PDF', { status: 500 })
     }
   } catch (error) {
-    console.error('Error downloading public PDF:', error)
+    Logger.error('Error downloading public PDF:', error)
     return new NextResponse('Internal server error', { status: 500 })
   }
 }

@@ -1,5 +1,6 @@
 import { db } from '@/lib/prisma'
 import { getIRPAuthToken } from './auth'
+import Logger from '@/lib/logger'
 import { 
   GSP_PROVIDERS, 
   type GSPProvider,
@@ -159,7 +160,7 @@ export async function cancelIRN(
       errorCode: cancelResult.errorCode
     }
   } catch (error) {
-    console.error('Error cancelling IRN:', error)
+    Logger.error('Error cancelling IRN:', error)
     return {
       success: false,
       error: 'Failed to cancel IRN'
@@ -228,7 +229,7 @@ async function callIRPCancelAPI(
     // Parse response
     return parseCancelResponse(config.gspProvider, cancelData)
   } catch (error) {
-    console.error('IRP Cancel API call error:', error)
+    Logger.error('IRP Cancel API call error:', error)
     return {
       success: false,
       error: 'Failed to call IRP Cancel API'
@@ -257,7 +258,7 @@ function parseCancelResponse(provider: string, data: any): any {
       cancelDate: cancelDate ? new Date(cancelDate) : new Date()
     }
   } catch (error) {
-    console.error('Error parsing cancel response:', error)
+    Logger.error('Error parsing cancel response:', error)
     return {
       success: false,
       error: 'Failed to parse IRP cancellation response'
@@ -320,7 +321,7 @@ export async function canCancelIRN(
       canCancel: true
     }
   } catch (error) {
-    console.error('Error checking IRN cancellation eligibility:', error)
+    Logger.error('Error checking IRN cancellation eligibility:', error)
     return {
       canCancel: false,
       reason: 'Error checking cancellation eligibility'
@@ -357,7 +358,7 @@ export async function getCancellationHistory(
 
     return eInvoices
   } catch (error) {
-    console.error('Error getting cancellation history:', error)
+    Logger.error('Error getting cancellation history:', error)
     return []
   }
 }

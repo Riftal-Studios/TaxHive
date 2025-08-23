@@ -110,6 +110,7 @@ export default function TDSConfigurationPage() {
     try {
       await saveConfigMutation.mutateAsync(data)
     } catch (error) {
+      // Keep console.error for client-side error logging
       console.error('Error saving configuration:', error)
     }
   }

@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
+import { Logger } from '../lib/logger'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('🌱 Seeding database...')
+  Logger.info('🌱 Seeding database...')
 
   // Create a test user
   const testUser = await prisma.user.upsert({
@@ -20,7 +21,7 @@ async function main() {
     },
   })
 
-  console.log('Created test user:', testUser.email)
+  Logger.info('Created test user:', testUser.email)
 
   // Create LUT for the test user
   let lut = await prisma.lUT.findFirst({
@@ -43,7 +44,7 @@ async function main() {
     })
   }
 
-  console.log('Created LUT:', lut.lutNumber)
+  Logger.info('Created LUT:', lut.lutNumber)
 
   // Create test clients
   const clientData = [
@@ -83,7 +84,7 @@ async function main() {
     clients.push(client)
   }
 
-  console.log(`Created ${clients.length} test clients`)
+  Logger.info(`Created ${clients.length} test clients`)
 
   // Create exchange rates
   const today = new Date()
@@ -146,7 +147,7 @@ async function main() {
     }),
   ])
 
-  console.log(`Created ${exchangeRates.length} exchange rates`)
+  Logger.info(`Created ${exchangeRates.length} exchange rates`)
 
   // Create sample invoices
   // First, check if invoice already exists
@@ -197,14 +198,14 @@ async function main() {
     },
   })
 
-  console.log(existingInvoice ? 'Using existing invoice:' : 'Created sample invoice:', invoice1.invoiceNumber)
+  Logger.info(existingInvoice ? 'Using existing invoice:' : 'Created sample invoice:', invoice1.invoiceNumber)
 
-  console.log('✅ Seeding completed!')
+  Logger.info('✅ Seeding completed!')
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding failed:', e)
+    Logger.error('❌ Seeding failed:', e)
     process.exit(1)
   })
   .finally(async () => {

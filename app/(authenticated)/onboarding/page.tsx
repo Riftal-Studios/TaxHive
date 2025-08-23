@@ -35,6 +35,7 @@ export default function OnboardingPage() {
   const { data: status, isLoading, error } = api.users.getOnboardingStatus.useQuery()
   const completeOnboardingMutation = api.users.completeOnboarding.useMutation({
     onSuccess: async () => {
+      // Keep console.log for client-side debugging
       console.log('Complete onboarding success - updating session and navigating')
       // Force session update to refresh the JWT token
       await update()
@@ -45,11 +46,13 @@ export default function OnboardingPage() {
       router.push('/dashboard')
     },
     onError: (error) => {
+      // Keep console.error for client-side error logging
       console.error('Complete onboarding error:', error)
     },
   })
   const skipOnboardingMutation = api.users.skipOnboarding.useMutation({
     onSuccess: async () => {
+      // Keep console.log for client-side debugging
       console.log('Skip onboarding success - updating session and navigating')
       // Force session update to refresh the JWT token
       await update()
@@ -60,6 +63,7 @@ export default function OnboardingPage() {
       router.push('/dashboard')
     },
     onError: (error) => {
+      // Keep console.error for client-side error logging
       console.error('Skip onboarding error:', error)
     },
   })
@@ -110,19 +114,23 @@ export default function OnboardingPage() {
   }
 
   const handleComplete = async () => {
+    // Keep console.log for client-side debugging
     console.log('handleComplete clicked')
     try {
       await completeOnboardingMutation.mutateAsync()
     } catch (error) {
+      // Keep console.error for client-side error logging
       console.error('Error completing onboarding:', error)
     }
   }
 
   const handleSkip = async () => {
+    // Keep console.log for client-side debugging
     console.log('handleSkip clicked')
     try {
       await skipOnboardingMutation.mutateAsync()
     } catch (error) {
+      // Keep console.error for client-side error logging
       console.error('Error skipping onboarding:', error)
     }
   }

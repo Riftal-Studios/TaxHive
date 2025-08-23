@@ -1,5 +1,10 @@
 import { MUIDashboard } from '@/components/mui/dashboard'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export default function DashboardPage() {
-  return <MUIDashboard />
+  return (
+    <ErrorBoundary>
+      <MUIDashboard />
+    </ErrorBoundary>
+  )
 }

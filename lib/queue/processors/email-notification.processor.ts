@@ -2,6 +2,7 @@ import { Job } from 'bullmq'
 import { EmailNotificationJobData, EmailNotificationJobResult } from '../types'
 import { sendEmail } from '@/lib/email'
 import { prisma } from '@/lib/prisma'
+import Logger from '@/lib/logger'
 
 // Email templates
 const EMAIL_TEMPLATES = {
@@ -188,7 +189,7 @@ export default async function processEmailNotification(
     return result
     
   } catch (error) {
-    console.error(`Error sending email notification:`, error)
+    Logger.error(`Error sending email notification:`, error)
     
     // Log failed email attempt
     await prisma.emailLog.create({

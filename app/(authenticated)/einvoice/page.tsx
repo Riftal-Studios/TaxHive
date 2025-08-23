@@ -109,6 +109,7 @@ export default function EInvoicePage() {
     try {
       await generateIRNMutation.mutateAsync({ invoiceId })
     } catch (error) {
+      // Keep console.error for client-side error logging
       console.error('Error generating IRN:', error)
     }
   }
@@ -123,6 +124,7 @@ export default function EInvoicePage() {
         remarks: cancelRemarks,
       })
     } catch (error) {
+      // Keep console.error for client-side error logging
       console.error('Error cancelling IRN:', error)
     }
   }

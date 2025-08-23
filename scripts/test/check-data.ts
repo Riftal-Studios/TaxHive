@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { Logger } from '../../lib/logger'
 
 const prisma = new PrismaClient()
 
@@ -15,14 +16,14 @@ async function checkData() {
       where: { userId: user.id }, 
       orderBy: { invoiceNumber: 'desc' } 
     })
-    console.log('User ID:', user.id)
-    console.log('Invoice count:', invoiceCount)
-    console.log('Last invoice number:', lastInvoice?.invoiceNumber)
+    Logger.info('User ID:', user.id)
+    Logger.info('Invoice count:', invoiceCount)
+    Logger.info('Last invoice number:', lastInvoice?.invoiceNumber)
   } else {
-    console.log('User not found')
+    Logger.info('User not found')
   }
   
   await prisma.$disconnect()
 }
 
-checkData().catch(console.error)
+checkData().catch(Logger.error)

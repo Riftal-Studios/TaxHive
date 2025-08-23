@@ -8,6 +8,7 @@ import { ZodError } from 'zod'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { handleTRPCError } from './error-handler'
 
 export const createTRPCContext = async (opts: { req: NextRequest }) => {
   const session = await getServerSession(authOptions)
@@ -21,7 +22,14 @@ export const createTRPCContext = async (opts: { req: NextRequest }) => {
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
   transformer: superjson,
-  errorFormatter({ shape, error }) {
+  errorFormatter({ shape, error, ctx, path }) {
+    // Track errors with our centralized system
+    if (error.code === 'INTERNAL_SERVER_ERROR' || error.code === 'BAD_REQUEST') {
+      handleTRPCError(error, ctx, path).catch(() => {
+        // Ignore tracking errors to prevent cascading failures
+      });
+    }
+    
     return {
       ...shape,
       data: {

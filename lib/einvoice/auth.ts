@@ -2,6 +2,7 @@ import { db } from '@/lib/prisma'
 import { GSP_PROVIDERS, type GSPProvider, TOKEN_EXPIRY_BUFFER_MINUTES } from './constants'
 import { encryptCredentials, decryptCredentials, encryptWithAES256, decryptWithAES256, generateTransactionId } from './crypto'
 import { addMinutes, isBefore } from 'date-fns'
+import Logger from '@/lib/logger'
 
 interface AuthResponse {
   success: boolean
@@ -115,7 +116,7 @@ export async function getIRPAuthToken(
       tokenExpiry: newToken.tokenExpiry
     }
   } catch (error) {
-    console.error('Error getting IRP auth token:', error)
+    Logger.error('Error getting IRP auth token:', error)
     return {
       success: false,
       error: 'Failed to authenticate with IRP. Please check your configuration.'
@@ -193,7 +194,7 @@ async function authenticateWithGSP(config: any): Promise<AuthResponse> {
       tokenExpiry: authData.tokenExpiry!
     }
   } catch (error) {
-    console.error('GSP authentication error:', error)
+    Logger.error('GSP authentication error:', error)
     return {
       success: false,
       error: 'Failed to authenticate with GSP. Please check your credentials and try again.'
@@ -294,7 +295,7 @@ function parseAuthResponse(provider: string, data: any): AuthResponse {
       error: data.message || data.error || 'Authentication failed'
     }
   } catch (error) {
-    console.error('Error parsing auth response:', error)
+    Logger.error('Error parsing auth response:', error)
     return {
       success: false,
       error: 'Failed to parse authentication response'
@@ -340,7 +341,7 @@ export async function revokeIRPToken(userId: string): Promise<boolean> {
 
     return true
   } catch (error) {
-    console.error('Error revoking IRP token:', error)
+    Logger.error('Error revoking IRP token:', error)
     return false
   }
 }

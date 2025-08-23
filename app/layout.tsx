@@ -6,6 +6,7 @@ import { SessionProvider } from "@/components/providers/SessionProvider"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export const metadata: Metadata = {
   title: "GSTHive - GST-Compliant Invoice Management",
@@ -24,7 +25,11 @@ export default async function RootLayout({
       <body>
         <SessionProvider session={session}>
           <TRPCReactProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+            </ThemeProvider>
           </TRPCReactProvider>
         </SessionProvider>
       </body>

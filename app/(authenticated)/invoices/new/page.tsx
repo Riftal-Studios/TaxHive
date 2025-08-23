@@ -46,6 +46,7 @@ export default function NewInvoicePage() {
       router.push(`/invoices/${invoice.id}`)
     },
     onError: (error) => {
+      // Keep console.error for client-side error logging
       console.error('Failed to create invoice:', error)
       enqueueSnackbar(`Failed to create invoice: ${error.message}`, { variant: 'error' })
     },

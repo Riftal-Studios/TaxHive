@@ -11,6 +11,7 @@
 
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
+import Logger from '../logger';
 
 export type DocumentType = 'INVOICE_PDF';
 
@@ -320,7 +321,7 @@ export class ClientPortalDocuments {
       }
     } catch (error) {
       // Silently fail logging to prevent cascading errors
-      console.error('Failed to log download attempt:', error);
+      Logger.error('Failed to log download attempt', { error });
     }
   }
 }

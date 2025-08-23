@@ -22,6 +22,7 @@ import { PlaceOfSupplySelector } from '@/components/place-of-supply-selector'
 import { GSTRateSelector } from '@/components/gst-rate-selector'
 import { GSTSummary } from '@/components/gst-summary'
 import { calculateGST, type StateCode } from '@/lib/gst'
+import Logger from '@/lib/logger'
 
 interface LineItem {
   id: string
@@ -268,7 +269,7 @@ export function InvoiceForm({
         setIsAutoSaving(true)
         await onAutoSave(data)
       } catch (error) {
-        console.error('Auto-save failed:', error)
+        Logger.error('Auto-save failed:', error)
       } finally {
         setIsAutoSaving(false)
       }

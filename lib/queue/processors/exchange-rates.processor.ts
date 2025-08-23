@@ -3,6 +3,7 @@ import { ExchangeRateJobData, ExchangeRateJobResult } from '../types'
 import { prisma } from '@/lib/prisma'
 import { fetchRBIReferenceRates } from '@/lib/exchange-rates/rbi'
 import { fetchExchangeRates } from '@/lib/exchange-rates'
+import Logger from '@/lib/logger'
 
 // Main processor function
 export default async function processExchangeRates(
@@ -141,7 +142,7 @@ export default async function processExchangeRates(
     return result
     
   } catch (error) {
-    console.error(`Error fetching exchange rates from ${source}:`, error)
+    Logger.error(`Error fetching exchange rates from ${source}:`, error)
     
     // Log failed fetch attempt
     await prisma.exchangeRateFetchLog.create({
@@ -157,7 +158,7 @@ export default async function processExchangeRates(
     
     // Try fallback sources if RBI fails
     if (source === 'RBI') {
-      console.log('RBI fetch failed, attempting fallback to other sources...')
+      Logger.queue('RBI fetch failed, attempting fallback to other sources...')
       
       // Try other sources in order of preference
       const fallbackSources = ['EXCHANGE_RATE_API', 'CURRENCY_API', 'FIXER']
@@ -186,7 +187,7 @@ export default async function processExchangeRates(
           
           return await processExchangeRates(fallbackJob)
         } catch (fallbackError) {
-          console.error(`Fallback to ${fallbackSource} also failed:`, fallbackError)
+          Logger.error(`Fallback to ${fallbackSource} also failed:`, fallbackError)
           continue
         }
       }

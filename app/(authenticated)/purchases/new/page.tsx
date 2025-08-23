@@ -260,6 +260,7 @@ export default function NewPurchaseInvoicePage() {
         }))
       })
     } catch (error) {
+      // Keep console.error for client-side error logging
       console.error("Error creating purchase invoice:", error)
     } finally {
       setLoading(false)

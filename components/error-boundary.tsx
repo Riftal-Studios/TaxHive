@@ -3,6 +3,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { Box, Container, Typography, Button, Paper, Alert, AlertTitle, Collapse } from '@mui/material'
 import { Error as ErrorIcon, ExpandMore as ExpandMoreIcon, Refresh as RefreshIcon } from '@mui/icons-material'
+import Logger from '@/lib/logger'
+import { trackComponentError } from '@/lib/error-tracker'
 
 interface Props {
   children: any
@@ -10,38 +12,46 @@ interface Props {
 }
 
 interface State {
-  hasError: any
-  error: any | null
-  errorInfo: any | null
-  showDetails: any
+  hasError: boolean
+  error: Error | null
+  errorInfo: ErrorInfo | null
+  showDetails: boolean
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: any) {
+  constructor(props: Props) {
     super(props)
     this.state = {
-      hasError: any,
-      error: any,
-      errorInfo: any,
-      showDetails: any,
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showDetails: false,
     }
   }
 
-  static getDerivedStateFromError(error: any): State {
+  static getDerivedStateFromError(error: Error): State {
     return { 
-      hasError: any, 
+      hasError: true, 
       error,
-      errorInfo: any,
-      showDetails: any,
+      errorInfo: null,
+      showDetails: false,
     }
   }
 
-  componentDidCatch(error: any, errorInfo: any) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to error reporting service
-    console.error('Error caught by boundary:', error, errorInfo)
+    Logger.error('Error caught by boundary', { error, errorInfo })
     
-    // You can also log to an external service here
-    // logErrorToService(error, errorInfo)
+    // Track error with centralized error tracker
+    trackComponentError(
+      error,
+      errorInfo,
+      'ErrorBoundary',
+      // Get user ID if available from session/context
+      undefined
+    ).catch(trackError => {
+      Logger.error('Failed to track component error', { trackError })
+    })
     
     this.setState({
       error,
@@ -51,10 +61,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   handleReset = () => {
     this.setState({
-      hasError: any,
-      error: any,
-      errorInfo: any,
-      showDetails: any,
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showDetails: false,
     })
     
     // Optionally reload the page
@@ -161,7 +171,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     endIcon={
                       <ExpandMoreIcon 
                         sx={{
-                          transform: any.state.showDetails ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transform: this.state.showDetails ? 'rotate(180deg)' : 'rotate(0deg)',
                           transition: 'transform 0.2s',
                         }}
                       />

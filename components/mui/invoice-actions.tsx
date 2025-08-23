@@ -15,6 +15,7 @@ import {
 import { api } from '@/lib/trpc/client'
 import { useRouter } from 'next/navigation'
 import { MUIEmailComposer } from './email-composer'
+import Logger from '@/lib/logger'
 
 interface InvoiceActionsProps {
   invoiceId: string
@@ -74,7 +75,7 @@ export function MUIInvoiceActions({
     try {
       await queuePDFMutation.mutateAsync({ id: invoiceId })
     } catch (error) {
-      console.error('Failed to queue PDF generation:', error)
+      Logger.error('Failed to queue PDF generation:', error)
       alert('Failed to generate PDF. Please try again.')
     }
   }

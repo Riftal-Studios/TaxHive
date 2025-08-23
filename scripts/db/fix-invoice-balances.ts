@@ -4,13 +4,14 @@
  * This script recalculates amountPaid and balanceDue for all invoices
  */
 
+import { Logger } from '../../lib/logger'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
 async function fixInvoiceBalances() {
   try {
-    console.log('Starting invoice balance fix...\n')
+    Logger.info('Starting invoice balance fix...\n')
     
     // Get all invoices
     const invoices = await prisma.invoice.findMany({
@@ -19,7 +20,7 @@ async function fixInvoiceBalances() {
       }
     })
     
-    console.log(`Found ${invoices.length} invoices to check`)
+    Logger.info(`Found ${invoices.length} invoices to check`)
     
     let fixedCount = 0
     
@@ -47,12 +48,12 @@ async function fixInvoiceBalances() {
         invoice.paymentStatus !== paymentStatus
       
       if (needsUpdate) {
-        console.log(`\nFixing invoice ${invoice.invoiceNumber}:`)
-        console.log(`  Total Amount: ${invoice.totalAmount} ${invoice.currency}`)
-        console.log(`  Current Amount Paid: ${invoice.amountPaid} -> ${actualAmountPaid}`)
-        console.log(`  Current Balance Due: ${invoice.balanceDue} -> ${calculatedBalanceDue}`)
-        console.log(`  Payment Status: ${invoice.paymentStatus} -> ${paymentStatus}`)
-        console.log(`  Number of payments: ${invoice.payments.length}`)
+        Logger.info(`\nFixing invoice ${invoice.invoiceNumber}:`)
+        Logger.info(`  Total Amount: ${invoice.totalAmount} ${invoice.currency}`)
+        Logger.info(`  Current Amount Paid: ${invoice.amountPaid} -> ${actualAmountPaid}`)
+        Logger.info(`  Current Balance Due: ${invoice.balanceDue} -> ${calculatedBalanceDue}`)
+        Logger.info(`  Payment Status: ${invoice.paymentStatus} -> ${paymentStatus}`)
+        Logger.info(`  Number of payments: ${invoice.payments.length}`)
         
         // Update the invoice
         await prisma.invoice.update({
@@ -68,11 +69,11 @@ async function fixInvoiceBalances() {
       }
     }
     
-    console.log(`\n✅ Fixed ${fixedCount} invoices`)
-    console.log(`✅ ${invoices.length - fixedCount} invoices were already correct`)
+    Logger.info(`\n✅ Fixed ${fixedCount} invoices`)
+    Logger.info(`✅ ${invoices.length - fixedCount} invoices were already correct`)
     
   } catch (error) {
-    console.error('Error:', error)
+    Logger.error('Error:', error)
   } finally {
     await prisma.$disconnect()
   }
@@ -84,14 +85,14 @@ async function main() {
   const isDryRun = args.includes('--dry-run')
   
   if (isDryRun) {
-    console.log('🔍 Running in DRY RUN mode - no changes will be made\n')
+    Logger.info('🔍 Running in DRY RUN mode - no changes will be made\n')
   }
   
   if (!isDryRun && process.env.NODE_ENV === 'production') {
-    console.log('⚠️  WARNING: Running in production mode!')
-    console.log('This will update invoice balances in the database.')
-    console.log('To preview changes without updating, run with --dry-run flag')
-    console.log('\nPress Ctrl+C to cancel or Enter to continue...')
+    Logger.info('⚠️  WARNING: Running in production mode!')
+    Logger.info('This will update invoice balances in the database.')
+    Logger.info('To preview changes without updating, run with --dry-run flag')
+    Logger.info('\nPress Ctrl+C to cancel or Enter to continue...')
     
     await new Promise(resolve => {
       process.stdin.once('data', resolve)

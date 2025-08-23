@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import { prisma } from '@/lib/prisma'
 import { Decimal } from '@prisma/client/runtime/library'
 import { createTestUser, signInUser, cleanupTestUser } from './helpers/auth-helper'
+import { Logger } from '@/lib/logger'
 
 // Generate unique email for each test to avoid conflicts
 const getTestEmail = (testId: string) => `dashboard-${testId}-${Date.now()}@example.com`
@@ -152,8 +153,8 @@ test.describe('Dashboard', () => {
     
     // Wait for page to fully load and log current URL for debugging
     await page.waitForLoadState('networkidle')
-    console.log('Current URL:', page.url())
-    console.log('Page title:', await page.title())
+    Logger.info('Current URL:', page.url())
+    Logger.info('Page title:', await page.title())
     
     // Check page title
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible()

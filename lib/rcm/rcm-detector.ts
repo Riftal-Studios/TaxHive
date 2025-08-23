@@ -12,6 +12,7 @@
 
 import { detectKnownSupplier } from './foreign-supplier-registry';
 import { matchRCMRule } from './rcm-rule-engine';
+import Logger from '@/lib/logger';
 
 export interface RCMDetectionInput {
   vendorGSTIN: string | null;
@@ -136,7 +137,7 @@ export function detectRCM(input: RCMDetectionInput): RCMDetectionResult {
       }
     } catch (error) {
       // Continue to next priority if notified rule matching fails
-      console.warn('Error matching notified RCM rules:', error);
+      Logger.warn('Error matching notified RCM rules:', error);
     }
   }
   

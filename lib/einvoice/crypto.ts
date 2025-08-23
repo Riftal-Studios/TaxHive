@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import Logger from '@/lib/logger'
 
 /**
  * E-Invoice Cryptography Utilities
@@ -21,7 +22,7 @@ export function encryptWithAES256(data: string, key: string): string {
     
     return encrypted
   } catch (error) {
-    console.error('Encryption error:', error)
+    Logger.error('Encryption error:', error)
     throw new Error('Failed to encrypt data for IRP')
   }
 }
@@ -42,7 +43,7 @@ export function decryptWithAES256(encryptedData: string, key: string): string {
     
     return decrypted
   } catch (error) {
-    console.error('Decryption error:', error)
+    Logger.error('Decryption error:', error)
     throw new Error('Failed to decrypt data from IRP')
   }
 }

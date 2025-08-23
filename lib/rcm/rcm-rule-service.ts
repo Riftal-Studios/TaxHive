@@ -9,6 +9,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { NOTIFIED_RCM_RULES } from '../../prisma/seeds/rcm-notified-rules';
+import Logger from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -57,9 +58,9 @@ export async function seedNotifiedRules(): Promise<void> {
       });
     }
 
-    console.log(`✅ Successfully seeded ${NOTIFIED_RCM_RULES.length} RCM notified rules`);
+    Logger.info(`✅ Successfully seeded ${NOTIFIED_RCM_RULES.length} RCM notified rules`);
   } catch (error) {
-    console.error('❌ Error seeding RCM notified rules:', error);
+    Logger.error('❌ Error seeding RCM notified rules:', error);
     throw error;
   }
 }
@@ -145,9 +146,9 @@ export async function clearTestRules(): Promise<void> {
         }
       }
     });
-    console.log('🧹 Cleared test RCM rules');
+    Logger.info('🧹 Cleared test RCM rules');
   } catch (error) {
-    console.error('❌ Error clearing test rules:', error);
+    Logger.error('❌ Error clearing test rules:', error);
     throw error;
   }
 }
@@ -158,9 +159,9 @@ export async function clearTestRules(): Promise<void> {
 export async function clearRCMRules(): Promise<void> {
   try {
     await prisma.rCMRule.deleteMany({});
-    console.log('🧹 Cleared all RCM rules');
+    Logger.info('🧹 Cleared all RCM rules');
   } catch (error) {
-    console.error('❌ Error clearing RCM rules:', error);
+    Logger.error('❌ Error clearing RCM rules:', error);
     throw error;
   }
 }

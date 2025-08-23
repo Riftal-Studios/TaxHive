@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma'
+import { Logger } from '../../lib/logger'
 
 async function testPublicInvoice() {
   try {
@@ -24,34 +25,34 @@ async function testPublicInvoice() {
     })
 
     if (!invoice) {
-      console.error('Invoice not found with public token')
+      Logger.error('Invoice not found with public token')
       process.exit(1)
     }
 
-    console.log('Invoice found:')
-    console.log('- Number:', invoice.invoiceNumber)
-    console.log('- Client:', invoice.client.name)
-    console.log('- Amount:', invoice.totalAmount.toString(), invoice.currency)
-    console.log('- Token expires at:', invoice.tokenExpiresAt)
-    console.log('- Public URL:', `https://dev.gsthive.com/invoice/${invoice.publicAccessToken}`)
+    Logger.info('Invoice found:')
+    Logger.info('- Number:', invoice.invoiceNumber)
+    Logger.info('- Client:', invoice.client.name)
+    Logger.info('- Amount:', invoice.totalAmount.toString(), invoice.currency)
+    Logger.info('- Token expires at:', invoice.tokenExpiresAt)
+    Logger.info('- Public URL:', `https://dev.gsthive.com/invoice/${invoice.publicAccessToken}`)
     
     // Test the API endpoint
     const apiUrl = `http://localhost:3000/api/invoices/public/${invoice.publicAccessToken}`
-    console.log('\nTesting API endpoint:', apiUrl)
+    Logger.info('\nTesting API endpoint:', apiUrl)
     
     const response = await fetch(apiUrl)
     const data = await response.json()
     
     if (response.ok) {
-      console.log('✅ API endpoint working!')
-      console.log('Response:', JSON.stringify(data, null, 2))
+      Logger.info('✅ API endpoint working!')
+      Logger.info('Response:', JSON.stringify(data, null, 2))
     } else {
-      console.error('❌ API endpoint failed:', response.status, data)
+      Logger.error('❌ API endpoint failed:', response.status, data)
     }
     
     process.exit(0)
   } catch (error) {
-    console.error('Error:', error)
+    Logger.error('Error:', error)
     process.exit(1)
   }
 }

@@ -15,6 +15,7 @@ import {
   Download as DownloadIcon,
 } from '@mui/icons-material'
 import { enqueueSnackbar } from 'notistack'
+import Logger from '@/lib/logger'
 
 interface FileUploadProps {
   label?: string
@@ -113,7 +114,7 @@ export function FileUpload({
         xhr.send(formData)
       })
     } catch (error) {
-      console.error('Upload error:', error)
+      Logger.error('Upload error', { error, fileName: file.name })
       enqueueSnackbar('Failed to upload file', { variant: 'error' })
     } finally {
       setIsUploading(false)

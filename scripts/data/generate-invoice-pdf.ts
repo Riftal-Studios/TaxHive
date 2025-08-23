@@ -1,3 +1,4 @@
+import { Logger } from '../../lib/logger'
 import { prisma } from '../../lib/prisma'
 import { generateInvoicePDF } from '../../lib/pdf-generator'
 import { mkdir, writeFile } from 'fs/promises'
@@ -18,7 +19,7 @@ async function generatePDFForInvoice() {
     })
 
     if (!invoice) {
-      console.error('Invoice not found')
+      Logger.error('Invoice not found')
       process.exit(1)
     }
 
@@ -28,11 +29,11 @@ async function generatePDFForInvoice() {
     })
 
     if (!user) {
-      console.error('User not found')
+      Logger.error('User not found')
       process.exit(1)
     }
 
-    console.log('Generating PDF for invoice:', invoice.invoiceNumber)
+    Logger.info('Generating PDF for invoice:', invoice.invoiceNumber)
 
     // Generate PDF
     const pdfBuffer = await generateInvoicePDF(invoice, user)
@@ -46,7 +47,7 @@ async function generatePDFForInvoice() {
     const filePath = path.join(uploadsDir, filename)
     await writeFile(filePath, pdfBuffer)
     
-    console.log('PDF saved to:', filePath)
+    Logger.info('PDF saved to:', filePath)
     
     // Update invoice with PDF URL
     const pdfUrl = `/uploads/invoices/${filename}`
@@ -55,12 +56,12 @@ async function generatePDFForInvoice() {
       data: { pdfUrl }
     })
     
-    console.log('Invoice updated with PDF URL:', pdfUrl)
-    console.log('✅ PDF generation complete!')
+    Logger.info('Invoice updated with PDF URL:', pdfUrl)
+    Logger.info('✅ PDF generation complete!')
     
     process.exit(0)
   } catch (error) {
-    console.error('Error generating PDF:', error)
+    Logger.error('Error generating PDF:', error)
     process.exit(1)
   }
 }

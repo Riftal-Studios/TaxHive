@@ -1,5 +1,6 @@
 import { Queue, QueueEvents, Job } from 'bullmq'
 import { createRedisConnection, QUEUE_NAMES, DEFAULT_JOB_OPTIONS, isRedisConfigured } from './config'
+import Logger from '@/lib/logger'
 import type { 
   JobData, 
   QueueMetrics,
@@ -17,7 +18,7 @@ let queueEvents: Map<string, QueueEvents> | null = null
 // Initialize queues
 export function initializeQueues(): Map<string, Queue> {
   if (!isRedisConfigured()) {
-    console.warn('Redis not configured. Queue functionality disabled.')
+    Logger.warn('Redis not configured. Queue functionality disabled.')
     return new Map()
   }
 
@@ -43,11 +44,11 @@ export function initializeQueues(): Map<string, Queue> {
     // Log queue events in development
     if (process.env.NODE_ENV === 'development') {
       events.on('completed', ({ jobId }) => {
-        console.log(`[${queueName}] Job ${jobId} completed`)
+        Logger.queue(`[${queueName}] Job ${jobId} completed`)
       })
 
       events.on('failed', ({ jobId, failedReason }) => {
-        console.error(`[${queueName}] Job ${jobId} failed: ${failedReason}`)
+        Logger.error(`[${queueName}] Job ${jobId} failed: ${failedReason}`)
       })
     }
   })

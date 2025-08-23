@@ -18,6 +18,7 @@ import { queueManager } from '@/lib/queue/manager'
 import { JOB_PRIORITIES } from '@/lib/queue/config'
 import { db } from '@/lib/prisma'
 import type { StateCode } from '@/lib/gst'
+import Logger from '@/lib/logger'
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
@@ -172,7 +173,7 @@ export const invoiceRouter = createTRPCRouter({
             })
           }
         } catch (error) {
-          console.error('Failed to queue PDF generation for new invoice:', error)
+          Logger.error('Failed to queue PDF generation for new invoice', { error })
           // Mark as failed but don't fail invoice creation
           await tx.invoice.update({
             where: { id: invoice.id },
@@ -212,7 +213,7 @@ export const invoiceRouter = createTRPCRouter({
             )
           }
         } catch (error) {
-          console.error('Failed to queue email notification:', error)
+          Logger.error('Failed to queue email notification', { error })
           // Don't fail invoice creation for email issues
         }
         
@@ -426,10 +427,10 @@ export const invoiceRouter = createTRPCRouter({
               }
             })
           } else {
-            console.warn('Queue service not available for PDF regeneration after update')
+            Logger.warn('Queue service not available for PDF regeneration after update')
           }
         } catch (error) {
-          console.error('Failed to queue PDF regeneration after update:', error)
+          Logger.error('Failed to queue PDF regeneration after update', { error })
           // Mark as failed but don't fail the update
           await tx.invoice.update({
             where: { id },
@@ -531,7 +532,7 @@ export const invoiceRouter = createTRPCRouter({
           filename: `invoice-${invoice.invoiceNumber.replace('/', '-')}.pdf`,
         }
       } catch (error) {
-        console.error('PDF generation error:', error)
+        Logger.error('PDF generation error', { error })
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to generate PDF',
@@ -578,7 +579,7 @@ export const invoiceRouter = createTRPCRouter({
           message: 'PDF generation queued successfully',
         }
       } catch (error) {
-        console.error('Failed to queue PDF generation:', error)
+        Logger.error('Failed to queue PDF generation', { error })
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: error instanceof TRPCError ? error.message : 'Failed to queue PDF generation',
@@ -625,7 +626,7 @@ export const invoiceRouter = createTRPCRouter({
           }
         }
       } catch (error) {
-        console.error('Failed to get job status:', error)
+        Logger.error('Failed to get job status', { error })
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to get job status',
@@ -1162,7 +1163,7 @@ export const invoiceRouter = createTRPCRouter({
             }
           }
         } catch (error) {
-          console.error('Error checking job status:', error)
+          Logger.error('Error checking job status', { error })
         }
       }
 
@@ -1386,7 +1387,7 @@ export const invoiceRouter = createTRPCRouter({
             })
           }
         } catch (error) {
-          console.error('Failed to queue PDF generation:', error)
+          Logger.error('Failed to queue PDF generation', { error })
         }
         
         return invoice

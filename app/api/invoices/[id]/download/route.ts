@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
+import Logger from '@/lib/logger'
 
 // Helper function to generate PDF on demand
 async function generatePDFOnDemand(invoiceId: string, userId: string): Promise<Buffer> {
@@ -110,11 +111,11 @@ export async function GET(
       
       return new NextResponse(pdfBuffer, { headers })
     } catch (error) {
-      console.error('Error generating/reading PDF:', error)
+      Logger.error('Error generating/reading PDF:', error)
       return new NextResponse('Failed to generate PDF', { status: 500 })
     }
   } catch (error) {
-    console.error('Error downloading PDF:', error)
+    Logger.error('Error downloading PDF:', error)
     return new NextResponse('Internal server error', { status: 500 })
   }
 }

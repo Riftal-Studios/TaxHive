@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import type Mail from 'nodemailer/lib/mailer'
+import Logger from '../logger'
 
 type SendMailOptions = Mail.Options
 type Attachment = Mail.Attachment
@@ -51,21 +52,21 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResult> {
   // Send email
   const info = await transporter.sendMail(mailOptions)
 
-  // Log email to console in development mode
+  // Log email in development mode
   if (process.env.EMAIL_PROVIDER === 'console') {
-    console.log('\n📧 EMAIL SENT (Console Mode)')
-    console.log('=====================================')
-    console.log(`From: ${mailOptions.from}`)
-    console.log(`To: ${mailOptions.to}`)
-    if (mailOptions.cc) console.log(`CC: ${mailOptions.cc}`)
-    if (mailOptions.bcc) console.log(`BCC: ${mailOptions.bcc}`)
-    console.log(`Subject: ${mailOptions.subject}`)
-    console.log('=====================================')
-    console.log('\n--- EMAIL CONTENT (HTML) ---')
-    console.log(mailOptions.html)
-    console.log('\n--- EMAIL CONTENT (TEXT) ---')
-    console.log(mailOptions.text)
-    console.log('=====================================\n')
+    Logger.info('📧 EMAIL SENT (Console Mode)')
+    Logger.info('Email Details', {
+      from: mailOptions.from,
+      to: mailOptions.to,
+      cc: mailOptions.cc,
+      bcc: mailOptions.bcc,
+      subject: mailOptions.subject,
+      hasHtml: !!mailOptions.html,
+      hasText: !!mailOptions.text,
+      attachmentCount: mailOptions.attachments?.length || 0
+    })
+    Logger.debug('Email HTML Content', { html: mailOptions.html })
+    Logger.debug('Email Text Content', { text: mailOptions.text })
   }
 
   return {
@@ -177,12 +178,11 @@ export async function sendOTPEmail(
   
   // For console/development, just log the OTP
   if (emailProvider === 'console') {
-    console.log('\n📧 EMAIL OTP (Development Mode)')
-    console.log('================================')
-    console.log(`To: ${to}`)
-    console.log(`Purpose: ${purpose}`)
-    console.log(`OTP Code: ${otp}`)
-    console.log('================================\n')
+    Logger.info('📧 EMAIL OTP (Development Mode)', {
+      to: to,
+      purpose: purpose,
+      otpCode: otp
+    })
     
     return {
       messageId: `console-${Date.now()}`,

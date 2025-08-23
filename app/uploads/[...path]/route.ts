@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import Logger from '@/lib/logger'
 
 export async function GET(
   request: NextRequest,
@@ -63,7 +64,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('File serving error:', error)
+    Logger.error('File serving error:', error)
     return NextResponse.json({ error: 'Failed to serve file' }, { status: 500 })
   }
 }

@@ -41,6 +41,7 @@ import { api } from '@/lib/trpc/client'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { formatCurrency } from '@/lib/invoice-utils'
+import Logger from '@/lib/logger'
 
 const paymentMethodLabels: Record<string, string> = {
   BANK_TRANSFER: 'Bank Transfer',
@@ -121,7 +122,7 @@ export function MUIPayments() {
     setIsExporting(true)
     try {
       // This would typically call an API endpoint to generate the export
-      console.log(`Exporting payments as ${format.toUpperCase()}`)
+      Logger.info(`Exporting payments as ${format.toUpperCase()}`)
       // Simulate export delay
       await new Promise(resolve => setTimeout(resolve, 1000))
       
@@ -132,7 +133,7 @@ export function MUIPayments() {
       
       alert(`Payments exported as ${format.toUpperCase()} successfully!`)
     } catch (error) {
-      console.error('Export failed:', error)
+      Logger.error('Export failed:', error)
       alert('Export failed. Please try again.')
     } finally {
       setIsExporting(false)

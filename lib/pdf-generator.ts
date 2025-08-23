@@ -3,6 +3,7 @@ import puppeteer from 'puppeteer'
 // Re-export for backward compatibility
 export { uploadPDF } from './pdf-uploader'
 import type { Invoice, InvoiceItem, User, Client, LUT, Payment } from '@prisma/client'
+import Logger from '@/lib/logger'
 import { SAC_HSN_CODES } from './constants'
 import { numberToWordsIndian, numberToWordsInternational } from './utils/number-to-words'
 import { INDIAN_STATES, StateCode } from '@/lib/gst'
@@ -45,7 +46,7 @@ export async function generateInvoicePDF(
     await page.close()
     return Buffer.from(pdf)
   } catch (error) {
-    console.error('PDF generation error:', error)
+    Logger.error('PDF generation error:', error)
     throw new Error('Failed to generate PDF: ' + (error as Error).message)
   } finally {
     if (browser) {

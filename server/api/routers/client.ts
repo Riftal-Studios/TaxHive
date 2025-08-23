@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
+import Logger from '@/lib/logger'
 
 export const clientRouter = createTRPCRouter({
   create: protectedProcedure
@@ -33,9 +34,11 @@ export const clientRouter = createTRPCRouter({
         })
         return client
       } catch (error) {
-        console.error('Client creation error:', error)
-        console.error('User ID:', ctx.session.user.id)
-        console.error('Session:', ctx.session)
+        Logger.error('Client creation error', { 
+          error, 
+          userId: ctx.session.user.id,
+          sessionId: ctx.session.id 
+        })
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to create client. Please ensure you are properly logged in.',

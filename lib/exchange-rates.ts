@@ -1,5 +1,6 @@
 import { prisma } from './prisma'
 import { CURRENCY_CODES } from './constants'
+import Logger from '@/lib/logger'
 
 interface ExchangeRate {
   currency: string
@@ -56,7 +57,7 @@ export async function fetchRBIExchangeRates(): Promise<ExchangeRate[]> {
     
     return rates
   } catch (error) {
-    console.error('Failed to fetch RBI exchange rates:', error)
+    Logger.error('Failed to fetch RBI exchange rates:', error)
     return []
   }
 }
@@ -88,13 +89,13 @@ export async function fetchFallbackExchangeRates(): Promise<ExchangeRate[]> {
           })
         }
       } catch (error) {
-        console.error(`Failed to fetch rate for ${currency}:`, error)
+        Logger.error(`Failed to fetch rate for ${currency}:`, error)
       }
     }
     
     return rates
   } catch (error) {
-    console.error('Failed to fetch fallback exchange rates:', error)
+    Logger.error('Failed to fetch fallback exchange rates:', error)
     return rates
   }
 }
@@ -127,7 +128,7 @@ export async function updateExchangeRates() {
     
     // If RBI fails or returns no rates, use fallback
     if (rates.length === 0) {
-      console.log('RBI rates not available, using fallback...')
+      Logger.info('RBI rates not available, using fallback...')
       rates = await fetchFallbackExchangeRates()
     }
     
@@ -166,7 +167,7 @@ export async function updateExchangeRates() {
       message: `Updated ${updates.length} exchange rates`,
     }
   } catch (error) {
-    console.error('Failed to update exchange rates:', error)
+    Logger.error('Failed to update exchange rates:', error)
     return {
       success: false,
       skipped: false,

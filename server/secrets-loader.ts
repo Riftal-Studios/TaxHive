@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from 'fs'
+import { Logger } from '../lib/logger'
 
 // Track if secrets have already been loaded
 let secretsLoaded = false
@@ -34,7 +35,7 @@ export function loadDockerSecrets(): void {
     { file: 'cron_secret', env: 'CRON_SECRET' },
   ]
 
-  console.log('Loading Docker secrets...')
+  Logger.info('Loading Docker secrets...')
 
   for (const { file, env } of secrets) {
     const secretPath = `/run/secrets/${file}`
@@ -43,10 +44,10 @@ export function loadDockerSecrets(): void {
         const secret = readFileSync(secretPath, 'utf8').trim()
         if (secret && !process.env[env]) {
           process.env[env] = secret
-          console.log(`✓ Loaded ${env} from Docker secret`)
+          Logger.info(`✓ Loaded ${env} from Docker secret`)
         }
       } catch (error) {
-        console.warn(`Failed to read Docker secret ${file}:`, error)
+        Logger.warn(`Failed to read Docker secret ${file}:`, error)
       }
     }
   }
@@ -60,7 +61,7 @@ export function loadDockerSecrets(): void {
     const db = process.env.POSTGRES_DB || 'gsthive'
     
     process.env.DATABASE_URL = `postgresql://${user}:${password}@${host}:${port}/${db}`
-    console.log('✓ DATABASE_URL constructed from Docker secrets')
+    Logger.info('✓ DATABASE_URL constructed from Docker secrets')
   }
 
   // Construct REDIS_URL if components are available
@@ -70,10 +71,10 @@ export function loadDockerSecrets(): void {
     const port = process.env.REDIS_PORT || '6379'
     
     process.env.REDIS_URL = `redis://:${password}@${host}:${port}`
-    console.log('✓ REDIS_URL constructed from Docker secrets')
+    Logger.info('✓ REDIS_URL constructed from Docker secrets')
   }
 
-  console.log('Docker secrets loading complete')
+  Logger.info('Docker secrets loading complete')
   
   // Mark as loaded
   secretsLoaded = true

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { updateExchangeRates } from '@/lib/exchange-rates'
+import Logger from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('Cron job error:', error)
+    Logger.error('Cron job error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

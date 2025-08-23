@@ -1,5 +1,6 @@
 import { Queue, Worker, Job as BullMQJob, QueueEvents } from 'bullmq'
 import Redis from 'ioredis'
+import Logger from '@/lib/logger'
 import { 
   type QueueService, 
   type Job, 
@@ -147,11 +148,11 @@ export class BullMQService implements QueueService {
 
     // Set up event listeners
     worker.on('completed', (job) => {
-      console.log(`Job ${job.id} completed`)
+      Logger.queue(`Job ${job.id} completed`)
     })
 
     worker.on('failed', (job, err) => {
-      console.error(`Job ${job?.id} failed:`, err)
+      Logger.error(`Job ${job?.id} failed:`, err)
     })
   }
 

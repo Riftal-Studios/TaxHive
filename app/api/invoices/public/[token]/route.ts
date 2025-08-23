@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isTokenExpired } from '@/lib/utils/token'
+import Logger from '@/lib/logger'
 
 export async function GET(
   request: NextRequest,
@@ -89,7 +90,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Error fetching public invoice:', error)
+    Logger.error('Error fetching public invoice:', error)
     return NextResponse.json(
       { 
         error: 'Internal server error',

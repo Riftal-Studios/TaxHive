@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+import { Logger } from '../../lib/logger'
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
 
@@ -7,7 +8,7 @@ const prisma = new PrismaClient()
 
 async function seedDemoData() {
   try {
-    console.log('🌱 Seeding demo data...\n')
+    Logger.info('🌱 Seeding demo data...\n')
     
     // Clean up existing demo data first
     const email = 'demo@gsthive.com'
@@ -16,7 +17,7 @@ async function seedDemoData() {
     })
     
     if (existingUser) {
-      console.log('🧹 Cleaning up existing demo data...')
+      Logger.info('🧹 Cleaning up existing demo data...')
       // Delete in correct order to respect foreign key constraints
       await prisma.payment.deleteMany({ 
         where: { 
@@ -32,7 +33,7 @@ async function seedDemoData() {
       await prisma.lUT.deleteMany({ where: { userId: existingUser.id } })
       await prisma.client.deleteMany({ where: { userId: existingUser.id } })
       await prisma.user.delete({ where: { id: existingUser.id } })
-      console.log('✅ Cleaned up existing demo data')
+      Logger.info('✅ Cleaned up existing demo data')
     }
 
     // Create demo user
@@ -51,7 +52,7 @@ async function seedDemoData() {
       }
     })
     
-    console.log(`✅ Created demo user: ${user.email}`)
+    Logger.info(`✅ Created demo user: ${user.email}`)
 
     // Create LUT
     const lut = await prisma.lUT.create({
@@ -65,7 +66,7 @@ async function seedDemoData() {
       }
     })
     
-    console.log(`✅ Created LUT: ${lut.lutNumber}`)
+    Logger.info(`✅ Created LUT: ${lut.lutNumber}`)
 
     // Create demo clients
     const clients = await Promise.all([
@@ -107,7 +108,7 @@ async function seedDemoData() {
       }),
     ])
     
-    console.log(`✅ Created ${clients.length} demo clients`)
+    Logger.info(`✅ Created ${clients.length} demo clients`)
 
     // Create exchange rates
     const exchangeRates = await Promise.all([
@@ -137,7 +138,7 @@ async function seedDemoData() {
       }),
     ])
     
-    console.log(`✅ Created ${exchangeRates.length} exchange rates`)
+    Logger.info(`✅ Created ${exchangeRates.length} exchange rates`)
 
     // Create demo invoices
     const invoices = []
@@ -372,23 +373,23 @@ Branch: Koramangala, Bangalore`
     
     invoices.push(invoice4)
 
-    console.log(`✅ Created ${invoices.length} demo invoices with line items and payments`)
+    Logger.info(`✅ Created ${invoices.length} demo invoices with line items and payments`)
 
-    console.log('\n🎉 Demo data seeded successfully!')
-    console.log('\n📧 Login credentials:')
-    console.log(`   Email: ${email}`)
-    console.log('   Password: demo123')
-    console.log('\n🔗 Public invoice URLs:')
+    Logger.info('\n🎉 Demo data seeded successfully!')
+    Logger.info('\n📧 Login credentials:')
+    Logger.info(`   Email: ${email}`)
+    Logger.info('   Password: demo123')
+    Logger.info('\n🔗 Public invoice URLs:')
     invoices.forEach((inv, i) => {
-      console.log(`   Invoice ${i + 1}: http://localhost:3000/invoice/${inv.publicAccessToken}`)
+      Logger.info(`   Invoice ${i + 1}: http://localhost:3000/invoice/${inv.publicAccessToken}`)
     })
 
   } catch (error) {
-    console.error('❌ Error seeding demo data:', error)
+    Logger.error('❌ Error seeding demo data:', error)
     throw error
   } finally {
     await prisma.$disconnect()
   }
 }
 
-seedDemoData().catch(console.error)
+seedDemoData().catch(Logger.error)

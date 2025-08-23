@@ -1,10 +1,11 @@
+import { Logger } from '../../lib/logger'
 import { PrismaClient } from '@prisma/client'
 import { addMonths, subDays, addDays, subMonths } from 'date-fns'
 
 const prisma = new PrismaClient()
 
 async function seedTestData() {
-  console.log('Starting test data seed...')
+  Logger.info('Starting test data seed...')
 
   try {
     // Find the user
@@ -13,11 +14,11 @@ async function seedTestData() {
     })
 
     if (!user) {
-      console.error('User nasiridrishi@outlook.com not found!')
+      Logger.error('User nasiridrishi@outlook.com not found!')
       return
     }
 
-    console.log('Found user:', user.email)
+    Logger.info('Found user:', user.email)
 
     // Create LUTs
     const lut = await prisma.lUT.create({
@@ -43,7 +44,7 @@ async function seedTestData() {
       }
     })
     
-    console.log('Created LUTs')
+    Logger.info('Created LUTs')
 
     // Create test clients
     const clients = await Promise.all([
@@ -126,7 +127,7 @@ async function seedTestData() {
         }
       }),
     ])
-    console.log('Created', clients.length, 'clients')
+    Logger.info('Created', clients.length, 'clients')
 
     // Create invoices with different statuses
     const invoices = []
@@ -482,7 +483,7 @@ async function seedTestData() {
     })
     invoices.push(invoice7)
 
-    console.log('Created', invoices.length, 'invoices')
+    Logger.info('Created', invoices.length, 'invoices')
 
     // Create payments
     // Payment 1: Full payment for invoice 1
@@ -627,7 +628,7 @@ async function seedTestData() {
       }
     })
 
-    console.log('Created payment records')
+    Logger.info('Created payment records')
 
     // Create exchange rates for multiple days
     const exchangeRates = [
@@ -674,11 +675,11 @@ async function seedTestData() {
         })
       }
     }
-    console.log('Created exchange rates for multiple currencies and days')
+    Logger.info('Created exchange rates for multiple currencies and days')
 
-    console.log('Test data seeding completed successfully!')
+    Logger.info('Test data seeding completed successfully!')
   } catch (error) {
-    console.error('Error seeding test data:', error)
+    Logger.error('Error seeding test data:', error)
   } finally {
     await prisma.$disconnect()
   }
@@ -686,6 +687,6 @@ async function seedTestData() {
 
 seedTestData()
   .catch((e) => {
-    console.error(e)
+    Logger.error(e)
     process.exit(1)
   })

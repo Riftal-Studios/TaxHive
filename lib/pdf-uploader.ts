@@ -1,5 +1,6 @@
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import Logger from '@/lib/logger'
 
 // Check if we should use S3 uploader
 const useS3 = process.env.AWS_ACCESS_KEY_ID && process.env.AWS_S3_BUCKET
@@ -17,7 +18,7 @@ export async function uploadPDF(buffer: Buffer, filename: string): Promise<strin
       const uploadToS3 = await s3Uploader
       return await uploadToS3(buffer, filename)
     } catch (error) {
-      console.error('S3 upload failed, falling back to local storage:', error)
+      Logger.error('S3 upload failed, falling back to local storage:', error)
     }
   }
 

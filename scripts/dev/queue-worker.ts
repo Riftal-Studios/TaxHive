@@ -9,6 +9,7 @@ import path from 'path'
 
 // Load .env.local for local development
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
+import { Logger } from '../../lib/logger'
 import { BullMQService } from '../../lib/queue/bullmq.service'
 import { pdfGenerationHandler } from '../../lib/queue/handlers/pdf-generation.handler'
 import { emailNotificationHandler } from '../../lib/queue/handlers/email-notification.handler'
@@ -16,11 +17,11 @@ import { exchangeRateFetchHandler } from '../../lib/queue/handlers/exchange-rate
 import { recurringInvoiceGenerationHandler } from '../../lib/queue/handlers/recurring-invoice-generation.handler'
 
 // Debug environment loading
-console.log('Environment check:')
-console.log('REDIS_URL:', process.env.REDIS_URL)
-console.log('REDIS_HOST:', process.env.REDIS_HOST)
-console.log('REDIS_PORT:', process.env.REDIS_PORT)
-console.log('REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'not set')
+Logger.info('Environment check:')
+Logger.info('REDIS_URL:', process.env.REDIS_URL)
+Logger.info('REDIS_HOST:', process.env.REDIS_HOST)
+Logger.info('REDIS_PORT:', process.env.REDIS_PORT)
+Logger.info('REDIS_PASSWORD:', process.env.REDIS_PASSWORD ? '***' : 'not set')
 
 // Initialize queue service
 let redisConfig: { host: string; port: number; password?: string } = {
@@ -60,7 +61,7 @@ if (process.env.REDIS_URL && process.env.REDIS_PASSWORD) {
   }
 }
 
-console.log('Initializing BullMQService with config:', {
+Logger.info('Initializing BullMQService with config:', {
   host: redisConfig.host,
   port: redisConfig.port,
   password: redisConfig.password ? `***${redisConfig.password.slice(-5)}` : 'not set'
@@ -78,18 +79,18 @@ queueService.registerHandler('RECURRING_INVOICE_GENERATION', recurringInvoiceGen
 
 // Start processing jobs
 async function start() {
-  console.log('🚀 Queue worker started')
-  console.log(`Redis: ${redisConfig.host}:${redisConfig.port}${redisConfig.password ? ' (with auth)' : ''}`)
+  Logger.info('🚀 Queue worker started')
+  Logger.info(`Redis: ${redisConfig.host}:${redisConfig.port}${redisConfig.password ? ' (with auth)' : ''}`)
   
   // Graceful shutdown
   process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down gracefully...')
+    Logger.info('SIGTERM received, shutting down gracefully...')
     await queueService.close()
     process.exit(0)
   })
 
   process.on('SIGINT', async () => {
-    console.log('SIGINT received, shutting down gracefully...')
+    Logger.info('SIGINT received, shutting down gracefully...')
     await queueService.close()
     process.exit(0)
   })
@@ -99,6 +100,6 @@ async function start() {
 }
 
 start().catch((error) => {
-  console.error('Worker failed to start:', error)
+  Logger.error('Worker failed to start:', error)
   process.exit(1)
 })

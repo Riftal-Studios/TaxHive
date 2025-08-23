@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { api } from '@/lib/trpc/client'
 import { useRouter } from 'next/navigation'
 import { EmailComposer } from './email-composer'
+import Logger from '@/lib/logger'
 
 interface InvoiceActionsProps {
   invoiceId: string
@@ -61,7 +62,7 @@ export function InvoiceActions({
     try {
       await queuePDFMutation.mutateAsync({ id: invoiceId })
     } catch (error) {
-      console.error('Failed to queue PDF generation:', error)
+      Logger.error('Failed to queue PDF generation', { error, invoiceId })
       alert('Failed to generate PDF. Please try again.')
     }
   }

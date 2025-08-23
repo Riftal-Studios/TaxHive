@@ -1,6 +1,7 @@
 import type { Job, ExchangeRateJobData } from '../types'
 import { fetchRBIRates, fetchFallbackRates } from '@/lib/exchange-rates'
 import { db } from '@/lib/prisma'
+import Logger from '@/lib/logger'
 
 interface ExchangeRateFetchResult {
   success: boolean
@@ -31,14 +32,14 @@ export async function exchangeRateFetchHandler(job: Job<ExchangeRateJobData>): P
     // Try RBI first
     rates = await fetchRBIRates(date, currencies)
   } catch (error) {
-    console.error('RBI API failed:', error)
+    Logger.error('RBI API failed:', error)
     
     // Fallback to external API
     try {
       rates = await fetchFallbackRates(date, currencies)
       actualSource = 'FALLBACK'
     } catch (fallbackError) {
-      console.error('Fallback API also failed:', fallbackError)
+      Logger.error('Fallback API also failed:', fallbackError)
       throw new Error('Failed to fetch exchange rates from all sources')
     }
   }

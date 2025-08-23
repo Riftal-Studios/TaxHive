@@ -1,3 +1,4 @@
+import { Logger } from '../../lib/logger'
 import { prisma } from '../../lib/prisma'
 import { getQueueService } from '../../lib/queue'
 
@@ -18,13 +19,13 @@ async function sendTestInvoice() {
     })
 
     if (!invoice) {
-      console.error('No invoice found for nasiridrishi@outlook.com')
+      Logger.error('No invoice found for nasiridrishi@outlook.com')
       process.exit(1)
     }
 
-    console.log('Found invoice:', invoice.invoiceNumber)
-    console.log('Public access token:', invoice.publicAccessToken)
-    console.log('Token expires at:', invoice.tokenExpiresAt)
+    Logger.info('Found invoice:', invoice.invoiceNumber)
+    Logger.info('Public access token:', invoice.publicAccessToken)
+    Logger.info('Token expires at:', invoice.tokenExpiresAt)
 
     // Generate public access token if not exists
     if (!invoice.publicAccessToken) {
@@ -39,7 +40,7 @@ async function sendTestInvoice() {
       })
       
       invoice.publicAccessToken = updated.publicAccessToken
-      console.log('Generated new public access token:', invoice.publicAccessToken)
+      Logger.info('Generated new public access token:', invoice.publicAccessToken)
     }
 
     const queue = getQueueService()
@@ -68,12 +69,12 @@ async function sendTestInvoice() {
       userId: invoice.userId,
     })
 
-    console.log('Email job queued:', job.id)
-    console.log('Public invoice URL:', `${process.env.NEXTAUTH_URL}/invoice/${invoice.publicAccessToken}`)
+    Logger.info('Email job queued:', job.id)
+    Logger.info('Public invoice URL:', `${process.env.NEXTAUTH_URL}/invoice/${invoice.publicAccessToken}`)
     
     process.exit(0)
   } catch (error) {
-    console.error('Error:', error)
+    Logger.error('Error:', error)
     process.exit(1)
   }
 }

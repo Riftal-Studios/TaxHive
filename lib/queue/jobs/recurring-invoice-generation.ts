@@ -14,6 +14,7 @@ import {
   startOfDay
 } from 'date-fns'
 import { getQueueService } from '..'
+import Logger from '@/lib/logger'
 
 // Helper function to calculate next run date
 function calculateNextRunDate(
@@ -66,7 +67,7 @@ function calculateNextRunDate(
 export async function processRecurringInvoiceGeneration(job: Job<RecurringInvoiceGenerationJobData>) {
   const { recurringInvoiceId, userId, manual } = job.data
   
-  console.log(`Processing recurring invoice generation: ${recurringInvoiceId}`)
+  Logger.queue(`Processing recurring invoice generation: ${recurringInvoiceId}`)
   
   try {
     // Fetch the recurring invoice with all related data
@@ -89,7 +90,7 @@ export async function processRecurringInvoiceGeneration(job: Job<RecurringInvoic
     // Check if invoice should be generated (unless manually triggered)
     if (!manual) {
       if (recurringInvoice.status !== 'ACTIVE') {
-        console.log(`Skipping inactive recurring invoice: ${recurringInvoiceId}`)
+        Logger.queue(`Skipping inactive recurring invoice: ${recurringInvoiceId}`)
         return { skipped: true, reason: 'Invoice not active' }
       }
       
@@ -113,7 +114,7 @@ export async function processRecurringInvoiceGeneration(job: Job<RecurringInvoic
       
       // Check if it's time to generate (nextRunDate <= today)
       if (isAfter(recurringInvoice.nextRunDate, new Date())) {
-        console.log(`Not yet time to generate invoice for: ${recurringInvoiceId}`)
+        Logger.queue(`Not yet time to generate invoice for: ${recurringInvoiceId}`)
         return { skipped: true, reason: 'Not yet due' }
       }
     }
@@ -210,7 +211,7 @@ export async function processRecurringInvoiceGeneration(job: Job<RecurringInvoic
       },
     })
     
-    console.log(`Generated invoice ${invoice.invoiceNumber} from recurring template ${recurringInvoiceId}`)
+    Logger.queue(`Generated invoice ${invoice.invoiceNumber} from recurring template ${recurringInvoiceId}`)
     
     // Update recurring invoice - calculate next run date and increment count
     const nextRunDate = calculateNextRunDate(
@@ -271,14 +272,14 @@ export async function processRecurringInvoiceGeneration(job: Job<RecurringInvoic
       nextRunDate,
     }
   } catch (error) {
-    console.error('Error generating recurring invoice:', error)
+    Logger.error('Error generating recurring invoice:', error)
     throw error
   }
 }
 
 // Cron job to check and generate all due recurring invoices
 export async function checkAndGenerateRecurringInvoices() {
-  console.log('Checking for recurring invoices to generate...')
+  Logger.queue('Checking for recurring invoices to generate...')
   
   try {
     // Find all active recurring invoices that are due
@@ -299,7 +300,7 @@ export async function checkAndGenerateRecurringInvoices() {
       },
     })
     
-    console.log(`Found ${dueRecurringInvoices.length} recurring invoices to generate`)
+    Logger.queue(`Found ${dueRecurringInvoices.length} recurring invoices to generate`)
     
     if (dueRecurringInvoices.length === 0) {
       return { processed: 0 }
@@ -318,14 +319,14 @@ export async function checkAndGenerateRecurringInvoices() {
       jobs.push(job)
     }
     
-    console.log(`Queued ${jobs.length} recurring invoice generation jobs`)
+    Logger.queue(`Queued ${jobs.length} recurring invoice generation jobs`)
     
     return {
       processed: jobs.length,
       jobIds: jobs.map(j => j.id),
     }
   } catch (error) {
-    console.error('Error checking recurring invoices:', error)
+    Logger.error('Error checking recurring invoices:', error)
     throw error
   }
 }

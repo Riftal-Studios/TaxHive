@@ -1,11 +1,12 @@
 #!/usr/bin/env tsx
+import { Logger } from '../../lib/logger'
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('Creating test data for invoice email preview...')
+  Logger.info('Creating test data for invoice email preview...')
   
   // Find or create test user
   let user = await prisma.user.findFirst({
@@ -26,7 +27,7 @@ async function main() {
         onboardingCompleted: true,
       }
     })
-    console.log('Created test user')
+    Logger.info('Created test user')
   }
   
   // Create client
@@ -42,7 +43,7 @@ async function main() {
       phone: '+1-555-0123',
     }
   })
-  console.log('Created client:', client.name)
+  Logger.info('Created client:', client.name)
   
   // Get or create LUT
   let lut = await prisma.lUT.findFirst({
@@ -116,26 +117,26 @@ async function main() {
     }
   })
   
-  console.log('\n✅ Test invoice created successfully!')
-  console.log('\nInvoice Details:')
-  console.log('- Invoice Number:', invoice.invoiceNumber)
-  console.log('- Client:', invoice.client.name, `(${invoice.client.email})`)
-  console.log('- Amount:', `$${invoice.totalAmount}`)
-  console.log('- Due Date:', invoice.dueDate.toLocaleDateString())
-  console.log('\nBank Details included:', invoice.bankDetails ? 'Yes' : 'No')
+  Logger.info('\n✅ Test invoice created successfully!')
+  Logger.info('\nInvoice Details:')
+  Logger.info('- Invoice Number:', invoice.invoiceNumber)
+  Logger.info('- Client:', invoice.client.name, `(${invoice.client.email})`)
+  Logger.info('- Amount:', `$${invoice.totalAmount}`)
+  Logger.info('- Due Date:', invoice.dueDate.toLocaleDateString())
+  Logger.info('\nBank Details included:', invoice.bankDetails ? 'Yes' : 'No')
   
-  console.log('\n📧 You can now:')
-  console.log('1. Log in with: test@gsthive.com / Test123!@#')
-  console.log('2. Go to Invoices section')
-  console.log('3. Find invoice', invoice.invoiceNumber)
-  console.log('4. Click "Send Invoice" to email it to nasiridrishi@outlook.com')
+  Logger.info('\n📧 You can now:')
+  Logger.info('1. Log in with: test@gsthive.com / Test123!@#')
+  Logger.info('2. Go to Invoices section')
+  Logger.info('3. Find invoice', invoice.invoiceNumber)
+  Logger.info('4. Click "Send Invoice" to email it to nasiridrishi@outlook.com')
   
-  console.log('\nInvoice URL: http://localhost:3000/invoices/' + invoice.id)
+  Logger.info('\nInvoice URL: http://localhost:3000/invoices/' + invoice.id)
 }
 
 main()
   .catch((e) => {
-    console.error('Error:', e)
+    Logger.error('Error:', e)
     process.exit(1)
   })
   .finally(async () => {

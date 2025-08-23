@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { Logger } from '../../lib/logger'
 
 const prisma = new PrismaClient()
 
@@ -20,14 +21,14 @@ async function checkInvoice() {
     })
     
     if (!invoice) {
-      console.log('❌ Invoice not found in database')
+      Logger.info('❌ Invoice not found in database')
     } else {
-      console.log('✅ Invoice found:')
-      console.log('   Invoice ID:', invoice.id)
-      console.log('   Invoice Number:', invoice.invoiceNumber)
-      console.log('   Owner User ID:', invoice.userId)
-      console.log('   Owner Email:', invoice.user.email)
-      console.log('   Created:', invoice.createdAt)
+      Logger.info('✅ Invoice found:')
+      Logger.info('   Invoice ID:', invoice.id)
+      Logger.info('   Invoice Number:', invoice.invoiceNumber)
+      Logger.info('   Owner User ID:', invoice.userId)
+      Logger.info('   Owner Email:', invoice.user.email)
+      Logger.info('   Created:', invoice.createdAt)
     }
     
     // Also check who is trying to access it
@@ -38,13 +39,13 @@ async function checkInvoice() {
       }
     })
     
-    console.log('\n📋 All users in system:')
+    Logger.info('\n📋 All users in system:')
     users.forEach(user => {
-      console.log(`   - ${user.email} (ID: ${user.id})`)
+      Logger.info(`   - ${user.email} (ID: ${user.id})`)
     })
     
   } catch (error) {
-    console.error('Error:', error)
+    Logger.error('Error:', error)
   } finally {
     await prisma.$disconnect()
   }

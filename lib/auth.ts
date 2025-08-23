@@ -1,5 +1,6 @@
 // Load Docker secrets before configuring auth
 import '@/server/secrets-loader'
+import Logger from '@/lib/logger'
 
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
@@ -11,11 +12,11 @@ const nextAuthUrl = process.env.NEXTAUTH_URL
 const nextAuthSecret = process.env.NEXTAUTH_SECRET
 
 if (!nextAuthUrl) {
-  console.error('CRITICAL: NEXTAUTH_URL is not set, authentication will not work correctly')
+  Logger.error('CRITICAL: NEXTAUTH_URL is not set, authentication will not work correctly')
 }
 
 if (!nextAuthSecret) {
-  console.error('CRITICAL: NEXTAUTH_SECRET is not set, JWT signing will fail')
+  Logger.error('CRITICAL: NEXTAUTH_SECRET is not set, JWT signing will fail')
 }
 
 export const authOptions: NextAuthOptions = {

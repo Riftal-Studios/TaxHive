@@ -3,6 +3,7 @@ import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { uploadPDF } from '@/lib/pdf-uploader'
 import { cleanupOldPDF } from '@/lib/pdf-cleanup'
 import { db } from '@/lib/prisma'
+import Logger from '@/lib/logger'
 
 interface PdfGenerationResult {
   success: boolean
@@ -88,7 +89,7 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
       }
     } catch (error) {
       lastError = error
-      console.error(`PDF generation attempt ${attempt} failed for invoice ${invoiceId}:`, error)
+      Logger.error(`PDF generation attempt ${attempt} failed for invoice ${invoiceId}:`, error)
       
       // Check if error is retryable
       const isRetryable = error instanceof Error && (

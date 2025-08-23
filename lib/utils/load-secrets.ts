@@ -1,4 +1,5 @@
 import { readFileSync, existsSync } from 'fs'
+import Logger from '@/lib/logger'
 
 /**
  * Load a secret from Docker secrets or fallback to environment variable
@@ -16,7 +17,7 @@ export function loadSecret(secretName: string, envVarName: string): string | und
         return secret
       }
     } catch (error) {
-      console.warn(`Failed to read Docker secret ${secretName}:`, error)
+      Logger.warn(`Failed to read Docker secret ${secretName}:`, error)
     }
   }
 

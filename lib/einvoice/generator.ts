@@ -1,5 +1,6 @@
 import { db } from '@/lib/prisma'
 import { getIRPAuthToken } from './auth'
+import Logger from '@/lib/logger'
 import { 
   GSP_PROVIDERS, 
   type GSPProvider, 
@@ -206,7 +207,7 @@ export async function generateIRN(
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
         }
       } catch (error) {
-        console.error(`IRN generation attempt ${attempts} failed:`, error)
+        Logger.error(`IRN generation attempt ${attempts} failed:`, error)
         lastError = 'System error during IRN generation'
       }
     }
@@ -227,7 +228,7 @@ export async function generateIRN(
       error: lastError || 'Failed to generate IRN after multiple attempts'
     }
   } catch (error) {
-    console.error('Error generating IRN:', error)
+    Logger.error('Error generating IRN:', error)
     return {
       success: false,
       error: 'Failed to generate IRN'
@@ -296,7 +297,7 @@ async function callIRPGenerateAPI(
     // Parse response based on provider format
     return parseIRNResponse(config.gspProvider, irnData)
   } catch (error) {
-    console.error('IRP API call error:', error)
+    Logger.error('IRP API call error:', error)
     return {
       success: false,
       error: 'Failed to call IRP API'
@@ -334,7 +335,7 @@ function parseIRNResponse(provider: string, data: any): any {
       ewayBillValidTill: data.EwbValidTill ? new Date(data.EwbValidTill) : undefined
     }
   } catch (error) {
-    console.error('Error parsing IRN response:', error)
+    Logger.error('Error parsing IRN response:', error)
     return {
       success: false,
       error: 'Failed to parse IRP response'
@@ -361,7 +362,7 @@ async function generateQRCodeImage(signedQRCode: string): Promise<string> {
     
     return qrCodeDataUrl
   } catch (error) {
-    console.error('Error generating QR code:', error)
+    Logger.error('Error generating QR code:', error)
     throw error
   }
 }
@@ -420,7 +421,7 @@ export async function getIRNByDocument(
       qrCodeUrl: eInvoice.qrCodeUrl!
     }
   } catch (error) {
-    console.error('Error getting IRN by document:', error)
+    Logger.error('Error getting IRN by document:', error)
     return {
       success: false,
       error: 'Failed to retrieve IRN'

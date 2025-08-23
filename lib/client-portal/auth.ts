@@ -9,6 +9,7 @@
 import { prisma } from '@/lib/prisma';
 import { generateUUID } from '@/lib/utils/uuid';
 import crypto from 'crypto';
+import Logger from '@/lib/logger';
 
 interface MagicLinkRequest {
   email: string;
@@ -339,7 +340,7 @@ export class ClientPortalAuth {
     if (loginToken.portalAccess.allowedIPs.length > 0) {
       const isAllowed = this.validateIPAddress(ipAddress, loginToken.portalAccess.allowedIPs);
       if (!isAllowed) {
-        console.warn(`IP address not in whitelist: ${ipAddress}`);
+        Logger.warn(`IP address not in whitelist: ${ipAddress}`);
         return false;
       }
     }
@@ -350,11 +351,11 @@ export class ClientPortalAuth {
     // If IP changes drastically, it might be suspicious
     // For now, we'll log but not block unless it's a whitelist violation
     if (loginToken.ipAddress !== ipAddress) {
-      console.warn(`IP address changed during token validation: ${loginToken.ipAddress} -> ${ipAddress}`);
+      Logger.warn(`IP address changed during token validation: ${loginToken.ipAddress} -> ${ipAddress}`);
     }
 
     if (loginToken.userAgent !== userAgent) {
-      console.warn(`User agent changed during token validation: ${loginToken.userAgent} -> ${userAgent}`);
+      Logger.warn(`User agent changed during token validation: ${loginToken.userAgent} -> ${userAgent}`);
     }
 
     return true;

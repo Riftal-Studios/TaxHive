@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { Logger } from '../../lib/logger';
 
 /**
  * Seed file for RCM Phase 2: Notified Services and Goods Rules
@@ -247,7 +248,7 @@ export const NOTIFIED_RCM_RULES = [
  * Seeds the RCM notified rules into the database
  */
 export async function seedNotifiedRules() {
-  console.log('🌱 Seeding RCM notified rules...');
+  Logger.info('🌱 Seeding RCM notified rules...');
 
   try {
     // Clear existing notified rules
@@ -266,18 +267,18 @@ export async function seedNotifiedRules() {
       createdRules.push(createdRule);
     }
 
-    console.log(`✅ Successfully seeded ${createdRules.length} RCM notified rules`);
+    Logger.info(`✅ Successfully seeded ${createdRules.length} RCM notified rules`);
     
     // Log summary
     const serviceRules = createdRules.filter(r => r.ruleType === 'SERVICE').length;
     const goodsRules = createdRules.filter(r => r.ruleType === 'GOODS').length;
     
-    console.log(`   - ${serviceRules} Service rules`);
-    console.log(`   - ${goodsRules} Goods rules`);
+    Logger.info(`   - ${serviceRules} Service rules`);
+    Logger.info(`   - ${goodsRules} Goods rules`);
     
     return createdRules;
   } catch (error) {
-    console.error('❌ Error seeding RCM notified rules:', error);
+    Logger.error('❌ Error seeding RCM notified rules:', error);
     throw error;
   }
 }
@@ -294,9 +295,9 @@ export async function clearTestRules() {
         }
       }
     });
-    console.log('🧹 Cleared test RCM rules');
+    Logger.info('🧹 Cleared test RCM rules');
   } catch (error) {
-    console.error('❌ Error clearing test rules:', error);
+    Logger.error('❌ Error clearing test rules:', error);
     throw error;
   }
 }
@@ -320,10 +321,10 @@ export async function getRCMRules(category?: string) {
 if (require.main === module) {
   seedNotifiedRules()
     .then(() => {
-      console.log('✅ RCM notified rules seeding completed');
+      Logger.info('✅ RCM notified rules seeding completed');
     })
     .catch((error) => {
-      console.error('❌ RCM notified rules seeding failed:', error);
+      Logger.error('❌ RCM notified rules seeding failed:', error);
       process.exit(1);
     })
     .finally(() => {

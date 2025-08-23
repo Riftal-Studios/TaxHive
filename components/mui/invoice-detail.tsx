@@ -49,6 +49,7 @@ import { EnhancedPaymentModal as MUIPaymentModal } from './enhanced-payment-moda
 import { EditPaymentModal } from './edit-payment-modal'
 import { format } from 'date-fns'
 import { toSafeNumber } from '@/lib/utils/decimal'
+import Logger from '@/lib/logger'
 
 // Define proper types for the invoice with relations
 interface InvoiceWithRelations {
@@ -176,14 +177,14 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   const regeneratePDFMutation = api.invoices.regeneratePDF.useMutation({
     onSuccess: () => {
-      console.log('PDF regeneration triggered successfully')
+      Logger.info('PDF regeneration triggered successfully')
       // Add a delay before refetch to ensure PDF generation completes
       setTimeout(() => {
         refetch()
       }, 2000)
     },
     onError: (error) => {
-      console.error('PDF regeneration failed:', error)
+      Logger.error('PDF regeneration failed:', error)
       alert('Failed to regenerate PDF: ' + error.message)
     },
   })
@@ -195,7 +196,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
       setPaymentToDelete(null)
     },
     onError: (error) => {
-      console.error('Failed to delete payment:', error)
+      Logger.error('Failed to delete payment:', error)
       alert('Failed to delete payment: ' + error.message)
     },
   })
@@ -224,7 +225,7 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
 
   const handleRegeneratePDF = async () => {
     if (invoice) {
-      console.log('Regenerating PDF for invoice:', invoice.id)
+      Logger.info('Regenerating PDF for invoice:', invoice.id)
       regeneratePDFMutation.mutate({ id: invoice.id })
     }
   }

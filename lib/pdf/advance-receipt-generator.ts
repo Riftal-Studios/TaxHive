@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer'
 import type { AdvanceReceipt, Client, User } from '@prisma/client'
 import { numberToWordsIndian } from '../utils/number-to-words'
 import { format } from 'date-fns'
+import Logger from '@/lib/logger'
 
 type AdvanceReceiptWithRelations = AdvanceReceipt & {
   client: Client
@@ -38,7 +39,7 @@ export async function generateAdvanceReceiptPDF(
     await page.close()
     return Buffer.from(pdf)
   } catch (error) {
-    console.error('PDF generation error:', error)
+    Logger.error('PDF generation error:', error)
     throw new Error('Failed to generate PDF: ' + (error as Error).message)
   } finally {
     if (browser) {

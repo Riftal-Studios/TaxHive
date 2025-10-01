@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Client } from '@prisma/client'
+import { getCurrencyFromCountry, getSupportedCurrencies } from '@/lib/invoice-utils'
 
 interface ClientFormProps {
   client?: Partial<Client>
@@ -15,6 +16,7 @@ export interface ClientFormData {
   company: string
   address: string
   country: string
+  currency: string
   phone: string
   taxId: string
 }
@@ -33,12 +35,22 @@ export function ClientForm({ client, onSubmit, onCancel }: ClientFormProps) {
     company: client?.company || '',
     address: client?.address || '',
     country: client?.country || '',
+    currency: client?.currency || 'USD',
     phone: client?.phone || '',
     taxId: client?.taxId || '',
   })
-  
+
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const currencyOptions = getSupportedCurrencies()
+
+  // Auto-update currency when country changes
+  useEffect(() => {
+    if (formData.country && !client?.currency) {
+      const detectedCurrency = getCurrencyFromCountry(formData.country)
+      setFormData(prev => ({ ...prev, currency: detectedCurrency }))
+    }
+  }, [formData.country, client?.currency])
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -80,7 +92,7 @@ export function ClientForm({ client, onSubmit, onCancel }: ClientFormProps) {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     // Clear error when user starts typing
@@ -179,14 +191,36 @@ export function ClientForm({ client, onSubmit, onCancel }: ClientFormProps) {
           value={formData.country}
           onChange={handleChange}
           className={`mt-1 block w-full rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-            errors.country 
-              ? 'border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500' 
+            errors.country
+              ? 'border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500'
               : 'border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'
           }`}
         />
         {errors.country && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.country}</p>
         )}
+      </div>
+
+      <div>
+        <label htmlFor="currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Currency
+        </label>
+        <select
+          id="currency"
+          name="currency"
+          value={formData.currency}
+          onChange={handleChange}
+          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+        >
+          {currencyOptions.map(curr => (
+            <option key={curr.code} value={curr.code}>
+              {curr.code} - {curr.name}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Auto-detected from country. You can change if needed.
+        </p>
       </div>
 
       <div>

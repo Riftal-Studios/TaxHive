@@ -76,6 +76,7 @@ model Client {
   company     String?
   address     String
   country     String
+  currency    String   @default("USD") // Client's currency based on their country
   phone       String?
   taxId       String? // Foreign tax ID if applicable
   isActive    Boolean  @default(true)

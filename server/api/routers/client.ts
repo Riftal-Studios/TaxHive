@@ -11,6 +11,7 @@ export const clientRouter = createTRPCRouter({
         company: z.string().optional(),
         address: z.string().min(1),
         country: z.string().min(1),
+        currency: z.string().min(3).max(3),
         phone: z.string().optional(),
         taxId: z.string().optional(),
       })
@@ -84,6 +85,7 @@ export const clientRouter = createTRPCRouter({
         company: z.string().optional(),
         address: z.string().min(1),
         country: z.string().min(1),
+        currency: z.string().min(3).max(3),
         phone: z.string().optional(),
         taxId: z.string().optional(),
         isActive: z.boolean(),

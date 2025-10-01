@@ -1,6 +1,6 @@
 # Local Development Setup (Without Docker)
 
-This guide explains how to run GSTHive locally without Docker.
+This guide explains how to run TaxHive locally without Docker.
 
 ## Prerequisites
 
@@ -89,7 +89,7 @@ Create a `start-local.sh` script:
 
 ```bash
 #!/bin/bash
-echo "🚀 Starting GSTHive locally..."
+echo "🚀 Starting TaxHive locally..."
 
 # Check if PostgreSQL is running
 if ! pg_isready > /dev/null 2>&1; then

@@ -33,7 +33,7 @@ async function testPublicInvoice() {
     console.log('- Client:', invoice.client.name)
     console.log('- Amount:', invoice.totalAmount.toString(), invoice.currency)
     console.log('- Token expires at:', invoice.tokenExpiresAt)
-    console.log('- Public URL:', `https://dev.gsthive.com/invoice/${invoice.publicAccessToken}`)
+    console.log('- Public URL:', `https://dev.taxhive.app/invoice/${invoice.publicAccessToken}`)
     
     // Test the API endpoint
     const apiUrl = `http://localhost:3000/api/invoices/public/${invoice.publicAccessToken}`

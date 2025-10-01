@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - gsthive-internal
+      - taxhive-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -26,7 +26,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - gsthive-internal
+      - taxhive-internal
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -79,7 +79,7 @@ services:
       - uploads:/app/uploads
       - invoices:/app/public/invoices
     networks:
-      - gsthive-internal
+      - taxhive-internal
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))"]
       interval: 30s
@@ -128,7 +128,7 @@ services:
       - uploads:/app/uploads
       - invoices:/app/public/invoices
     networks:
-      - gsthive-internal
+      - taxhive-internal
 
   # Cloudflare Tunnel for secure external access
   cloudflared:
@@ -142,13 +142,13 @@ services:
       NODE_ENV: production
       # Token will be set via environment variable during deployment
     networks:
-      - gsthive-internal
+      - taxhive-internal
     depends_on:
       - app
 
 networks:
-  gsthive-internal:
-    name: gsthive-${COMPOSE_ENV:-production}-network
+  taxhive-internal:
+    name: taxhive-${COMPOSE_ENV:-production}-network
     driver: bridge
     external: true
 

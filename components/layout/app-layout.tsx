@@ -27,7 +27,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="flex h-16 justify-between">
             <div className="flex">
               <div className="flex flex-shrink-0 items-center">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">GSTHive</h1>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">TaxHive</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 {navigation.map((item) => (

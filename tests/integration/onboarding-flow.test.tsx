@@ -51,7 +51,7 @@ describe('Onboarding Flow Integration', () => {
   it('should display all onboarding steps', () => {
     render(<OnboardingPage />)
 
-    expect(screen.getByText('Welcome to GSTHive! 🎉')).toBeInTheDocument()
+    expect(screen.getByText('Welcome to TaxHive! 🎉')).toBeInTheDocument()
     expect(screen.getByText('Complete Your Profile')).toBeInTheDocument()
     expect(screen.getByText('Add Your First Client')).toBeInTheDocument()
     expect(screen.getByText('Set Up LUT Details')).toBeInTheDocument()

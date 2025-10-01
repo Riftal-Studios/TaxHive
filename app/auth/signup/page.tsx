@@ -145,7 +145,7 @@ export default function SignUpPage() {
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
           <Typography component="h1" variant="h5" align="center" gutterBottom>
-            Create your GSTHive account
+            Create your TaxHive account
           </Typography>
           
           <Stepper activeStep={activeStep} sx={{ mt: 3, mb: 4 }}>

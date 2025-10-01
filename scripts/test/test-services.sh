@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Testing GSTHive services..."
+echo "Testing TaxHive services..."
 echo ""
 
 # Test Redis

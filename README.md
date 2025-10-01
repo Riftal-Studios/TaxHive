@@ -61,7 +61,7 @@ A modern GST-compliant invoice management system for Indian businesses exporting
    ```bash
    ./start-local-tunnel.sh
    ```
-   Access at: https://dev.gsthive.com
+   Access at: https://dev.taxhive.app
    
    See [Local Tunnel Setup](docs/LOCAL_TUNNEL_SETUP.md) for details.
 
@@ -109,7 +109,7 @@ npm run start        # Start production server
 ## Project Structure
 
 ```
-gsthive-app/
+taxhive-app/
 ├── app/                 # Next.js App Router pages
 ├── components/          # React components
 ├── server/             # tRPC routers and backend logic

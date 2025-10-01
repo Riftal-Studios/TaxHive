@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Fixing GSTHive authentication issues..."
+echo "Fixing TaxHive authentication issues..."
 echo ""
 
 # 1. Clear browser cookies

@@ -11,7 +11,7 @@ async function main() {
   console.log('🧹 Cleaning existing demo data...')
 
   const demoUser = await prisma.user.findUnique({
-    where: { email: 'demo@gsthive.com' },
+    where: { email: 'demo@taxhive.app' },
   })
 
   if (demoUser) {

@@ -15,14 +15,14 @@
 ### 2. staging.yml
 - **Triggers**: Push to main branch
 - **Purpose**: Build and deploy to staging environment
-- **URL**: https://staging.gsthive.com
+- **URL**: https://staging.taxhive.app
 - **When**: After code is merged to main
 - **Uses**: deploy-common.yml for deployment logic
 
 ### 3. production.yml
 - **Triggers**: Push to prod branch
 - **Purpose**: Build and deploy to production environment
-- **URL**: https://gsthive.com
+- **URL**: https://taxhive.app
 - **When**: After PR from main is merged to prod
 - **Uses**: deploy-common.yml for deployment logic
 

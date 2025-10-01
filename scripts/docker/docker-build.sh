@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Docker Build Script for GSTHive
+# Docker Build Script for TaxHive
 set -e
 
-echo "🐳 Building GSTHive Docker image..."
+echo "🐳 Building TaxHive Docker image..."
 
 # Default values
 IMAGE_NAME="${IMAGE_NAME:-gsthive}"

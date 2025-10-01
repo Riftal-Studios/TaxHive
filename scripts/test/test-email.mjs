@@ -61,7 +61,7 @@ async function testEmail() {
     console.error('❌ Email test failed:', error.message);
     console.error('\nPlease check:');
     console.error('1. Your Amazon SES account is verified');
-    console.error('2. The sender email (no-reply@gsthive.com) is verified in SES');
+    console.error('2. The sender email (no-reply@taxhive.com) is verified in SES');
     console.error('3. Your AWS region is correct (currently using us-east-1)');
     console.error('4. You are not in SES sandbox mode (or recipient is verified)');
     process.exit(1);

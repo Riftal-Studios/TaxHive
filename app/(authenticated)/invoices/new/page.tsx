@@ -19,23 +19,24 @@ import { enqueueSnackbar } from 'notistack'
 export default function NewInvoicePage() {
   const router = useRouter()
   const utils = api.useUtils()
-  
+
   // Fetch clients and LUTs
   const { data: clients, isLoading: clientsLoading } = api.clients.list.useQuery()
   const { data: luts, isLoading: lutsLoading } = api.luts.list.useQuery()
-  
+
   // Get next invoice number
   const { data: nextInvoiceNumber } = api.invoices.getNextInvoiceNumber.useQuery()
-  
+
   // Get exchange rate query
-  const [selectedCurrency, setSelectedCurrency] = useState('USD')
+  // Start with null currency - will be set when client is selected
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null)
   const [selectedIssueDate, setSelectedIssueDate] = useState(new Date().toISOString().split('T')[0])
   const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(null)
   const { data: exchangeRateData } = api.invoices.getCurrentExchangeRate.useQuery({
-    currency: selectedCurrency,
+    currency: selectedCurrency || 'USD',
     date: selectedIssueDate,
   }, {
-    enabled: selectedCurrency !== 'INR',
+    enabled: selectedCurrency !== null && selectedCurrency !== 'INR',
   })
   
   // Create invoice mutation

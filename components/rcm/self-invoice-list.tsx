@@ -1,517 +1,531 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
+import { api } from '@/lib/trpc/client'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { format } from 'date-fns'
 import {
-  Box,
-  Card,
-  CardContent,
-  CardHeader,
-  TextField,
-  Button,
-  Grid,
-  Alert,
-  FormControl,
-  InputLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
   Select,
-  MenuItem,
-  Typography,
-  Chip,
-  IconButton,
-  Tooltip,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
-  InputAdornment,
-  Stack,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
+import { toast } from 'sonner'
 import {
-  DataGrid,
-  GridColDef,
-  GridActionsCellItem,
-  GridRowParams,
-  GridToolbar,
-} from '@mui/x-data-grid'
-import {
-  Add as AddIcon,
-  Visibility as ViewIcon,
-  GetApp as DownloadIcon,
-  Print as PrintIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
-  Receipt as ReceiptIcon,
+  Visibility as Eye,
+  Download,
+  Email as Mail,
+  Close as X,
+  ChevronLeft,
+  ChevronRight,
+  Refresh as RefreshCw,
+  Description as FileText,
 } from '@mui/icons-material'
-import { DatePicker } from '@mui/x-date-pickers/DatePicker'
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import dayjs, { Dayjs } from 'dayjs'
-import { trpc } from '@/lib/trpc/client'
-import { useRouter } from 'next/navigation'
-import { toast } from 'react-hot-toast'
-import { SelfInvoicePreview } from './self-invoice-preview'
+import { CircularProgress } from '@mui/material'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
-interface SelfInvoiceListProps {
-  showHeader?: boolean
-  maxHeight?: number
+interface SelfInvoice {
+  id: string
+  invoiceNumber: string
+  invoiceDate: Date
+  supplier: {
+    name: string
+    gstin: string
+  }
+  serviceType: {
+    name: string
+    sacCode: string
+  }
+  taxableAmount: number
+  cgstAmount: number
+  sgstAmount: number
+  igstAmount: number
+  totalAmount: number
+  status: 'GENERATED' | 'CANCELLED'
+  createdAt: Date
 }
 
-const STATUS_COLORS = {
-  DRAFT: 'default',
-  ISSUED: 'success',
-  CANCELLED: 'error',
-} as const
-
-const COMPLIANCE_STATUS_COLORS = {
-  ON_TIME: 'success',
-  DELAYED: 'error',
-  WARNING: 'warning',
-} as const
-
-export function SelfInvoiceList({ showHeader = true, maxHeight = 600 }: SelfInvoiceListProps) {
+export function SelfInvoiceList() {
   const router = useRouter()
-  const [searchText, setSearchText] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
-  const [complianceFilter, setComplianceFilter] = useState<string>('')
-  const [dateRange, setDateRange] = useState<{
-    start: any | null
-    end: any | null
-  }>({
-    start: any,
-    end: any,
-  })
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null)
-  const [previewOpen, setPreviewOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('ALL')
+  const [dateFrom, setDateFrom] = useState<string>('')
+  const [dateTo, setDateTo] = useState<string>('')
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
+  const [showEmailDialog, setShowEmailDialog] = useState(false)
+  const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [emailDialogInvoiceId, setEmailDialogInvoiceId] = useState<string>('')
+  const [cancelDialogInvoiceId, setCancelDialogInvoiceId] = useState<string>('')
+  const [emailAddress, setEmailAddress] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  const itemsPerPage = 10
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Build query filters
+  const filters = {
+    page,
+    limit: itemsPerPage,
+    search: debouncedSearch,
+    status: statusFilter !== 'ALL' ? statusFilter : undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  }
 
   // Fetch self-invoices
-  const { data, isLoading, refetch } = trpc.rcm.listSelfInvoices.useQuery({
-    limit: 100,
-    status: any as 'ISSUED' | 'CANCELLED' | 'DRAFT' | undefined,
-    startDate: any.start?.toDate(),
-    endDate: any.end?.toDate(),
-  })
-  
-  const selfInvoices = data?.selfInvoices || []
+  const { data, isLoading, error, refetch } = api.rcm.getSelfInvoices.useQuery(filters)
 
-  // Download PDF mutation
-  const downloadPDF = trpc.rcm.downloadSelfInvoicePDF.useMutation({
-    onSuccess: (data: any) => {
-      // Create blob and download
-      const blob = new Blob([data.pdf], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
+  // Mutations
+  const downloadSelfInvoice = api.rcm.downloadSelfInvoice.useMutation({
+    onSuccess: (result) => {
+      // Create a blob URL and trigger download
       const link = document.createElement('a')
-      link.href = url
-      link.download = `${data.filename}`
-      document.body.appendChild(link)
+      link.href = result.url
+      link.download = `self-invoice-${result.id}.pdf`
       link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-      toast.success('PDF downloaded successfully')
+      toast.success('Invoice downloaded successfully')
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to download PDF')
+    onError: (error) => {
+      toast.error(`Failed to download invoice: ${error.message}`)
     },
   })
 
-  // Filtered and processed data
-  const processedData = useMemo(() => {
-    return selfInvoices.map((invoice: any) => {
-      const daysSinceReceipt = dayjs().diff(dayjs(invoice.goodsReceiptDate), 'day')
-      const isOverdue = daysSinceReceipt > 30
-      const isWarning = daysSinceReceipt > 25 && daysSinceReceipt <= 30
-      
-      let complianceStatus = 'ON_TIME'
-      if (isOverdue) {
-        complianceStatus = 'DELAYED'
-      } else if (isWarning) {
-        complianceStatus = 'WARNING'
-      }
+  const emailSelfInvoice = api.rcm.emailSelfInvoice.useMutation({
+    onSuccess: () => {
+      toast.success('Invoice sent successfully')
+      setShowEmailDialog(false)
+      setEmailAddress('')
+    },
+    onError: (error) => {
+      toast.error(`Failed to send invoice: ${error.message}`)
+    },
+  })
 
-      return {
-        ...invoice,
-        complianceStatus,
-        daysSinceReceipt,
-        isOverdue,
-        formattedInvoiceDate: any(invoice.invoiceDate).format('DD/MM/YYYY'),
-        formattedReceiptDate: any(invoice.goodsReceiptDate).format('DD/MM/YYYY'),
-        formattedTaxableAmount: any(invoice.taxableAmount).toFixed(2),
-        formattedTotalAmount: any(invoice.totalAmount).toFixed(2),
-      }
+  const cancelSelfInvoice = api.rcm.cancelSelfInvoice.useMutation({
+    onSuccess: () => {
+      toast.success('Invoice cancelled successfully')
+      setShowCancelDialog(false)
+      refetch()
+    },
+    onError: (error) => {
+      toast.error(`Failed to cancel invoice: ${error.message}`)
+    },
+  })
+
+  // Handle actions
+  const handleView = (id: string) => {
+    router.push(`/rcm/self-invoice/${id}`)
+  }
+
+  const handleDownload = async (id: string) => {
+    await downloadSelfInvoice.mutateAsync({ id })
+  }
+
+  const handleEmail = (id: string) => {
+    setEmailDialogInvoiceId(id)
+    setShowEmailDialog(true)
+  }
+
+  const handleCancel = (id: string) => {
+    setCancelDialogInvoiceId(id)
+    setShowCancelDialog(true)
+  }
+
+  const handleSendEmail = async () => {
+    if (!emailAddress) {
+      toast.error('Please enter an email address')
+      return
+    }
+    await emailSelfInvoice.mutateAsync({
+      id: emailDialogInvoiceId,
+      email: emailAddress,
     })
-  }, [selfInvoices])
-
-  const handleViewInvoice = (invoice: any) => {
-    setSelectedInvoice(invoice)
-    setPreviewOpen(true)
   }
 
-  const handleDownloadPDF = (invoice: any) => {
-    downloadPDF.mutate({ invoiceId: any.id } as any)
+  const handleConfirmCancel = async () => {
+    await cancelSelfInvoice.mutateAsync({ id: cancelDialogInvoiceId })
   }
 
-  const handlePrintInvoice = (invoice: any) => {
-    // Open in new window for printing
-    const printWindow = window.open(`/rcm/self-invoice/${invoice.id}/print`, '_blank')
-    if (printWindow) {
-      printWindow.onload = () => {
-        printWindow.print()
-      }
+  const handleBulkDownload = async () => {
+    for (const id of selectedInvoices) {
+      await downloadSelfInvoice.mutateAsync({ id })
+    }
+    setSelectedInvoices([])
+  }
+
+  const handleBulkEmail = () => {
+    // For simplicity, we'll handle bulk email one by one
+    // In a real implementation, you might want a different UI for bulk email
+    toast.info('Bulk email feature coming soon')
+  }
+
+  const toggleSelectAll = () => {
+    if (!data?.invoices) return
+    
+    if (selectedInvoices.length === data.invoices.length) {
+      setSelectedInvoices([])
+    } else {
+      setSelectedInvoices(data.invoices.map(inv => inv.id))
     }
   }
 
-  const getComplianceIcon = (status: any) => {
-    switch (status) {
-      case 'ON_TIME':
-        return <CheckCircleIcon color="success" fontSize="small" />
-      case 'WARNING':
-        return <ScheduleIcon color="warning" fontSize="small" />
-      case 'DELAYED':
-        return <WarningIcon color="error" fontSize="small" />
-      default:
-        return null
-    }
+  const toggleSelectInvoice = (id: string) => {
+    setSelectedInvoices(prev =>
+      prev.includes(id)
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    )
   }
 
-  const getComplianceText = (invoice: any) => {
-    switch (invoice.complianceStatus) {
-      case 'ON_TIME':
-        return `On time (${30 - invoice.daysSinceReceipt} days remaining)`
-      case 'WARNING':
-        return `Due soon (${30 - invoice.daysSinceReceipt} days remaining)`
-      case 'DELAYED':
-        return `Overdue by ${invoice.daysSinceReceipt - 30} days`
-      default:
-        return 'Unknown'
-    }
+  const totalPages = data ? Math.ceil(data.total / itemsPerPage) : 1
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return `₹${amount.toLocaleString('en-IN')}`
   }
 
-  const columns: any[] = [
-    {
-      field: 'invoiceNumber',
-      headerName: 'Invoice Number',
-      width: 180,
-      renderCell: (params: any) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ReceiptIcon fontSize="small" color="primary" />
-          <Typography variant="body2" fontWeight={500}>
-            {params.value}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      field: 'formattedInvoiceDate',
-      headerName: 'Invoice Date',
-      width: 120,
-    },
-    {
-      field: 'supplierName',
-      headerName: 'Supplier',
-      width: 200,
-      renderCell: (params: any) => (
-        <Box>
-          <Typography variant="body2" fontWeight={500}>
-            {params.value}
-          </Typography>
-          {params.row.supplierGSTIN && (
-            <Typography variant="caption" color="text.secondary">
-              GSTIN: {params.row.supplierGSTIN}
-            </Typography>
-          )}
-        </Box>
-      ),
-    },
-    {
-      field: 'rcmType',
-      headerName: 'RCM Type',
-      width: 150,
-      renderCell: (params: any) => {
-        const typeLabels = {
-          UNREGISTERED: 'Unregistered',
-          IMPORT_SERVICE: 'Import Service',
-          NOTIFIED_SERVICE: 'Notified Service',
-          NOTIFIED_GOODS: 'Notified Goods',
-        }
-        return (
-          <Chip
-            label={typeLabels[params.value as keyof typeof typeLabels] || params.value}
-            size="small"
-            variant="outlined"
-            color="primary"
-          />
-        )
-      },
-    },
-    {
-      field: 'formattedTaxableAmount',
-      headerName: 'Taxable Amount',
-      width: 130,
-      type: 'number',
-      renderCell: (params: any) => (
-        <Typography variant="body2" fontWeight={500}>
-          ₹{params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: 'formattedTotalAmount',
-      headerName: 'Total Amount',
-      width: 130,
-      type: 'number',
-      renderCell: (params: any) => (
-        <Typography variant="body2" fontWeight={500} color="primary">
-          ₹{params.value}
-        </Typography>
-      ),
-    },
-    {
-      field: 'status',
-      headerName: 'Status',
-      width: 100,
-      renderCell: (params: any) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={STATUS_COLORS[params.value as keyof typeof STATUS_COLORS]}
-        />
-      ),
-    },
-    {
-      field: 'complianceStatus',
-      headerName: 'Compliance',
-      width: 200,
-      renderCell: (params: any) => (
-        <Tooltip title={getComplianceText(params.row)}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {getComplianceIcon(params.value)}
-            <Typography variant="caption">
-              {params.row.complianceStatus === 'ON_TIME' ? 'On Time' :
-               params.row.complianceStatus === 'WARNING' ? 'Due Soon' :
-               'Overdue'}
-            </Typography>
-          </Box>
-        </Tooltip>
-      ),
-    },
-    {
-      field: 'actions',
-      type: 'actions',
-      headerName: 'Actions',
-      width: 150,
-      getActions: (params: any) => [
-        <GridActionsCellItem
-          key="view"
-          icon={
-            <Tooltip title="View Details">
-              <ViewIcon />
-            </Tooltip>
-          }
-          label="View"
-          onClick={() => handleViewInvoice(params.row)}
-        />,
-        <GridActionsCellItem
-          key="download"
-          icon={
-            <Tooltip title="Download PDF">
-              <DownloadIcon />
-            </Tooltip>
-          }
-          label="Download"
-          onClick={() => handleDownloadPDF(params.row)}
-          disabled={downloadPDF.isLoading}
-        />,
-        <GridActionsCellItem
-          key="print"
-          icon={
-            <Tooltip title="Print">
-              <PrintIcon />
-            </Tooltip>
-          }
-          label="Print"
-          onClick={() => handlePrintInvoice(params.row)}
-        />,
-      ],
-    },
-  ]
+  // Loading state
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <CircularProgress size={32} className="mr-2" />
+          <span>Loading self-invoices...</span>
+        </CardContent>
+      </Card>
+    )
+  }
 
-  const clearFilters = () => {
-    setSearchText('')
-    setStatusFilter('')
-    setComplianceFilter('')
-    setDateRange({ start: any, end: any })
+  // Error state
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <Alert variant="destructive">
+            <AlertDescription>Failed to load self-invoices: {error.message}</AlertDescription>
+          </Alert>
+          <div className="mt-4 flex justify-center">
+            <Button onClick={() => refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Empty state
+  if (!data?.invoices || data.invoices.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium mb-2">No self-invoices found</h3>
+          <p className="text-gray-500 mb-4">Create your first self-invoice to get started</p>
+          <Button onClick={() => router.push('/rcm/create')}>
+            Create Self-Invoice
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box>
-        {showHeader && (
-          <Box sx={{ mb: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h4" component="h1">
-                Self-Invoices
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => router.push('/rcm/self-invoice/new')}
-                size="large"
-              >
-                Generate New
-              </Button>
-            </Box>
-
-            <Alert severity="info" sx={{ mb: 3 }}>
-              Self-invoices must be generated within 30 days of goods/service receipt as per GST Rule 47A.
-              Overdue invoices may attract interest and penalty.
-            </Alert>
-          </Box>
-        )}
-
-        {/* Filters */}
-        <Card sx={{ mb: 3 }}>
-          <CardHeader
-            title="Filters"
-            action={
-              <Button
-                variant="outlined"
-                onClick={clearFilters}
-                size="small"
-              >
-                Clear All
-              </Button>
-            }
-          />
-          <CardContent>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12 }} md={3}>
-                <TextField
-                  fullWidth
-                  label="Search"
-                  value={searchText}
-                  onChange={(e: any) => setSearchText(e.target.value)}
-                  placeholder="Invoice number, supplier..."
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }} md={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    value={statusFilter}
-                    label="Status"
-                    onChange={(e: any) => setStatusFilter(e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="DRAFT">Draft</MenuItem>
-                    <MenuItem value="ISSUED">Issued</MenuItem>
-                    <MenuItem value="CANCELLED">Cancelled</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12 }} md={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Compliance</InputLabel>
-                  <Select
-                    value={complianceFilter}
-                    label="Compliance"
-                    onChange={(e: any) => setComplianceFilter(e.target.value)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    <MenuItem value="ON_TIME">On Time</MenuItem>
-                    <MenuItem value="WARNING">Due Soon</MenuItem>
-                    <MenuItem value="DELAYED">Overdue</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12 }} md={2.5}>
-                <DatePicker
-                  label="From Date"
-                  value={dateRange.start}
-                  onChange={(value: any) => setDateRange(prev => ({ ...prev, start: any }))}
-                  sx={{ width: '100%' }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12 }} md={2.5}>
-                <DatePicker
-                  label="To Date"
-                  value={dateRange.end}
-                  onChange={(value: any) => setDateRange(prev => ({ ...prev, end: any }))}
-                  sx={{ width: '100%' }}
-                />
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        {/* Data Grid */}
-        <Card>
-          <Box sx={{ height: any, width: '100%' }}>
-            <DataGrid
-              rows={processedData}
-              columns={columns}
-              loading={isLoading}
-              slots={{ toolbar: any }}
-              slotProps={{
-                toolbar: {
-                  showQuickFilter: any,
-                  quickFilterProps: { debounceMs: 500 },
-                },
-              }}
-              pageSizeOptions={[25, 50, 100]}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 25 },
-                },
-                sorting: {
-                  sortModel: [{ field: 'invoiceDate', sort: 'desc' }],
-                },
-              }}
-              checkboxSelection
-              disableRowSelectionOnClick
-              sx={{
-                '& .MuiDataGrid-row': {
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                  },
-                },
-                '& .MuiDataGrid-cell': {
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                },
-              }}
-            />
-          </Box>
-        </Card>
-
-        {/* Preview Dialog */}
-        <Dialog
-          open={previewOpen}
-          onClose={() => setPreviewOpen(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogContent sx={{ p: 0 }}>
-            {selectedInvoice && (
-              <SelfInvoicePreview
-                invoice={selectedInvoice}
-                onClose={() => setPreviewOpen(false)}
-                onDownload={() => handleDownloadPDF(selectedInvoice)}
-                onPrint={() => handlePrintInvoice(selectedInvoice)}
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Self-Invoices</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Filters */}
+          <div className="mb-6 space-y-4">
+            <div className="grid gap-4 md:grid-cols-4">
+              <Input
+                placeholder="Search by invoice number or supplier"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger aria-label="Status filter">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Status</SelectItem>
+                  <SelectItem value="GENERATED">Generated</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                placeholder="Date from"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                aria-label="Date from"
+              />
+              <Input
+                type="date"
+                placeholder="Date to"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                aria-label="Date to"
+              />
+            </div>
+
+            {/* Bulk actions */}
+            {selectedInvoices.length > 0 && (
+              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                <span className="text-sm font-medium">{selectedInvoices.length} selected</span>
+                <Button size="sm" variant="outline" onClick={handleBulkDownload}>
+                  Bulk Download
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleBulkEmail}>
+                  Bulk Email
+                </Button>
+              </div>
             )}
-          </DialogContent>
-        </Dialog>
-      </Box>
-    </LocalizationProvider>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedInvoices.length === data.invoices.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>Invoice Number</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Taxable Amount</TableHead>
+                  <TableHead>GST</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.invoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedInvoices.includes(invoice.id)}
+                        onCheckedChange={() => toggleSelectInvoice(invoice.id)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                    <TableCell>{format(new Date(invoice.invoiceDate), 'dd/MM/yyyy')}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div>{invoice.supplier.name}</div>
+                        <div className="text-xs text-gray-500">{invoice.supplier.gstin}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div>{invoice.serviceType.name}</div>
+                        <div className="text-xs text-gray-500">SAC: {invoice.serviceType.sacCode}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatCurrency(invoice.taxableAmount)}</TableCell>
+                    <TableCell>
+                      {invoice.cgstAmount > 0 ? (
+                        <div>
+                          <div className="text-xs">CGST: {formatCurrency(invoice.cgstAmount)}</div>
+                          <div className="text-xs">SGST: {formatCurrency(invoice.sgstAmount)}</div>
+                        </div>
+                      ) : (
+                        <div className="text-xs">IGST: {formatCurrency(invoice.igstAmount)}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>{formatCurrency(invoice.totalAmount)}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={invoice.status === 'GENERATED' ? 'default' : 'destructive'}
+                        className={invoice.status === 'CANCELLED' ? 'bg-red-100' : ''}
+                      >
+                        {invoice.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleView(invoice.id)}
+                          aria-label="View"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDownload(invoice.id)}
+                          disabled={invoice.status === 'CANCELLED'}
+                          aria-label="Download"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEmail(invoice.id)}
+                          disabled={invoice.status === 'CANCELLED'}
+                          aria-label="Email"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCancel(invoice.id)}
+                          disabled={invoice.status === 'CANCELLED'}
+                          aria-label="Cancel"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              Page {page} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Email Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Self-Invoice</DialogTitle>
+            <DialogDescription>
+              Enter the email address to send the invoice to
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={emailAddress}
+                onChange={(e) => setEmailAddress(e.target.value)}
+                placeholder="example@email.com"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSendEmail} disabled={emailSelfInvoice.isLoading}>
+              {emailSelfInvoice.isLoading ? (
+                <>
+                  <CircularProgress size={16} className="mr-2" />
+                  Sending...
+                </>
+              ) : (
+                'Send'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Self-Invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this self-invoice? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleConfirmCancel}
+              disabled={cancelSelfInvoice.isLoading}
+            >
+              {cancelSelfInvoice.isLoading ? (
+                <>
+                  <CircularProgress size={16} className="mr-2" />
+                  Cancelling...
+                </>
+              ) : (
+                'Confirm'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

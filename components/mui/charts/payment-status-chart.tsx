@@ -153,7 +153,7 @@ const CustomLegend = (props: CustomLegendProps) => {
   )
 }
 
-export function MUIPaymentStatusChart({ data, loading = false }: PaymentStatusChartProps) {
+const MUIPaymentStatusChartComponent = ({ data, loading = false }: PaymentStatusChartProps) => {
   const theme = useTheme()
   
   if (loading) {
@@ -228,3 +228,11 @@ export function MUIPaymentStatusChart({ data, loading = false }: PaymentStatusCh
     </Card>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const MUIPaymentStatusChart = React.memo(MUIPaymentStatusChartComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.loading === nextProps.loading &&
+    JSON.stringify(prevProps.data) === JSON.stringify(nextProps.data)
+  )
+})

@@ -120,7 +120,7 @@ const CustomTooltip = React.memo(({ active, payload, label }: TooltipProps) => {
 
 CustomTooltip.displayName = 'CustomTooltip'
 
-export function MUIRevenueChart({ data, loading = false, error = null }: RevenueChartProps) {
+const MUIRevenueChartComponent = ({ data, loading = false, error = null }: RevenueChartProps) => {
   const theme = useTheme()
   const formatMonth = useMonthFormatter()
   
@@ -234,3 +234,12 @@ export function MUIRevenueChart({ data, loading = false, error = null }: Revenue
     </Card>
   )
 }
+
+// Memoize the component to prevent unnecessary re-renders
+export const MUIRevenueChart = React.memo(MUIRevenueChartComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.loading === nextProps.loading &&
+    prevProps.error === nextProps.error &&
+    JSON.stringify(prevProps.data) === JSON.stringify(nextProps.data)
+  )
+})

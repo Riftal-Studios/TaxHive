@@ -1,17 +1,10 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Box,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
   IconButton,
   Chip,
   Typography,
@@ -39,6 +32,7 @@ import { formatCurrency } from '@/lib/invoice-utils'
 import { format } from 'date-fns'
 import { enqueueSnackbar } from 'notistack'
 import { toSafeNumber } from '@/lib/utils/decimal'
+import VirtualizedTable, { Column } from '@/components/mui/virtualized-table'
 
 interface Invoice {
   id: string
@@ -142,21 +136,11 @@ function PaymentStatusChip({ status }: PaymentStatusChipProps) {
 
 export function InvoiceList() {
   const router = useRouter()
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set())
 
   const { data: invoices, isLoading } = api.invoices.list.useQuery()
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage)
-  }
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
-    setPage(0)
-  }
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: { 
     id: string
@@ -202,8 +186,20 @@ export function InvoiceList() {
 
   const handleDuplicate = () => {
     if (selectedInvoice) {
-      // TODO: Implement duplicate functionality
-      enqueueSnackbar('Invoice duplicated successfully', { variant: 'success' })
+      // Navigate to new invoice form with pre-filled data from selected invoice
+      const duplicateData = {
+        clientId: selectedInvoice.client.id,
+        currency: selectedInvoice.currency,
+        placeOfSupply: selectedInvoice.placeOfSupply,
+        supplyType: selectedInvoice.supplyType,
+        reverseCharge: selectedInvoice.reverseCharge,
+        notes: selectedInvoice.notes,
+        termsAndConditions: selectedInvoice.termsAndConditions,
+        // Note: Line items would need to be added in the form
+      }
+      // Store in sessionStorage for the form to pick up
+      sessionStorage.setItem('duplicateInvoiceData', JSON.stringify(duplicateData))
+      router.push('/invoices/new?duplicate=true')
     }
     handleMenuClose()
   }
@@ -217,13 +213,147 @@ export function InvoiceList() {
 
   const handleSendEmail = () => {
     if (selectedInvoice) {
-      // TODO: Open email composer
+      // Navigate to invoice detail page with email action
+      // The invoice detail page will handle opening the email modal
       router.push(`/invoices/${selectedInvoice.id}?action=email`)
     }
     handleMenuClose()
   }
 
-  const displayedInvoices = invoices?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+  // Define columns for virtualized table
+  const columns = useMemo<Column<any>[]>(() => [
+    {
+      id: 'invoiceNumber',
+      label: 'Invoice #',
+      width: 150,
+      accessor: (row) => row.invoiceNumber,
+      format: (value) => (
+        <Typography variant="body2" fontWeight={500}>
+          {value}
+        </Typography>
+      ),
+    },
+    {
+      id: 'client',
+      label: 'Client',
+      width: 200,
+      accessor: (row) => row.client,
+      format: (value) => (
+        <Box>
+          <Typography variant="body2">
+            {value.name}
+          </Typography>
+          {value.company && (
+            <Typography variant="caption" color="text.secondary">
+              {value.company}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      id: 'invoiceDate',
+      label: 'Date',
+      width: 120,
+      accessor: (row) => row.invoiceDate,
+      format: (value) => format(new Date(value), 'dd/MM/yyyy'),
+      sortable: true,
+    },
+    {
+      id: 'dueDate',
+      label: 'Due Date',
+      width: 120,
+      accessor: (row) => row.dueDate,
+      format: (value) => format(new Date(value), 'dd/MM/yyyy'),
+      sortable: true,
+    },
+    {
+      id: 'amount',
+      label: 'Amount',
+      width: 150,
+      accessor: (row) => ({ amount: row.totalAmount, currency: row.currency, inr: row.totalInINR }),
+      format: (value) => (
+        <Box>
+          <Typography variant="body2" fontWeight={500}>
+            {formatCurrency(Number(value.amount), value.currency)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            ₹{Number(value.inr).toFixed(2)}
+          </Typography>
+        </Box>
+      ),
+      sortable: true,
+    },
+    {
+      id: 'status',
+      label: 'Status',
+      width: 120,
+      accessor: (row) => row.status,
+      format: (value) => <StatusChip status={value} />,
+    },
+    {
+      id: 'paymentStatus',
+      label: 'Payment',
+      width: 120,
+      accessor: (row) => row.paymentStatus,
+      format: (value) => <PaymentStatusChip status={value} />,
+    },
+  ], [])
+
+  // Format invoices for virtualized table
+  const formattedInvoices = useMemo(() => {
+    if (!invoices) return []
+    return invoices.map(invoice => ({
+      ...invoice,
+      totalAmount: toSafeNumber(invoice.totalAmount),
+      totalInINR: invoice.totalInINR ? toSafeNumber(invoice.totalInINR) : 0,
+    }))
+  }, [invoices])
+
+  // Handle row actions
+  const handleRowActions = useCallback((row: any, index: number) => (
+    <Stack direction="row" spacing={1} justifyContent="center">
+      <Tooltip title="View">
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/invoices/${row.id}`)
+          }}
+        >
+          <ViewIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Edit">
+        <IconButton
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/invoices/${row.id}/edit`)
+          }}
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation()
+          handleMenuOpen(e, row)
+        }}
+      >
+        <MoreIcon fontSize="small" />
+      </IconButton>
+    </Stack>
+  ), [router])
+
+  const handleRowClick = useCallback((row: any, index: number) => {
+    router.push(`/invoices/${row.id}`)
+  }, [router])
+
+  const handleSelectionChange = useCallback((selected: Set<number>) => {
+    setSelectedRows(selected)
+  }, [])
 
   if (isLoading) {
     return (
@@ -235,32 +365,12 @@ export function InvoiceList() {
             </Typography>
             <Skeleton variant="rectangular" width={120} height={40} />
           </Stack>
-          <Paper>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    {[...Array(8)].map((_, i) => (
-                      <TableCell key={i}>
-                        <Skeleton variant="text" />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {[...Array(5)].map((_, i) => (
-                    <TableRow key={i}>
-                      {[...Array(8)].map((_, j) => (
-                        <TableCell key={j}>
-                          <Skeleton variant="text" />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
+          <VirtualizedTable
+            columns={columns}
+            data={[]}
+            loading={true}
+            maxHeight={600}
+          />
         </Stack>
       </Box>
     )
@@ -318,114 +428,18 @@ export function InvoiceList() {
           </Button>
         </Stack>
 
-        <Paper>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Invoice #</TableCell>
-                  <TableCell>Client</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Due Date</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Payment</TableCell>
-                  <TableCell align="center">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {displayedInvoices?.map((invoice) => (
-                  <TableRow
-                    key={invoice.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={(e) => {
-                      if (!(e.target as HTMLElement).closest('.MuiIconButton-root')) {
-                        router.push(`/invoices/${invoice.id}`)
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
-                        {invoice.invoiceNumber}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {invoice.client.name}
-                      </Typography>
-                      {invoice.client.company && (
-                        <Typography variant="caption" color="text.secondary">
-                          {invoice.client.company}
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {format(new Date(invoice.invoiceDate), 'dd/MM/yyyy')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {format(new Date(invoice.dueDate), 'dd/MM/yyyy')}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500}>
-                        {formatCurrency(Number(invoice.totalAmount), invoice.currency)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        ₹{Number(invoice.totalInINR).toFixed(2)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip status={invoice.status} />
-                    </TableCell>
-                    <TableCell>
-                      <PaymentStatusChip status={invoice.paymentStatus} />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Stack direction="row" spacing={1} justifyContent="center">
-                        <Tooltip title="View">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/invoices/${invoice.id}`)}
-                          >
-                            <ViewIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/invoices/${invoice.id}/edit`)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuOpen(e, invoice)}
-                        >
-                          <MoreIcon fontSize="small" />
-                        </IconButton>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={invoices.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Paper>
+        <VirtualizedTable
+          columns={columns}
+          data={formattedInvoices}
+          loading={false}
+          maxHeight={600}
+          onRowClick={handleRowClick}
+          selectable={true}
+          selected={selectedRows}
+          onSelectionChange={handleSelectionChange}
+          actions={handleRowActions}
+          emptyMessage="No invoices found"
+        />
       </Stack>
 
       <Menu

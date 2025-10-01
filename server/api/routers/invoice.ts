@@ -19,6 +19,7 @@ import { JOB_PRIORITIES } from '@/lib/queue/config'
 import { db } from '@/lib/prisma'
 import type { StateCode } from '@/lib/gst'
 import Logger from '@/lib/logger'
+import { cache } from '@/lib/cache/redis-cache'
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
@@ -217,6 +218,9 @@ export const invoiceRouter = createTRPCRouter({
           // Don't fail invoice creation for email issues
         }
         
+        // Clear invoice cache for this user
+        await cache.clearType('invoices', userId)
+        
         return invoice
       })
     }),
@@ -227,35 +231,48 @@ export const invoiceRouter = createTRPCRouter({
       status: z.enum(['UNPAID', 'PAID', 'PARTIALLY_PAID', 'OVERDUE']).optional(),
     }).optional())
     .query(async ({ ctx, input }) => {
-      const where: any = { 
-        userId: ctx.session.user.id 
-      }
+      const userId = ctx.session.user.id
+      const cacheKey = `list:${input?.clientId || 'all'}:${input?.status || 'all'}`
       
-      if (input?.clientId) {
-        where.clientId = input.clientId
-      }
-      
-      if (input?.status) {
-        // Map status to paymentStatus field
-        if (input.status === 'UNPAID') {
-          where.paymentStatus = 'UNPAID'
-        } else if (input.status === 'PAID') {
-          where.paymentStatus = 'PAID'
-        } else if (input.status === 'PARTIALLY_PAID') {
-          where.paymentStatus = 'PARTIAL'
-        } else if (input.status === 'OVERDUE') {
-          where.AND = [
-            { paymentStatus: { not: 'PAID' } },
-            { dueDate: { lt: new Date() } }
-          ]
+      return await cache.cached(
+        'invoices',
+        cacheKey,
+        async () => {
+          const where: any = { 
+            userId 
+          }
+          
+          if (input?.clientId) {
+            where.clientId = input.clientId
+          }
+          
+          if (input?.status) {
+            // Map status to paymentStatus field
+            if (input.status === 'UNPAID') {
+              where.paymentStatus = 'UNPAID'
+            } else if (input.status === 'PAID') {
+              where.paymentStatus = 'PAID'
+            } else if (input.status === 'PARTIALLY_PAID') {
+              where.paymentStatus = 'PARTIAL'
+            } else if (input.status === 'OVERDUE') {
+              where.AND = [
+                { paymentStatus: { not: 'PAID' } },
+                { dueDate: { lt: new Date() } }
+              ]
+            }
+          }
+          
+          return await ctx.prisma.invoice.findMany({
+            where,
+            include: { client: true },
+            orderBy: { createdAt: 'desc' },
+          })
+        },
+        {
+          userId,
+          ttl: 300, // Cache for 5 minutes
         }
-      }
-      
-      return await ctx.prisma.invoice.findMany({
-        where,
-        include: { client: true },
-        orderBy: { createdAt: 'desc' },
-      })
+      )
     }),
 
   getById: protectedProcedure
@@ -264,15 +281,28 @@ export const invoiceRouter = createTRPCRouter({
       includePayments: z.boolean().optional().default(false)
     }))
     .query(async ({ ctx, input }) => {
-      const invoice = await ctx.prisma.invoice.findUnique({
-        where: { id: input.id, userId: ctx.session.user.id },
-        include: {
-          client: true,
-          lineItems: true,
-          lut: true,
-          payments: input.includePayments || undefined,
+      const userId = ctx.session.user.id
+      const cacheKey = `${input.id}:${input.includePayments ? 'with-payments' : 'no-payments'}`
+      
+      const invoice = await cache.cached(
+        'invoices',
+        cacheKey,
+        async () => {
+          return await ctx.prisma.invoice.findUnique({
+            where: { id: input.id, userId },
+            include: {
+              client: true,
+              lineItems: true,
+              lut: true,
+              payments: input.includePayments || undefined,
+            },
+          })
         },
-      })
+        {
+          userId,
+          ttl: 300, // Cache for 5 minutes
+        }
+      )
 
       if (!invoice) {
         throw new TRPCError({

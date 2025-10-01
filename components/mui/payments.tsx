@@ -1,17 +1,11 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import {
   Box,
   Typography,
   Card,
   CardContent,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
   IconButton,
   Tooltip,
@@ -42,6 +36,7 @@ import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { formatCurrency } from '@/lib/invoice-utils'
 import Logger from '@/lib/logger'
+import VirtualizedTable, { Column } from '@/components/mui/virtualized-table'
 
 const paymentMethodLabels: Record<string, string> = {
   BANK_TRANSFER: 'Bank Transfer',
@@ -93,6 +88,94 @@ export function MUIPayments() {
   const allPayments = React.useMemo(() => {
     return payments?.pages.flatMap(page => page.items) ?? []
   }, [payments?.pages])
+
+  // Define columns for virtualized table
+  const columns = useMemo<Column<any>[]>(() => [
+    {
+      id: 'paymentDate',
+      label: 'Date',
+      width: 120,
+      accessor: (row) => row.paymentDate,
+      format: (value) => format(new Date(value), 'dd MMM yyyy'),
+      sortable: true,
+    },
+    {
+      id: 'invoiceNumber',
+      label: 'Invoice',
+      width: 150,
+      accessor: (row) => row.invoice,
+      format: (value) => (
+        <Button
+          size="small"
+          color="primary"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/invoices/${value.id}`)
+          }}
+          sx={{ textTransform: 'none', fontWeight: 500 }}
+        >
+          {value.invoiceNumber}
+        </Button>
+      ),
+    },
+    {
+      id: 'client',
+      label: 'Client',
+      width: 200,
+      accessor: (row) => row.invoice.client.name,
+    },
+    {
+      id: 'amount',
+      label: 'Amount',
+      width: 150,
+      accessor: (row) => ({ amount: row.amount, currency: row.currency }),
+      format: (value) => (
+        <Typography variant="body2" fontWeight={500}>
+          {formatCurrency(Number(value.amount), value.currency)}
+        </Typography>
+      ),
+      sortable: true,
+    },
+    {
+      id: 'paymentMethod',
+      label: 'Method',
+      width: 150,
+      accessor: (row) => row.paymentMethod,
+      format: (value) => (
+        <Chip
+          label={paymentMethodLabels[value] || value.replace(/_/g, ' ')}
+          size="small"
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      id: 'reference',
+      label: 'Reference',
+      width: 180,
+      accessor: (row) => row.reference,
+      format: (value) => (
+        <Typography variant="body2" color="text.secondary">
+          {value || '-'}
+        </Typography>
+      ),
+    },
+  ], [router])
+
+  // Handle row actions
+  const handleRowActions = useCallback((payment: any) => (
+    <Tooltip title="View Invoice">
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation()
+          router.push(`/invoices/${payment.invoice.id}`)
+        }}
+      >
+        <ViewIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  ), [router])
 
   // Handle infinite scroll with proper cleanup
   const handleScroll = useCallback(() => {
@@ -324,110 +407,18 @@ export function MUIPayments() {
             </Typography>
           </CardContent>
 
-          {allPayments.length === 0 ? (
-            <Box py={8} textAlign="center">
-              <Box color="text.disabled" mb={2}>
-                <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </Box>
-              <Typography variant="body1" color="text.secondary">
-                {hasActiveFilters ? 'No payments found for the selected filters' : 'No payments found'}
-              </Typography>
-              {hasActiveFilters && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={clearFilters}
-                  sx={{ mt: 2 }}
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </Box>
-          ) : (
-            <>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Invoice</TableCell>
-                      <TableCell>Client</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Method</TableCell>
-                      <TableCell>Reference</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {allPayments.map((payment) => (
-                      <TableRow key={payment.id} hover>
-                        <TableCell>
-                          {format(new Date(payment.paymentDate), 'dd MMM yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="small"
-                            color="primary"
-                            onClick={() => router.push(`/invoices/${payment.invoice.id}`)}
-                            sx={{ textTransform: 'none', fontWeight: 500 }}
-                          >
-                            {payment.invoice.invoiceNumber}
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {payment.invoice.client.name}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatCurrency(Number(payment.amount), payment.currency)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={paymentMethodLabels[payment.paymentMethod] || payment.paymentMethod.replace(/_/g, ' ')}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {payment.reference || '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="View Invoice">
-                            <IconButton
-                              size="small"
-                              onClick={() => router.push(`/invoices/${payment.invoice.id}`)}
-                              aria-label={`View invoice ${payment.invoice.invoiceNumber}`}
-                            >
-                              <ViewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {hasNextPage && (
-                <Box p={2} textAlign="center" borderTop={1} borderColor="divider">
-                  <Button
-                    onClick={() => fetchNextPage()}
-                    disabled={isFetchingNextPage}
-                    startIcon={isFetchingNextPage ? <CircularProgress size={20} /> : <ExpandMoreIcon />}
-                  >
-                    {isFetchingNextPage ? 'Loading...' : 'Load More'}
-                  </Button>
-                </Box>
-              )}
-            </>
-          )}
+          <VirtualizedTable
+            columns={columns}
+            data={allPayments}
+            loading={isLoading}
+            maxHeight={600}
+            actions={handleRowActions}
+            emptyMessage={hasActiveFilters ? 'No payments found for the selected filters' : 'No payments found'}
+            infiniteLoading={true}
+            hasMore={hasNextPage || false}
+            loadMore={fetchNextPage}
+            estimatedTotalCount={allPayments.length + (hasNextPage ? 50 : 0)}
+          />
         </Card>
       </Box>
     </LocalizationProvider>

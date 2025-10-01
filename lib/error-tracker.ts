@@ -7,8 +7,10 @@
  * - Integrates with error boundaries
  * - Tracks error frequency and patterns
  * - Provides error reporting utilities
+ * - Integrates with Sentry for APM monitoring
  */
 
+import * as Sentry from '@sentry/nextjs';
 import Logger from './logger';
 import { prisma } from './prisma';
 import type { NextRequest } from 'next/server';
@@ -64,6 +66,50 @@ export class ErrorTracker {
     // Increment error count
     const currentCount = this.errorCounts.get(fingerprint) || 0;
     this.errorCounts.set(fingerprint, currentCount + 1);
+    
+    // Send to Sentry for APM monitoring
+    const sentryLevel = level === 'warning' ? 'warning' : level === 'critical' ? 'fatal' : 'error';
+    
+    // Create proper Error object for Sentry if needed
+    const errorForSentry = error instanceof Error ? error : new Error(errorData.message);
+    
+    // Capture in Sentry with context
+    Sentry.withScope((scope) => {
+      // Set severity level
+      scope.setLevel(sentryLevel);
+      
+      // Set user context
+      if (context.userId) {
+        scope.setUser({ id: context.userId });
+      }
+      
+      // Set tags
+      scope.setTag('error.fingerprint', fingerprint);
+      scope.setTag('error.occurrences', currentCount + 1);
+      scope.setTag('error.level', level);
+      
+      if (context.component) {
+        scope.setTag('component', context.component);
+      }
+      if (context.action) {
+        scope.setTag('action', context.action);
+      }
+      
+      // Set context data
+      scope.setContext('error_context', {
+        ...context,
+        fingerprint,
+        occurrences: currentCount + 1,
+      });
+      
+      // Set extra data
+      if (context.metadata) {
+        scope.setContext('metadata', context.metadata);
+      }
+      
+      // Send to Sentry
+      Sentry.captureException(errorForSentry);
+    });
     
     // Log to Winston
     const logContext = {

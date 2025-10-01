@@ -195,6 +195,34 @@ export default function RCMManagementPage() {
               Overview of your RCM transactions, payments, and compliance status.
             </Typography>
             
+            {/* Quick Actions */}
+            <Box sx={{ mt: 3, mb: 3 }}>
+              <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                Quick Actions
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                <Button 
+                  variant="contained" 
+                  startIcon={<AddIcon />}
+                  onClick={() => window.location.href = '/rcm/self-invoice/new'}
+                >
+                  Generate Self-Invoice
+                </Button>
+                <Button 
+                  variant="outlined"
+                  onClick={() => window.location.href = '/rcm/self-invoice'}
+                >
+                  Manage Self-Invoices
+                </Button>
+                <Button 
+                  variant="outlined"
+                  onClick={() => window.location.href = '/purchases/new'}
+                >
+                  Record Purchase
+                </Button>
+              </Box>
+            </Box>
+            
             <Grid container spacing={3} sx={{ mt: 2 }}>
               <Grid item xs={12} md={6}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
@@ -230,9 +258,24 @@ export default function RCMManagementPage() {
                   Track and manage your RCM payment liabilities.
                 </Typography>
               </Box>
-              <Button variant="contained" startIcon={<AddIcon />}>
-                Record Payment
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button 
+                  variant="outlined" 
+                  startIcon={<AddIcon />}
+                  onClick={() => window.location.href = '/rcm/self-invoice/new'}
+                >
+                  Create Self-Invoice
+                </Button>
+                <Button 
+                  variant="outlined"
+                  onClick={() => window.location.href = '/rcm/self-invoice'}
+                >
+                  View Self-Invoices
+                </Button>
+                <Button variant="contained" startIcon={<AddIcon />}>
+                  Record Payment
+                </Button>
+              </Box>
             </Box>
             
             <Paper variant="outlined" sx={{ p: 2 }}>

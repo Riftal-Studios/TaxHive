@@ -220,9 +220,75 @@ export const gstReturnsRouter = createTRPCRouter({
         }))
       }))
       
-      // Get credit and debit notes for the period (if they exist)
-      const creditNotes: any[] = [] // TODO: Implement credit notes fetching when available
-      const debitNotes: any[] = [] // TODO: Implement debit notes fetching when available
+      // Get credit and debit notes for the period
+      const creditDebitNotes = await ctx.prisma.creditDebitNote.findMany({
+        where: {
+          userId,
+          noteDate: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        include: {
+          invoice: {
+            include: {
+              client: true
+            }
+          },
+          lineItems: true
+        }
+      })
+      
+      // Separate and transform credit and debit notes
+      const creditNotes = creditDebitNotes
+        .filter(note => note.noteType === 'CREDIT')
+        .map(note => ({
+          noteNumber: note.noteNumber,
+          noteDate: note.noteDate,
+          originalInvoiceNumber: note.invoice.invoiceNumber,
+          originalInvoiceDate: note.invoice.invoiceDate,
+          clientGSTIN: note.invoice.client.gstin || '',
+          clientName: note.invoice.client.businessName,
+          reason: note.reason,
+          subtotal: note.subtotal.toNumber(),
+          cgstAmount: note.cgstAmount.toNumber(),
+          sgstAmount: note.sgstAmount.toNumber(),
+          igstAmount: note.igstAmount.toNumber(),
+          total: note.total.toNumber(),
+          lineItems: note.lineItems.map(item => ({
+            description: item.description,
+            hsnSacCode: item.hsnSacCode,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.rate.toNumber(),
+            amount: item.amount.toNumber()
+          }))
+        }))
+      
+      const debitNotes = creditDebitNotes
+        .filter(note => note.noteType === 'DEBIT')
+        .map(note => ({
+          noteNumber: note.noteNumber,
+          noteDate: note.noteDate,
+          originalInvoiceNumber: note.invoice.invoiceNumber,
+          originalInvoiceDate: note.invoice.invoiceDate,
+          clientGSTIN: note.invoice.client.gstin || '',
+          clientName: note.invoice.client.businessName,
+          reason: note.reason,
+          subtotal: note.subtotal.toNumber(),
+          cgstAmount: note.cgstAmount.toNumber(),
+          sgstAmount: note.sgstAmount.toNumber(),
+          igstAmount: note.igstAmount.toNumber(),
+          total: note.total.toNumber(),
+          lineItems: note.lineItems.map(item => ({
+            description: item.description,
+            hsnSacCode: item.hsnSacCode,
+            quantity: item.quantity,
+            unit: item.unit,
+            rate: item.rate.toNumber(),
+            amount: item.amount.toNumber()
+          }))
+        }))
       
       // Generate GSTR-1 JSON using our generator
       const gstr1Period = `${month.toString().padStart(2, '0')}${year}`

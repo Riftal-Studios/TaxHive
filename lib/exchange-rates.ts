@@ -1,6 +1,7 @@
 import { prisma } from './prisma'
 import { CURRENCY_CODES } from './constants'
 import Logger from '@/lib/logger'
+import { cache } from '@/lib/cache/redis-cache'
 
 interface ExchangeRate {
   currency: string
@@ -180,21 +181,32 @@ export async function updateExchangeRates() {
 export async function getExchangeRate(currency: string): Promise<number | null> {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+  const cacheKey = `${currency}:${today.toISOString().split('T')[0]}`
   
-  const rate = await prisma.exchangeRate.findFirst({
-    where: {
-      currency,
-      date: {
-        gte: today,
-        lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
-      },
+  // Try to get from cache first
+  return await cache.cached(
+    'exchangeRates',
+    cacheKey,
+    async () => {
+      const rate = await prisma.exchangeRate.findFirst({
+        where: {
+          currency,
+          date: {
+            gte: today,
+            lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+      
+      return rate ? Number(rate.rate) : null
     },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  })
-  
-  return rate ? Number(rate.rate) : null
+    {
+      ttl: 3600, // Cache for 1 hour
+    }
+  )
 }
 
 // Export functions for queue handler

@@ -6,25 +6,12 @@ import fs from 'fs/promises'
 import os from 'os'
 import Logger from '@/lib/logger'
 
-// Note: These PDF generator functions need to be implemented
-// import { generateInvoicePDF } from '@/lib/pdf/invoice-generator'
-// import { generateCreditNotePDF } from '@/lib/pdf/credit-note-generator'
-// import { generateDebitNotePDF } from '@/lib/pdf/debit-note-generator'
-// import { generateReceiptPDF } from '@/lib/pdf/receipt-generator'
-// import { uploadToS3 } from '@/lib/s3'
-
-// For now, we'll create a placeholder PDF generator
-async function generatePlaceholderPDF(data: any): Promise<Buffer> {
-  // This would be replaced with actual PDF generation using libraries like:
-  // - pdfkit
-  // - puppeteer
-  // - react-pdf
-  // - jsPDF
-  
-  // For now, return a simple text as buffer
-  const content = `PDF Generation Placeholder\n\nType: ${data.type}\nID: ${data.id}\nGenerated: ${new Date().toISOString()}`
-  return Buffer.from(content, 'utf-8')
-}
+// Import actual PDF generators
+import { generateInvoicePDF } from '@/lib/pdf/invoice-generator'
+import { generateCreditNotePDF } from '@/lib/pdf/credit-note-generator'
+import { generateDebitNotePDF } from '@/lib/pdf/debit-note-generator'
+import { generateReceiptPDF } from '@/lib/pdf/receipt-generator'
+// import { uploadToS3 } from '@/lib/s3' // S3 upload to be implemented separately
 
 // Main processor function
 export default async function processPDFGeneration(
@@ -58,8 +45,8 @@ export default async function processPDFGeneration(
         
         await job.updateProgress(30)
         
-        // TODO: Replace with actual PDF generation
-        pdfBuffer = await generatePlaceholderPDF({ type: 'invoice', ...invoice })
+        // Generate actual invoice PDF
+        pdfBuffer = await generateInvoicePDF(invoice)
         filename = `invoice-${invoice.invoiceNumber.replace(/\//g, '-')}.pdf`
         break
       }
@@ -84,8 +71,8 @@ export default async function processPDFGeneration(
         
         await job.updateProgress(30)
         
-        // TODO: Replace with actual PDF generation
-        pdfBuffer = await generatePlaceholderPDF({ type: 'credit-note', ...creditNote })
+        // Generate actual credit note PDF
+        pdfBuffer = await generateCreditNotePDF(creditNote)
         filename = `credit-note-${creditNote.noteNumber.replace(/\//g, '-')}.pdf`
         break
       }
@@ -110,8 +97,8 @@ export default async function processPDFGeneration(
         
         await job.updateProgress(30)
         
-        // TODO: Replace with actual PDF generation
-        pdfBuffer = await generatePlaceholderPDF({ type: 'debit-note', ...debitNote })
+        // Generate actual debit note PDF
+        pdfBuffer = await generateDebitNotePDF(debitNote)
         filename = `debit-note-${debitNote.noteNumber.replace(/\//g, '-')}.pdf`
         break
       }
@@ -135,8 +122,8 @@ export default async function processPDFGeneration(
         
         await job.updateProgress(30)
         
-        // TODO: Replace with actual PDF generation
-        pdfBuffer = await generatePlaceholderPDF({ type: 'receipt', ...payment })
+        // Generate actual receipt PDF
+        pdfBuffer = await generateReceiptPDF(payment)
         filename = `receipt-${payment.receiptNumber?.replace(/\//g, '-') || payment.id}.pdf`
         break
       }
@@ -154,12 +141,13 @@ export default async function processPDFGeneration(
     
     await job.updateProgress(70)
     
-    // Upload to S3 if configured (TODO: Implement S3 upload)
+    // Upload to S3 if configured
     let s3Key: string | undefined
     if (options?.saveToS3 && process.env.AWS_S3_BUCKET) {
       s3Key = `pdfs/${userId}/${type}/${filename}`
-      // TODO: Implement S3 upload
+      // S3 upload implementation pending - will be added when S3 module is created
       // await uploadToS3({ key: s3Key, body: pdfBuffer, contentType: 'application/pdf' })
+      Logger.info(`S3 upload skipped - module not yet implemented. Would upload to: ${s3Key}`)
       await job.updateProgress(90)
     }
     

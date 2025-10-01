@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { memo } from 'react'
 import {
   Card,
   CardContent,
@@ -58,7 +58,7 @@ function formatCurrency(amount: number, currency: string): string {
   }).format(amount)
 }
 
-export function MUIRecentInvoices({ invoices, loading = false }: RecentInvoicesProps) {
+const MUIRecentInvoicesComponent = ({ invoices, loading = false }: RecentInvoicesProps) => {
   const router = useRouter()
 
   if (loading) {
@@ -201,3 +201,11 @@ export function MUIRecentInvoices({ invoices, loading = false }: RecentInvoicesP
     </Card>
   )
 }
+
+// Memoize to prevent re-renders when parent updates but invoices haven't changed
+export const MUIRecentInvoices = memo(MUIRecentInvoicesComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.loading === nextProps.loading &&
+    JSON.stringify(prevProps.invoices) === JSON.stringify(nextProps.invoices)
+  )
+})

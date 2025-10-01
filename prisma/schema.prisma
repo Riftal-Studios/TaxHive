@@ -106,7 +106,9 @@ model Invoice {
   // Financial Details
   currency       String        @default("USD")
   exchangeRate   Decimal
-  exchangeSource String        // RBI/Fallback API
+  exchangeSource String        // RBI/Fallback API/Manual
+  exchangeRateOverridden Boolean @default(false) // Whether exchange rate was manually changed after invoice creation
+  exchangeRateOverriddenAt DateTime? // When exchange rate was manually changed
   subtotal       Decimal
   igstRate       Decimal       @default(0)
   igstAmount     Decimal       @default(0)

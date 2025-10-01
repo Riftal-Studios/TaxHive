@@ -23,7 +23,7 @@ const STEP_DESCRIPTIONS = {
   client: 'Add details of your international client for invoicing',
   lut: 'Add your Letter of Undertaking for zero-rated GST exports',
   invoice: 'Create your first export invoice (optional)',
-  complete: 'Your GSTHive account is ready to use!',
+  complete: 'Your TaxHive account is ready to use!',
 } as const
 
 export default function OnboardingPage() {
@@ -167,7 +167,7 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Welcome to GSTHive! 🎉
+            Welcome to TaxHive! 🎉
           </h1>
           <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
             Let&apos;s set up your account for GST-compliant export invoicing

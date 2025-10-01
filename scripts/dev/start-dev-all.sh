@@ -33,7 +33,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 echo -e "${PURPLE}========================================${NC}"
-echo -e "${PURPLE}   Starting GSTHive Development Stack   ${NC}"
+echo -e "${PURPLE}   Starting TaxHive Development Stack   ${NC}"
 echo -e "${PURPLE}========================================${NC}\n"
 
 # Check if Redis is already running

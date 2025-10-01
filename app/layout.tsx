@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth"
 import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata: Metadata = {
-  title: "GSTHive - GST-Compliant Invoice Management",
+  title: "TaxHive - GST-Compliant Invoice Management",
   description: "Invoice management system for Indian businesses exporting services with GST compliance",
 }
 

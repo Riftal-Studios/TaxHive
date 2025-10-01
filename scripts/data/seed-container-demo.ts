@@ -10,7 +10,7 @@ async function seedDemoData() {
     console.log('🌱 Seeding demo data...\n')
     
     // Clean up existing demo data first
-    const email = 'demo@gsthive.com'
+    const email = 'demo@taxhive.app'
     const existingUser = await prisma.user.findUnique({
       where: { email }
     })

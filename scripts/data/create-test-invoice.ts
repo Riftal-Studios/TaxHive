@@ -9,14 +9,14 @@ async function main() {
   
   // Find or create test user
   let user = await prisma.user.findFirst({
-    where: { email: 'test@gsthive.com' }
+    where: { email: 'test@taxhive.app' }
   })
   
   if (!user) {
     const hashedPassword = await hash('Test123!@#', 12)
     user = await prisma.user.create({
       data: {
-        email: 'test@gsthive.com',
+        email: 'test@taxhive.app',
         password: hashedPassword,
         name: 'Test User',
         gstin: '29ABCDE1234F1Z5',
@@ -125,7 +125,7 @@ async function main() {
   console.log('\nBank Details included:', invoice.bankDetails ? 'Yes' : 'No')
   
   console.log('\n📧 You can now:')
-  console.log('1. Log in with: test@gsthive.com / Test123!@#')
+  console.log('1. Log in with: test@taxhive.app / Test123!@#')
   console.log('2. Go to Invoices section')
   console.log('3. Find invoice', invoice.invoiceNumber)
   console.log('4. Click "Send Invoice" to email it to nasiridrishi@outlook.com')

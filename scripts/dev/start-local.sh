@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Starting GSTHive locally..."
+echo "🚀 Starting TaxHive locally..."
 
 # Colors for output
 RED='\033[0;31m'

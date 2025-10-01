@@ -116,6 +116,6 @@ jobs:
           context: .
           file: ./docker/Dockerfile.production
           push: false
-          tags: gsthive:test
+          tags: taxhive:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

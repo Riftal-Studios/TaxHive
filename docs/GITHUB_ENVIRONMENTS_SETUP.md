@@ -9,8 +9,8 @@ Push to GitHub → GitHub Actions → Build Docker Image → Deploy to VPS → C
 ```
 
 **Fully Automated:**
-- Push to `main` → Deploys to production (gsthive.com)
-- Push to `staging` → Deploys to staging (staging.gsthive.com)
+- Push to `main` → Deploys to production (taxhive.app)
+- Push to `staging` → Deploys to staging (staging.taxhive.app)
 - No manual steps required!
 
 ## Overview
@@ -36,15 +36,15 @@ GitHub Environments provide:
 3. Click **New environment**
 
 Create these environments:
-- **production** - For live site (gsthive.com)
-- **staging** - For testing (staging.gsthive.com)
+- **production** - For live site (taxhive.app)
+- **staging** - For testing (staging.taxhive.app)
 
 ### Step 2: Configure Protection Rules
 
 #### Production Environment
 
 1. Click on **production** environment
-2. Set **Environment URL**: `https://gsthive.com`
+2. Set **Environment URL**: `https://taxhive.app`
 3. Add **Protection rules**:
    - ✅ Required reviewers (add yourself or team members)
    - ✅ Restrict deployments to `main` branch only
@@ -53,7 +53,7 @@ Create these environments:
 #### Staging Environment
 
 1. Click on **staging** environment
-2. Set **Environment URL**: `https://staging.gsthive.com`
+2. Set **Environment URL**: `https://staging.taxhive.app`
 3. Add **Protection rules** (optional):
    - Restrict deployments to `staging`, `develop` branches
 
@@ -110,14 +110,14 @@ POSTGRES_USER: gsthive
 POSTGRES_DB: gsthive
 
 # Application
-NEXTAUTH_URL: https://gsthive.com
+NEXTAUTH_URL: https://taxhive.app
 EMAIL_PROVIDER: ses
-EMAIL_FROM: GST Hive <noreply@gsthive.com>
+EMAIL_FROM: GST Hive <noreply@taxhive.app>
 AWS_SES_REGION: ap-south-1
 
 # AWS (Optional)
 AWS_REGION: ap-south-1
-AWS_S3_BUCKET: gsthive-production
+AWS_S3_BUCKET: taxhive-production
 AWS_S3_REGION: ap-south-1              # Optional: Override if different from AWS_REGION
 AWS_S3_ENDPOINT:                        # Optional: For S3-compatible services (R2, MinIO)
 AWS_S3_FORCE_PATH_STYLE: false         # Optional: Set to true for MinIO/LocalStack
@@ -129,7 +129,7 @@ AWS_S3_PUBLIC_READ: false              # Optional: Set to true for public PDFs
 Use the same structure as production but with:
 - Different passwords and secrets (always separate)
 - Different database names (e.g., `gsthive_staging`)
-- Different URLs (e.g., `https://staging.gsthive.com`)
+- Different URLs (e.g., `https://staging.taxhive.app`)
 - Different S3 buckets if using file storage
 
 ## Quick Setup Commands
@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: production
-      url: https://gsthive.com
+      url: https://taxhive.app
 ```
 
 This ensures:

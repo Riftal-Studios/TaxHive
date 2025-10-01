@@ -93,7 +93,7 @@ jobs:
     with:
       environment: production
       deploy_type: ${{ github.event.inputs.deploy_type || 'deploy' }}
-      image_tag: ghcr.io/riftal-studios/gsthive:prod-${{ github.sha }}
+      image_tag: ghcr.io/riftal-studios/taxhive:prod-${{ github.sha }}
       vps_host: ${{ needs.prepare-deployment.outputs.vps_host }}
       vps_user: ${{ needs.prepare-deployment.outputs.vps_user }}
       vps_port: ${{ needs.prepare-deployment.outputs.vps_port }}

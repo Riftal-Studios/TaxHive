@@ -1,6 +1,6 @@
 # S3 Configuration Guide
 
-This guide explains how to configure AWS S3 for storing invoice PDFs in GSTHive.
+This guide explains how to configure AWS S3 for storing invoice PDFs in TaxHive.
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-access-key
 
 # Basic Configuration (Required)
 AWS_REGION=us-east-1              # Default AWS region
-AWS_S3_BUCKET=gsthive-uploads     # Your S3 bucket name
+AWS_S3_BUCKET=taxhive-uploads     # Your S3 bucket name
 
 # Advanced Configuration (Optional)
 AWS_S3_REGION=ap-south-1          # Override region for S3 only
@@ -52,8 +52,8 @@ Create an IAM user with the following policy for S3 access:
         "s3:ListBucket"
       ],
       "Resource": [
-        "arn:aws:s3:::gsthive-uploads/*",
-        "arn:aws:s3:::gsthive-uploads"
+        "arn:aws:s3:::taxhive-uploads/*",
+        "arn:aws:s3:::taxhive-uploads"
       ]
     }
   ]
@@ -65,7 +65,7 @@ Create an IAM user with the following policy for S3 access:
 ### 1. Create S3 Bucket
 
 ```bash
-aws s3 mb s3://gsthive-uploads --region us-east-1
+aws s3 mb s3://taxhive-uploads --region us-east-1
 ```
 
 ### 2. Configure CORS (if needed for direct browser uploads)
@@ -76,7 +76,7 @@ aws s3 mb s3://gsthive-uploads --region us-east-1
     {
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
-      "AllowedOrigins": ["https://gsthive.com", "https://dev.gsthive.com"],
+      "AllowedOrigins": ["https://taxhive.app", "https://dev.taxhive.app"],
       "ExposeHeaders": ["ETag"]
     }
   ]
@@ -96,7 +96,7 @@ If you want PDFs to be publicly accessible:
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::gsthive-uploads/invoices/*"
+      "Resource": "arn:aws:s3:::taxhive-uploads/invoices/*"
     }
   ]
 }
@@ -111,7 +111,7 @@ If you want PDFs to be publicly accessible:
 ## File Structure in S3
 
 ```
-gsthive-uploads/
+taxhive-uploads/
 └── invoices/
     ├── invoice-FY24-25-001.pdf
     ├── invoice-FY24-25-002.pdf
@@ -153,13 +153,13 @@ export AWS_SDK_JS_DEBUG=1
 
 ## Alternative: CloudFlare R2
 
-GSTHive can also work with CloudFlare R2 (S3-compatible):
+TaxHive can also work with CloudFlare R2 (S3-compatible):
 
 ```bash
 # For R2
 AWS_ACCESS_KEY_ID=your-r2-access-key
 AWS_SECRET_ACCESS_KEY=your-r2-secret-key
-AWS_S3_BUCKET=gsthive-uploads
+AWS_S3_BUCKET=taxhive-uploads
 AWS_S3_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
 AWS_S3_REGION=auto  # R2 uses 'auto' as region
 ```
@@ -172,7 +172,7 @@ For local development or self-hosted S3:
 # For MinIO
 AWS_ACCESS_KEY_ID=minioadmin
 AWS_SECRET_ACCESS_KEY=minioadmin
-AWS_S3_BUCKET=gsthive-uploads
+AWS_S3_BUCKET=taxhive-uploads
 AWS_S3_ENDPOINT=http://localhost:9000
 AWS_S3_FORCE_PATH_STYLE=true  # Required for MinIO
 AWS_S3_REGION=us-east-1       # MinIO default

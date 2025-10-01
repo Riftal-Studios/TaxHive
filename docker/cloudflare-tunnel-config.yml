@@ -1,26 +1,26 @@
-# Cloudflare Tunnel Configuration for gsthive.com
+# Cloudflare Tunnel Configuration for taxhive.app
 # This file is used when creating the tunnel manually (optional)
 
-tunnel: gsthive-tunnel
+tunnel: taxhive-tunnel
 credentials-file: /etc/cloudflared/credentials.json
 
 ingress:
   # Main application
-  - hostname: gsthive.com
+  - hostname: taxhive.app
     service: http://app:3000
     originRequest:
       noTLSVerify: true
       connectTimeout: 30s
       
   # WWW redirect
-  - hostname: www.gsthive.com
+  - hostname: www.taxhive.app
     service: http://app:3000
     originRequest:
       noTLSVerify: true
       connectTimeout: 30s
       
   # Health check endpoint (optional subdomain)
-  - hostname: health.gsthive.com
+  - hostname: health.taxhive.app
     service: http://app:3000/api/health
     originRequest:
       noTLSVerify: true

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# GSTHive Deployment Script
+# TaxHive Deployment Script
 set -e
 
-echo "🚀 Starting GSTHive deployment..."
+echo "🚀 Starting TaxHive deployment..."
 
 # Check if fly CLI is installed
 if ! command -v fly &> /dev/null; then

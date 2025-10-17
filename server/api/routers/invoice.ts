@@ -293,13 +293,15 @@ export const invoiceRouter = createTRPCRouter({
         if (updateData.dueDate !== undefined) data.dueDate = updateData.dueDate
         if (updateData.currency !== undefined) data.currency = updateData.currency
 
-        // Track exchange rate changes
+        // Track exchange rate changes and recalculate totalInINR
+        let exchangeRateChanged = false
         if (updateData.exchangeRate !== undefined) {
           data.exchangeRate = updateData.exchangeRate
           // If exchange rate is being changed manually (different from current)
           if (Number(currentInvoice.exchangeRate) !== updateData.exchangeRate) {
             data.exchangeRateOverridden = true
             data.exchangeRateOverriddenAt = new Date()
+            exchangeRateChanged = true
             // Set source to Manual if not already specified
             if (!updateData.exchangeRateSource) {
               data.exchangeSource = 'Manual'
@@ -311,7 +313,7 @@ export const invoiceRouter = createTRPCRouter({
         if (updateData.paymentTerms !== undefined) data.paymentTerms = updateData.paymentTerms?.toString()
         if (updateData.bankDetails !== undefined) data.bankDetails = updateData.bankDetails
         if (updateData.notes !== undefined) data.notes = updateData.notes
-        
+
         // Handle relations
         if (updateData.clientId !== undefined) {
           data.client = { connect: { id: updateData.clientId } }
@@ -319,12 +321,25 @@ export const invoiceRouter = createTRPCRouter({
         if (updateData.lutId !== undefined) {
           data.lut = updateData.lutId ? { connect: { id: updateData.lutId } } : { disconnect: true }
         }
-        
+
         // Update invoice
         const invoice = await tx.invoice.update({
           where: { id, userId },
           data,
         })
+
+        // If exchange rate changed without line items update, recalculate totalInINR
+        if (exchangeRateChanged && !lineItems) {
+          const newExchangeRate = updateData.exchangeRate!
+          const updatedTotalInINR = Number(invoice.totalAmount) * newExchangeRate
+
+          await tx.invoice.update({
+            where: { id },
+            data: {
+              totalInINR: updatedTotalInINR,
+            }
+          })
+        }
         
         // Update line items if provided
         if (lineItems) {
@@ -921,22 +936,22 @@ export const invoiceRouter = createTRPCRouter({
         where: { id: input.id, userId: ctx.session.user.id },
         include: { payments: true }
       })
-      
+
       if (!invoice) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Invoice not found',
         })
       }
-      
+
       // Calculate total paid from all payments
-      const totalPaid = invoice.payments.reduce((sum, payment) => 
+      const totalPaid = invoice.payments.reduce((sum, payment) =>
         sum + Number(payment.amount), 0
       )
-      
+
       const balanceDue = Number(invoice.totalAmount) - totalPaid
       const paymentStatus = balanceDue <= 0 ? 'PAID' : totalPaid > 0 ? 'PARTIAL' : 'UNPAID'
-      
+
       // Update invoice with correct values
       const updated = await ctx.prisma.invoice.update({
         where: { id: input.id },
@@ -946,8 +961,41 @@ export const invoiceRouter = createTRPCRouter({
           paymentStatus: paymentStatus,
         }
       })
-      
+
       return updated
+    }),
+
+  // Recalculate totalInINR for an invoice based on current totalAmount and exchangeRate
+  recalculateTotalInINR: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.id, userId: ctx.session.user.id },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+
+      // Recalculate totalInINR from totalAmount and exchangeRate (source of truth)
+      const recalculatedTotalInINR = Number(invoice.totalAmount) * Number(invoice.exchangeRate)
+
+      // Update invoice with recalculated value
+      const updated = await ctx.prisma.invoice.update({
+        where: { id: input.id },
+        data: {
+          totalInINR: recalculatedTotalInINR,
+        }
+      })
+
+      return {
+        success: true,
+        totalInINR: recalculatedTotalInINR,
+        message: 'Total INR amount recalculated successfully',
+      }
     }),
 
   // Regenerate public access token for an invoice

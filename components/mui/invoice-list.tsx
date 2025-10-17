@@ -33,6 +33,7 @@ import {
   Email as EmailIcon,
   Payment as PaymentIcon,
   ContentCopy as CopyIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material'
 import { api } from '@/lib/trpc/client'
 import { formatCurrency } from '@/lib/invoice-utils'
@@ -392,6 +393,18 @@ export function InvoiceList() {
                             onClick={() => router.push(`/invoices/${invoice.id}`)}
                           >
                             <ViewIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Open in New Tab">
+                          <IconButton
+                            size="small"
+                            component="a"
+                            href={`/invoices/${invoice.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <OpenInNewIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Edit">

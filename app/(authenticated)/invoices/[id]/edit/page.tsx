@@ -32,10 +32,11 @@ function EditInvoiceContent({ id }: { id: string }) {
   const router = useRouter()
   
   // Fetch invoice data with error handling
-  const { 
-    data: invoice, 
+  const {
+    data: invoice,
     isLoading,
-    error
+    error,
+    refetch
   } = api.invoices.getById.useQuery({ id })
   
   // Fetch clients and LUTs
@@ -47,7 +48,9 @@ function EditInvoiceContent({ id }: { id: string }) {
   const [selectedIssueDate, setSelectedIssueDate] = useState(
     invoice?.invoiceDate ? invoice.invoiceDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
   )
-  const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(null)
+  const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(
+    invoice ? Number(invoice.exchangeRate) : null
+  )
   const { data: exchangeRateData } = api.invoices.getCurrentExchangeRate.useQuery({
     currency: selectedCurrency,
     date: selectedIssueDate,
@@ -60,6 +63,18 @@ function EditInvoiceContent({ id }: { id: string }) {
     onSuccess: () => {
       enqueueSnackbar('Invoice updated successfully', { variant: 'success' })
       router.push(`/invoices/${id}`)
+    },
+    onError: (error) => {
+      enqueueSnackbar(error.message, { variant: 'error' })
+    },
+  })
+
+  // Recalculate totalInINR mutation
+  const recalculateMutation = api.invoices.recalculateTotalInINR.useMutation({
+    onSuccess: (data) => {
+      enqueueSnackbar(`Total INR recalculated successfully: ₹${data.totalInINR.toFixed(2)}`, { variant: 'success' })
+      // Refetch invoice data to show updated value
+      refetch()
     },
     onError: (error) => {
       enqueueSnackbar(error.message, { variant: 'error' })
@@ -139,7 +154,16 @@ function EditInvoiceContent({ id }: { id: string }) {
   
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-2xl font-bold mb-6">Edit Invoice</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Edit Invoice</h1>
+        <button
+          onClick={() => recalculateMutation.mutate({ id: invoice.id })}
+          disabled={recalculateMutation.isPending}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          {recalculateMutation.isPending ? 'Recalculating...' : 'Recalculate INR Amount'}
+        </button>
+      </div>
       <InvoiceForm
         initialData={initialData}
         invoiceStatus={invoice.status}

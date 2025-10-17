@@ -149,7 +149,7 @@ function createTransporter() {
 function formatFromAddress(senderName?: string): string {
   // Always use the configured EMAIL_FROM
   const email = process.env.EMAIL_FROM || 'no-reply@gsthive.com'
-  const name = senderName || process.env.EMAIL_FROM_NAME || 'GSTHive'
+  const name = senderName || process.env.EMAIL_FROM_NAME || 'TaxHive'
   
   return `"${name}" <${email}>`
 }

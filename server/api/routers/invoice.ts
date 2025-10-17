@@ -272,14 +272,41 @@ export const invoiceRouter = createTRPCRouter({
       const userId = ctx.session.user.id
       
       return await db.$transaction(async (tx) => {
+        // Get current invoice to check if exchange rate is being changed
+        const currentInvoice = await tx.invoice.findUnique({
+          where: { id, userId },
+          select: { exchangeRate: true }
+        })
+
+        if (!currentInvoice) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Invoice not found',
+          })
+        }
+
         // Build update data with proper relation handling
         const data: Record<string, unknown> = {}
-        
+
         // Handle direct fields
         if (updateData.issueDate !== undefined) data.invoiceDate = updateData.issueDate
         if (updateData.dueDate !== undefined) data.dueDate = updateData.dueDate
         if (updateData.currency !== undefined) data.currency = updateData.currency
-        if (updateData.exchangeRate !== undefined) data.exchangeRate = updateData.exchangeRate
+
+        // Track exchange rate changes
+        if (updateData.exchangeRate !== undefined) {
+          data.exchangeRate = updateData.exchangeRate
+          // If exchange rate is being changed manually (different from current)
+          if (Number(currentInvoice.exchangeRate) !== updateData.exchangeRate) {
+            data.exchangeRateOverridden = true
+            data.exchangeRateOverriddenAt = new Date()
+            // Set source to Manual if not already specified
+            if (!updateData.exchangeRateSource) {
+              data.exchangeSource = 'Manual'
+            }
+          }
+        }
+
         if (updateData.exchangeRateSource !== undefined) data.exchangeSource = updateData.exchangeRateSource
         if (updateData.paymentTerms !== undefined) data.paymentTerms = updateData.paymentTerms?.toString()
         if (updateData.bankDetails !== undefined) data.bankDetails = updateData.bankDetails

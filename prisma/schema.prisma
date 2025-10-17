@@ -76,6 +76,7 @@ model Client {
   company     String?
   address     String
   country     String
+  currency    String   @default("USD") // Client's currency based on their country
   phone       String?
   taxId       String? // Foreign tax ID if applicable
   isActive    Boolean  @default(true)
@@ -105,7 +106,9 @@ model Invoice {
   // Financial Details
   currency       String        @default("USD")
   exchangeRate   Decimal
-  exchangeSource String        // RBI/Fallback API
+  exchangeSource String        // RBI/Fallback API/Manual
+  exchangeRateOverridden Boolean @default(false) // Whether exchange rate was manually changed after invoice creation
+  exchangeRateOverriddenAt DateTime? // When exchange rate was manually changed
   subtotal       Decimal
   igstRate       Decimal       @default(0)
   igstAmount     Decimal       @default(0)

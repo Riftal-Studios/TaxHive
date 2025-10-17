@@ -1,11 +1,11 @@
 # Local Development with Cloudflare Tunnel
 
-This guide explains how to run GST Hive locally with a Cloudflare tunnel, allowing you to access your local development environment via `https://dev.gsthive.com`.
+This guide explains how to run GST Hive locally with a Cloudflare tunnel, allowing you to access your local development environment via `https://dev.taxhive.app`.
 
 ## Why Use Cloudflare Tunnel for Local Development?
 
 - **HTTPS in development** - Test with real SSL certificates
-- **Consistent URLs** - Use dev.gsthive.com instead of localhost
+- **Consistent URLs** - Use dev.taxhive.app instead of localhost
 - **Team collaboration** - Share your local dev environment
 - **Webhook testing** - Receive webhooks from external services
 - **Production-like** - Closer to production environment
@@ -13,7 +13,7 @@ This guide explains how to run GST Hive locally with a Cloudflare tunnel, allowi
 ## Prerequisites
 
 - Docker Desktop installed and running
-- Cloudflare tunnel configured for dev.gsthive.com
+- Cloudflare tunnel configured for dev.taxhive.app
 - Tunnel token (provided)
 
 ## Quick Start
@@ -23,7 +23,7 @@ This guide explains how to run GST Hive locally with a Cloudflare tunnel, allowi
 ./start-local-tunnel.sh
 
 # 2. Access your local GST Hive at:
-https://dev.gsthive.com
+https://dev.taxhive.app
 ```
 
 That's it! The script handles everything.
@@ -114,8 +114,8 @@ If you have services running on ports 5432 or 6379:
 ## Environment Variables
 
 The `.env.local` file contains:
-- `CLOUDFLARE_TUNNEL_TOKEN` - For dev.gsthive.com tunnel
-- `NEXTAUTH_URL=https://dev.gsthive.com` - Uses tunnel URL
+- `CLOUDFLARE_TUNNEL_TOKEN` - For dev.taxhive.app tunnel
+- `NEXTAUTH_URL=https://dev.taxhive.app` - Uses tunnel URL
 - `EMAIL_PROVIDER=console` - Emails shown in logs
 - Development database and Redis settings
 

@@ -100,12 +100,16 @@ export function InvoiceForm({
 }: InvoiceFormProps) {
   // Memoize initial form data to prevent unnecessary re-renders
   const getInitialFormData = useCallback((): InvoiceFormData => {
+    // If we have a client selected, use their currency
+    const client = clients.find(c => c.id === initialData?.clientId)
+    const defaultCurrency = client?.currency || initialData?.currency || 'USD'
+
     return {
       clientId: initialData?.clientId || '',
       lutId: initialData?.lutId || '',
       issueDate: initialData?.issueDate || new Date().toISOString().split('T')[0],
       dueDate: initialData?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      currency: initialData?.currency || 'USD',
+      currency: defaultCurrency,
       paymentTerms: initialData?.paymentTerms || 30,
       lineItems: initialData?.lineItems || [
         {
@@ -120,7 +124,7 @@ export function InvoiceForm({
       bankDetails: initialData?.bankDetails || '',
       notes: initialData?.notes || '',
     }
-  }, [initialData])
+  }, [initialData, clients])
 
   const [formData, setFormData] = useState<InvoiceFormData>(getInitialFormData())
   const [errors, setErrors] = useState<FormErrors>({})
@@ -200,6 +204,25 @@ export function InvoiceForm({
       }
     }, 2000) // 2 second debounce
   }, [autoSave, onAutoSave])
+
+  // Update currency when client is selected
+  useEffect(() => {
+    if (formData.clientId && selectedClient?.currency) {
+      setFormData(prev => {
+        if (prev.currency !== selectedClient.currency) {
+          const newData = {
+            ...prev,
+            currency: selectedClient.currency,
+          }
+          // Notify parent component about currency change
+          onCurrencyChange?.(selectedClient.currency)
+          triggerAutoSave(newData)
+          return newData
+        }
+        return prev
+      })
+    }
+  }, [formData.clientId, selectedClient, onCurrencyChange, triggerAutoSave])
 
   // Update due date when payment terms change
   useEffect(() => {
@@ -496,14 +519,11 @@ export function InvoiceForm({
           <select
             id="currency"
             value={formData.currency}
-            onChange={(e) => {
-              const newCurrency = e.target.value
-              setFormData(prev => ({ ...prev, currency: newCurrency }))
-              onCurrencyChange?.(newCurrency)
-            }}
-            className={selectClassName}
+            disabled={true}
+            className={`${selectClassName} opacity-60 cursor-not-allowed`}
             required
             aria-required="true"
+            title="Currency is auto-set from client and cannot be changed"
           >
             {currencyOptions.map(currency => (
               <option key={currency.code} value={currency.code}>
@@ -511,6 +531,9 @@ export function InvoiceForm({
               </option>
             ))}
           </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Auto-set from client&apos;s currency
+          </p>
         </div>
 
         <div>

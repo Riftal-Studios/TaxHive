@@ -1,14 +1,17 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   TextField,
   Button,
   Grid,
   CircularProgress,
+  MenuItem,
+  FormHelperText,
 } from '@mui/material'
 import type { Client } from '@prisma/client'
+import { getCurrencyFromCountry, getSupportedCurrencies } from '@/lib/invoice-utils'
 
 interface ClientFormProps {
   client?: Partial<Client>
@@ -23,6 +26,7 @@ export interface ClientFormData {
   company: string
   address: string
   country: string
+  currency: string
   phone: string
   taxId: string
 }
@@ -41,11 +45,21 @@ export function ClientForm({ client, onSubmit, onCancel, isSubmitting = false }:
     company: client?.company || '',
     address: client?.address || '',
     country: client?.country || '',
+    currency: client?.currency || 'USD',
     phone: client?.phone || '',
     taxId: client?.taxId || '',
   })
-  
+
   const [errors, setErrors] = useState<FormErrors>({})
+  const currencyOptions = getSupportedCurrencies()
+
+  // Auto-update currency when country changes
+  useEffect(() => {
+    if (formData.country && !client?.currency) {
+      const detectedCurrency = getCurrencyFromCountry(formData.country)
+      setFormData(prev => ({ ...prev, currency: detectedCurrency }))
+    }
+  }, [formData.country, client?.currency])
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -174,6 +188,30 @@ export function ClientForm({ client, onSubmit, onCancel, isSubmitting = false }:
             helperText={errors.country}
             disabled={isSubmitting}
           />
+        </Grid>
+
+        <Grid
+          size={{
+            xs: 12,
+            sm: 4
+          }}>
+          <TextField
+            fullWidth
+            required
+            select
+            label="Currency"
+            name="currency"
+            value={formData.currency}
+            onChange={handleChange}
+            disabled={isSubmitting}
+          >
+            {currencyOptions.map(currency => (
+              <MenuItem key={currency.code} value={currency.code}>
+                {currency.code} - {currency.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <FormHelperText>Auto-detected from country</FormHelperText>
         </Grid>
 
         <Grid

@@ -15,7 +15,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     
     services:
       postgres:
@@ -101,7 +101,7 @@ jobs:
           SKIP_ENV_VALIDATION: true
 
   docker-build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     
     steps:
       - name: Checkout code
@@ -116,6 +116,6 @@ jobs:
           context: .
           file: ./docker/Dockerfile.production
           push: false
-          tags: gsthive:test
+          tags: taxhive:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

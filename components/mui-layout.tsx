@@ -92,7 +92,7 @@ export function MUILayout({ children, user }: MUILayoutProps) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <WorkIcon sx={{ color: 'primary.main' }} />
           <Typography variant="h6" noWrap component="div" fontWeight={600}>
-            GSTHive
+            TaxHive
           </Typography>
         </Box>
       </Toolbar>

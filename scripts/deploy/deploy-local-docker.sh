@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy GST Hive to local Docker with dev.gsthive.com
+# Deploy GST Hive to local Docker with dev.taxhive.app
 
 set -e
 
@@ -18,7 +18,7 @@ fi
 # Check if CLOUDFLARE_TUNNEL_TOKEN is set
 if ! grep -q "CLOUDFLARE_TUNNEL_TOKEN=" .env || [ -z "$(grep CLOUDFLARE_TUNNEL_TOKEN= .env | cut -d'=' -f2)" ]; then
     echo "❌ Error: CLOUDFLARE_TUNNEL_TOKEN not set in .env file!"
-    echo "This is required for dev.gsthive.com to work"
+    echo "This is required for dev.taxhive.app to work"
     exit 1
 fi
 
@@ -72,7 +72,7 @@ if docker compose --env-file .env -f docker/docker-compose.local.yml ps | grep -
 fi
 
 echo "✅ Deployment complete!"
-echo "🌐 GST Hive should be accessible at: https://dev.gsthive.com"
+echo "🌐 GST Hive should be accessible at: https://dev.taxhive.app"
 echo ""
 echo "📝 Useful commands:"
 echo "  View logs: docker compose --env-file .env -f docker/docker-compose.local.yml logs -f"

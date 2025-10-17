@@ -156,6 +156,75 @@ export function getSupportedCurrencies() {
 }
 
 /**
+ * Get currency code from country name
+ * Returns the appropriate currency for a given country
+ */
+export function getCurrencyFromCountry(country: string): string {
+  const normalized = country.toLowerCase().trim()
+
+  // United States
+  if (normalized.includes('united states') || normalized.includes('usa') || normalized === 'us') {
+    return 'USD'
+  }
+
+  // Australia
+  if (normalized.includes('australia') || normalized === 'au') {
+    return 'AUD'
+  }
+
+  // United Kingdom
+  if (normalized.includes('united kingdom') || normalized.includes('uk') || normalized === 'gb') {
+    return 'GBP'
+  }
+
+  // Canada
+  if (normalized.includes('canada') || normalized === 'ca') {
+    return 'CAD'
+  }
+
+  // Singapore
+  if (normalized.includes('singapore') || normalized === 'sg') {
+    return 'SGD'
+  }
+
+  // UAE
+  if (normalized.includes('uae') || normalized.includes('emirates') || normalized === 'ae') {
+    return 'AED'
+  }
+
+  // Japan
+  if (normalized.includes('japan') || normalized === 'jp') {
+    return 'JPY'
+  }
+
+  // Switzerland
+  if (normalized.includes('switzerland') || normalized === 'ch') {
+    return 'CHF'
+  }
+
+  // New Zealand
+  if (normalized.includes('new zealand') || normalized === 'nz') {
+    return 'NZD'
+  }
+
+  // European Union countries
+  const euroCountries = [
+    'austria', 'belgium', 'cyprus', 'estonia', 'finland', 'france', 'germany',
+    'greece', 'ireland', 'italy', 'latvia', 'lithuania', 'luxembourg', 'malta',
+    'netherlands', 'portugal', 'slovakia', 'slovenia', 'spain',
+    'at', 'be', 'cy', 'ee', 'fi', 'fr', 'de', 'gr', 'ie', 'it', 'lv', 'lt',
+    'lu', 'mt', 'nl', 'pt', 'sk', 'si', 'es'
+  ]
+
+  if (euroCountries.some(c => normalized.includes(c) || normalized === c)) {
+    return 'EUR'
+  }
+
+  // Default to USD
+  return 'USD'
+}
+
+/**
  * Format amount in INR with Indian numbering system
  */
 export function formatINR(amount: number): string {

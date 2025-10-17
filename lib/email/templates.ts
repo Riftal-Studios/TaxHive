@@ -157,7 +157,7 @@ export function generateOTPEmail(otp: string, purpose: 'SIGNUP' | 'PASSWORD_RESE
   const subject = purpose === 'SIGNUP' ? 'Verify your email' : 'Reset your password'
   
   return {
-    subject: `${subject} - GSTHive`,
+    subject: `${subject} - TaxHive`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -184,11 +184,11 @@ export function generateOTPEmail(otp: string, purpose: 'SIGNUP' | 'PASSWORD_RESE
             <p>If you didn't request this, please ignore this email. Your account remains secure.</p>
             
             <p>Best regards,<br>
-            GSTHive Team</p>
+            TaxHive Team</p>
           </div>
           
           <div class="footer">
-            <p><strong>GSTHive</strong></p>
+            <p><strong>TaxHive</strong></p>
             <p>GST-Compliant Invoice Management for Indian Freelancers</p>
             <p style="margin-top: 20px; font-size: 12px;">
               This is an automated email. Please do not reply directly to this message.
@@ -205,7 +205,7 @@ This code will expire in 10 minutes.
 If you didn't request this, please ignore this email. Your account remains secure.
 
 Best regards,
-GSTHive Team
+TaxHive Team
 
 This is an automated email. Please do not reply directly to this message.`,
   }
@@ -528,11 +528,11 @@ This is an automated reminder. Please do not reply directly to this message.`
             <p>If you have already renewed your LUT, please update the details in your profile to stop receiving these reminders.</p>
             
             <p>Best regards,<br>
-            GSTHive Team</p>
+            TaxHive Team</p>
           </div>
           
           <div class="footer">
-            <p><strong>GSTHive</strong></p>
+            <p><strong>TaxHive</strong></p>
             <p>GST-Compliant Invoice Management for Indian Freelancers</p>
             <p style="margin-top: 20px; font-size: 12px;">
               This is an automated reminder. Please do not reply directly to this message.
@@ -567,7 +567,7 @@ Visit GST Portal: https://www.gst.gov.in/
 If you have already renewed your LUT, please update the details in your profile to stop receiving these reminders.
 
 Best regards,
-GSTHive Team
+TaxHive Team
 
 This is an automated reminder. Please do not reply directly to this message.`
     

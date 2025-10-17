@@ -31,7 +31,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: ${{ inputs.environment }}
     
     steps:
@@ -42,12 +42,12 @@ jobs:
         id: vars
         run: |
           if [ "${{ inputs.environment }}" = "production" ]; then
-            echo "deploy_dir=gsthive-production" >> $GITHUB_OUTPUT
-            echo "compose_project=gsthive-prod" >> $GITHUB_OUTPUT
+            echo "deploy_dir=taxhive-production" >> $GITHUB_OUTPUT
+            echo "compose_project=taxhive-prod" >> $GITHUB_OUTPUT
             echo "node_env=production" >> $GITHUB_OUTPUT
           else
-            echo "deploy_dir=gsthive-staging" >> $GITHUB_OUTPUT
-            echo "compose_project=gsthive-staging" >> $GITHUB_OUTPUT
+            echo "deploy_dir=taxhive-staging" >> $GITHUB_OUTPUT
+            echo "compose_project=taxhive-staging" >> $GITHUB_OUTPUT
             echo "node_env=staging" >> $GITHUB_OUTPUT
           fi
           
@@ -198,7 +198,7 @@ jobs:
             chmod 600 /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/.env
             
             # Create environment-specific docker network if it doesn't exist
-            docker network create gsthive-${{ inputs.environment }}-network || true
+            docker network create taxhive-${{ inputs.environment }}-network || true
             
             # Login to GitHub Container Registry
             cat /home/${{ inputs.vps_user }}/${{ steps.vars.outputs.deploy_dir }}/secrets/github_token | docker login ghcr.io -u ${{ github.actor }} --password-stdin

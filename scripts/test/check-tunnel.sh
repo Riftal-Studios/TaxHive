@@ -3,24 +3,24 @@
 echo "🔍 Checking Cloudflare tunnel status..."
 
 # Check if cloudflared container is running
-if docker ps | grep -q gsthive-tunnel; then
+if docker ps | grep -q taxhive-tunnel; then
     echo "✅ Cloudflared container is running"
     
     # Get container logs
     echo -e "\n📋 Last 50 lines of tunnel logs:"
-    docker logs gsthive-tunnel --tail 50
+    docker logs taxhive-tunnel --tail 50
     
     # Check container health
     echo -e "\n🏥 Container details:"
-    docker inspect gsthive-tunnel | grep -A 5 "State"
+    docker inspect taxhive-tunnel | grep -A 5 "State"
 else
     echo "❌ Cloudflared container is NOT running"
     
     # Check if it exists but stopped
-    if docker ps -a | grep -q gsthive-tunnel; then
+    if docker ps -a | grep -q taxhive-tunnel; then
         echo "⚠️  Container exists but is stopped"
         echo -e "\n📋 Last 50 lines of logs:"
-        docker logs gsthive-tunnel --tail 50
+        docker logs taxhive-tunnel --tail 50
     fi
 fi
 
@@ -39,4 +39,4 @@ docker-compose restart cloudflared
 sleep 5
 
 echo -e "\n📋 New tunnel logs:"
-docker logs gsthive-tunnel --tail 20
+docker logs taxhive-tunnel --tail 20

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The GSTHive queue system is built on BullMQ and Redis to handle asynchronous jobs like PDF generation, email notifications, and exchange rate fetching.
+The TaxHive queue system is built on BullMQ and Redis to handle asynchronous jobs like PDF generation, email notifications, and exchange rate fetching.
 
 ## Architecture
 

@@ -20,7 +20,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: staging
     permissions:
       contents: read
@@ -66,8 +66,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=ghcr.io/riftal-studios/taxhive:buildcache
+          cache-to: type=registry,ref=ghcr.io/riftal-studios/taxhive:buildcache,mode=max
           build-args: |
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}
@@ -75,7 +75,7 @@ jobs:
 
   prepare-deployment:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: staging
     outputs:
       vps_host: ${{ steps.vars.outputs.vps_host }}
@@ -95,7 +95,7 @@ jobs:
     with:
       environment: staging
       deploy_type: ${{ github.event.inputs.deploy_type || 'deploy' }}
-      image_tag: ghcr.io/riftal-studios/gsthive:main-${{ github.sha }}
+      image_tag: ghcr.io/riftal-studios/taxhive:main-${{ github.sha }}
       vps_host: ${{ needs.prepare-deployment.outputs.vps_host }}
       vps_user: ${{ needs.prepare-deployment.outputs.vps_user }}
       vps_port: ${{ needs.prepare-deployment.outputs.vps_port }}

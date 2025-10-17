@@ -110,6 +110,7 @@ jobs:
       - name: Create rollback record
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             await github.rest.issues.create({
               owner: context.repo.owner,

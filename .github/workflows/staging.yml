@@ -66,8 +66,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=ghcr.io/riftal-studios/taxhive:buildcache
+          cache-to: type=registry,ref=ghcr.io/riftal-studios/taxhive:buildcache,mode=max
           build-args: |
             BUILDTIME=${{ github.event.head_commit.timestamp }}
             VERSION=${{ github.sha }}

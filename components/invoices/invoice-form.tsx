@@ -531,9 +531,6 @@ export function InvoiceForm({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Auto-set from client&apos;s currency
-          </p>
         </div>
 
         <div>

@@ -936,22 +936,22 @@ export const invoiceRouter = createTRPCRouter({
         where: { id: input.id, userId: ctx.session.user.id },
         include: { payments: true }
       })
-      
+
       if (!invoice) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Invoice not found',
         })
       }
-      
+
       // Calculate total paid from all payments
-      const totalPaid = invoice.payments.reduce((sum, payment) => 
+      const totalPaid = invoice.payments.reduce((sum, payment) =>
         sum + Number(payment.amount), 0
       )
-      
+
       const balanceDue = Number(invoice.totalAmount) - totalPaid
       const paymentStatus = balanceDue <= 0 ? 'PAID' : totalPaid > 0 ? 'PARTIAL' : 'UNPAID'
-      
+
       // Update invoice with correct values
       const updated = await ctx.prisma.invoice.update({
         where: { id: input.id },
@@ -961,8 +961,41 @@ export const invoiceRouter = createTRPCRouter({
           paymentStatus: paymentStatus,
         }
       })
-      
+
       return updated
+    }),
+
+  // Recalculate totalInINR for an invoice based on current totalAmount and exchangeRate
+  recalculateTotalInINR: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const invoice = await ctx.prisma.invoice.findUnique({
+        where: { id: input.id, userId: ctx.session.user.id },
+      })
+
+      if (!invoice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Invoice not found',
+        })
+      }
+
+      // Recalculate totalInINR from totalAmount and exchangeRate (source of truth)
+      const recalculatedTotalInINR = Number(invoice.totalAmount) * Number(invoice.exchangeRate)
+
+      // Update invoice with recalculated value
+      const updated = await ctx.prisma.invoice.update({
+        where: { id: input.id },
+        data: {
+          totalInINR: recalculatedTotalInINR,
+        }
+      })
+
+      return {
+        success: true,
+        totalInINR: recalculatedTotalInINR,
+        message: 'Total INR amount recalculated successfully',
+      }
     }),
 
   // Regenerate public access token for an invoice

@@ -32,10 +32,11 @@ function EditInvoiceContent({ id }: { id: string }) {
   const router = useRouter()
   
   // Fetch invoice data with error handling
-  const { 
-    data: invoice, 
+  const {
+    data: invoice,
     isLoading,
-    error
+    error,
+    refetch
   } = api.invoices.getById.useQuery({ id })
   
   // Fetch clients and LUTs
@@ -73,7 +74,7 @@ function EditInvoiceContent({ id }: { id: string }) {
     onSuccess: (data) => {
       enqueueSnackbar(`Total INR recalculated successfully: ₹${data.totalInINR.toFixed(2)}`, { variant: 'success' })
       // Refetch invoice data to show updated value
-      window.location.reload()
+      refetch()
     },
     onError: (error) => {
       enqueueSnackbar(error.message, { variant: 'error' })

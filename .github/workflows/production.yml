@@ -20,7 +20,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     permissions:
       contents: read
@@ -73,7 +73,7 @@ jobs:
 
   prepare-deployment:
     needs: build-and-push
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     outputs:
       vps_host: ${{ steps.vars.outputs.vps_host }}

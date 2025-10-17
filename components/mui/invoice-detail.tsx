@@ -30,7 +30,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  TextField,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import {
@@ -119,8 +118,6 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [paymentToDelete, setPaymentToDelete] = useState<string | null>(null)
-  const [isEditingExchangeRate, setIsEditingExchangeRate] = useState(false)
-  const [editedExchangeRate, setEditedExchangeRate] = useState<string>('')
   const [selectedPayment, setSelectedPayment] = useState<{
     id: string
     amount: number | { toNumber: () => number }
@@ -188,16 +185,6 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
     onError: (error) => {
       console.error('PDF regeneration failed:', error)
       alert('Failed to regenerate PDF: ' + error.message)
-    },
-  })
-
-  const updateInvoiceMutation = api.invoices.update.useMutation({
-    onSuccess: () => {
-      refetch()
-      setIsEditingExchangeRate(false)
-    },
-    onError: (error) => {
-      alert('Failed to update exchange rate: ' + error.message)
     },
   })
 
@@ -591,95 +578,18 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
             </Grid>
           </Box>
 
-          {/* Exchange Rate */}
-          <Alert
-            severity={isEditingExchangeRate ? "warning" : "info"}
-            sx={{ mb: 3 }}
-            action={
-              !isEditingExchangeRate ? (
-                <IconButton
-                  color="inherit"
-                  size="small"
-                  onClick={() => {
-                    setIsEditingExchangeRate(true)
-                    setEditedExchangeRate(Number(typedInvoice.exchangeRate).toString())
-                  }}
-                  title="Edit exchange rate"
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              ) : (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    onClick={() => {
-                      const rate = parseFloat(editedExchangeRate)
-                      if (isNaN(rate) || rate <= 0) {
-                        alert('Please enter a valid exchange rate')
-                        return
-                      }
-                      updateInvoiceMutation.mutate({
-                        id: invoiceId,
-                        exchangeRate: rate,
-                      })
-                    }}
-                    disabled={updateInvoiceMutation.isPending}
-                  >
-                    {updateInvoiceMutation.isPending ? 'Saving...' : 'Save'}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => {
-                      setIsEditingExchangeRate(false)
-                      setEditedExchangeRate('')
-                    }}
-                    disabled={updateInvoiceMutation.isPending}
-                  >
-                    Cancel
-                  </Button>
-                </Box>
-              )
-            }
-          >
-            {isEditingExchangeRate ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography variant="body2" fontWeight="bold">
-                  Editing Exchange Rate
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="body2">
-                    1 {typedInvoice.currency} =
-                  </Typography>
-                  <TextField
-                    size="small"
-                    type="number"
-                    value={editedExchangeRate}
-                    onChange={(e) => setEditedExchangeRate(e.target.value)}
-                    inputProps={{
-                      step: "0.01",
-                      min: "0",
-                      style: { width: '120px' }
-                    }}
-                    placeholder="Enter rate"
-                  />
-                  <Typography variant="body2">INR</Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  Original: 1 {typedInvoice.currency} = {formatINR(Number(typedInvoice.exchangeRate))} ({typedInvoice.exchangeSource})
-                </Typography>
+          {/* Exchange Rate - Read Only */}
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              Exchange Rate: 1 {typedInvoice.currency} = {formatINR(Number(typedInvoice.exchangeRate))}
+              <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
+                ({typedInvoice.exchangeSource} as on{' '}
+                {format(new Date(typedInvoice.invoiceDate), 'dd MMM yyyy')})
               </Box>
-            ) : (
-              <Typography variant="body2">
-                Exchange Rate: 1 {typedInvoice.currency} = {formatINR(Number(typedInvoice.exchangeRate))}
-                <Box component="span" sx={{ ml: 1, color: 'text.secondary' }}>
-                  ({typedInvoice.exchangeSource} as on{' '}
-                  {format(new Date(typedInvoice.invoiceDate), 'dd MMM yyyy')})
-                </Box>
-              </Typography>
-            )}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              To edit the exchange rate, go to the Edit Invoice page
+            </Typography>
           </Alert>
 
           {/* Line Items */}

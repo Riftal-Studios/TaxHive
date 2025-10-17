@@ -559,19 +559,42 @@ export function InvoiceForm({
         <>
           {exchangeRate ? (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                    Exchange Rate: 1 {formData.currency} = ₹{exchangeRate.rate.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    Source: {exchangeRate.source} as on {new Date(exchangeRate.date).toLocaleDateString()}
-                  </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                      Exchange Rate: 1 {formData.currency} = ₹{exchangeRate.rate.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      Source: {exchangeRate.source} as on {new Date(exchangeRate.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      All amounts will be converted to INR
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-blue-600 dark:text-blue-400">
-                    All amounts will be converted to INR
-                  </p>
+                <div className="flex items-center gap-4 pt-2 border-t border-blue-200 dark:border-blue-700">
+                  <label htmlFor="manualRate" className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                    Override Rate: 1 {formData.currency} = ₹
+                  </label>
+                  <input
+                    type="number"
+                    id="manualRate"
+                    step="0.01"
+                    value={manualExchangeRate || ''}
+                    onChange={(e) => {
+                      const value = e.target.value ? parseFloat(e.target.value) : null
+                      onManualExchangeRateChange?.(value)
+                    }}
+                    placeholder={exchangeRate.rate.toFixed(2)}
+                    className={exchangeRateInputClassName}
+                    aria-label="Manual exchange rate override"
+                  />
+                  <span className="text-xs text-blue-600 dark:text-blue-400">
+                    (Optional override)
+                  </span>
                 </div>
               </div>
             </div>

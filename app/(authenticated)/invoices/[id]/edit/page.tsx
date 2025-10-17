@@ -47,7 +47,9 @@ function EditInvoiceContent({ id }: { id: string }) {
   const [selectedIssueDate, setSelectedIssueDate] = useState(
     invoice?.invoiceDate ? invoice.invoiceDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
   )
-  const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(null)
+  const [manualExchangeRate, setManualExchangeRate] = useState<number | null>(
+    invoice ? Number(invoice.exchangeRate) : null
+  )
   const { data: exchangeRateData } = api.invoices.getCurrentExchangeRate.useQuery({
     currency: selectedCurrency,
     date: selectedIssueDate,

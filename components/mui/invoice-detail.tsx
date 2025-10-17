@@ -587,9 +587,6 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
                 {format(new Date(typedInvoice.invoiceDate), 'dd MMM yyyy')})
               </Box>
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-              To edit the exchange rate, go to the Edit Invoice page
-            </Typography>
           </Alert>
 
           {/* Line Items */}

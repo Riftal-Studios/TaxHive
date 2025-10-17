@@ -76,10 +76,7 @@ COPY --from=builder --chown=node:node /app/server ./server
 # Copy Prisma schema and migrations
 COPY --chown=node:node prisma ./prisma
 
-# Copy scripts
-COPY --chown=node:node scripts ./scripts
-
-# Copy package.json for scripts
+# Copy package.json
 COPY --chown=node:node package.json ./package.json
 
 # Copy tsconfig for tsx

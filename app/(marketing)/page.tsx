@@ -42,8 +42,76 @@ export const metadata: Metadata = {
 }
 
 export default function LandingPage() {
+  // Structured data for SEO (JSON-LD)
+  const organizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'TaxHive',
+    url: 'https://taxhive.app',
+    logo: 'https://taxhive.app/logo.png',
+    description:
+      'GST-compliant invoice management system for Indian businesses exporting services',
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'IN',
+    },
+    sameAs: [],
+  }
+
+  const softwareApplicationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'TaxHive',
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'INR',
+      description: 'Free trial available',
+    },
+    description:
+      'Generate GST Rule 46 compliant invoices with LUT support, RBI exchange rates, and professional PDF generation for export businesses.',
+    featureList: [
+      'GST Rule 46 Compliance',
+      'LUT Declaration Support',
+      'RBI Exchange Rates',
+      'Professional PDF Generation',
+      'Zero-Rated Supply Support',
+    ],
+    screenshot: 'https://taxhive.app/screenshot.png',
+  }
+
+  const websiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'TaxHive',
+    url: 'https://taxhive.app',
+    description: 'GST-Compliant Invoice Management for Indian Exporters',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://taxhive.app/search?q={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
+  }
+
   return (
-    <div className="landing-page">
+    <>
+      {/* Structured Data - JSON-LD for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+      />
+
+      <div className="landing-page">
       {/* Hero Section - Basic implementation for tests */}
       <section className="hero py-20 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4 text-center">
@@ -162,6 +230,7 @@ export default function LandingPage() {
           </a>
         </div>
       </section>
-    </div>
+      </div>
+    </>
   )
 }

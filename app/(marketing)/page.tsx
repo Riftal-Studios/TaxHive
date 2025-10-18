@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { TrustBadge } from '@/components/marketing/trust-badge'
+import { HeroIllustration } from '@/components/marketing/hero-illustration'
 
 /**
  * Landing Page - Main marketing page for TaxHive
@@ -142,57 +144,36 @@ export default function LandingPage() {
 
               {/* Trust Badges */}
               <div className="flex flex-wrap justify-center lg:justify-start gap-6 text-sm text-gray-600 dark:text-gray-400">
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>GST Rule 46 Compliant</span>
-                </span>
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <span>LUT Support</span>
-                </span>
-                <span className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>RBI Exchange Rates</span>
-                </span>
+                <TrustBadge
+                  icon={
+                    <svg className="w-5 h-5 mr-2 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  text="GST Rule 46 Compliant"
+                />
+                <TrustBadge
+                  icon={
+                    <svg className="w-5 h-5 mr-2 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  }
+                  text="LUT Support"
+                />
+                <TrustBadge
+                  icon={
+                    <svg className="w-5 h-5 mr-2 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  }
+                  text="RBI Exchange Rates"
+                />
               </div>
             </div>
 
             {/* Hero Image */}
             <div className="flex justify-center lg:justify-end">
-              <div className="relative w-full max-w-2xl">
-                <div className="aspect-video bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 rounded-lg shadow-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-                  {/* Placeholder for actual screenshot - using SVG illustration */}
-                  <svg
-                    className="w-full h-full p-8"
-                    viewBox="0 0 800 600"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    role="img"
-                    aria-label="TaxHive invoice dashboard showing GST-compliant export invoices with LUT declarations and RBI exchange rates"
-                  >
-                    {/* Simple invoice illustration */}
-                    <rect x="100" y="80" width="600" height="440" rx="8" className="fill-white dark:fill-gray-800" />
-                    <rect x="120" y="100" width="200" height="30" rx="4" className="fill-indigo-600" />
-                    <rect x="120" y="150" width="560" height="15" rx="3" className="fill-gray-300 dark:fill-gray-600" />
-                    <rect x="120" y="180" width="400" height="15" rx="3" className="fill-gray-300 dark:fill-gray-600" />
-                    <rect x="120" y="220" width="560" height="15" rx="3" className="fill-gray-200 dark:fill-gray-700" />
-                    <rect x="120" y="250" width="560" height="15" rx="3" className="fill-gray-200 dark:fill-gray-700" />
-                    <rect x="120" y="280" width="560" height="15" rx="3" className="fill-gray-200 dark:fill-gray-700" />
-                    <rect x="120" y="330" width="300" height="20" rx="4" className="fill-emerald-500" />
-                    <rect x="500" y="450" width="180" height="50" rx="6" className="fill-indigo-600" />
-                    <text x="520" y="480" className="fill-white text-2xl font-bold">INVOICE</text>
-                  </svg>
-                </div>
-                {/* Decorative elements */}
-                <div className="absolute -top-4 -right-4 w-24 h-24 bg-emerald-500 rounded-full opacity-20 blur-2xl"></div>
-                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-indigo-500 rounded-full opacity-20 blur-2xl"></div>
-              </div>
+              <HeroIllustration />
             </div>
           </div>
         </div>

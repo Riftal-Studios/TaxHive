@@ -19,6 +19,7 @@ import { CTASection } from '@/components/marketing/cta-section'
  */
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://taxhive.app'),
   title: 'TaxHive - GST-Compliant Invoice Management for Indian Exporters',
   description:
     'Generate GST Rule 46 compliant invoices with LUT support, RBI exchange rates, and professional PDF generation for export businesses.',
@@ -29,10 +30,22 @@ export const metadata: Metadata = {
     'GST compliance',
     'zero-rated supplies',
   ],
+  alternates: {
+    canonical: 'https://taxhive.app',
+  },
   openGraph: {
+    type: 'website',
     title: 'TaxHive - GST Invoice Management',
     description: 'GST-compliant invoicing for Indian exporters',
     url: 'https://taxhive.app',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'TaxHive - GST-Compliant Invoice Management',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',

@@ -11,15 +11,18 @@ import Link from 'next/link'
  * - Responsive (desktop-first, mobile menu to be added)
  *
  * Links:
- * - Features, Pricing, Blog (marketing pages)
+ * - Features, Pricing (marketing pages - placeholders for now)
  * - Sign In (authentication)
  * - Start Free Trial (CTA to signup)
+ *
+ * Note: Blog link will be added when blog is implemented (Task 5.1-5.3)
  */
 
 const navLinks = [
   { href: '/features', label: 'Features' },
   { href: '/pricing', label: 'Pricing' },
-  { href: '/blog', label: 'Blog' },
+  // TODO: Add blog link when blog is implemented (Task 5.1-5.3)
+  // { href: '/blog', label: 'Blog' },
 ]
 
 export function MarketingNavbar() {

@@ -34,13 +34,14 @@ test.describe('Marketing Navbar', () => {
     expect(await pricingLink.textContent()).toContain('Pricing')
   })
 
-  test('should have Blog link in navbar', async ({ page }) => {
-    await page.goto('/')
+  // Blog link removed until blog is implemented (Task 5.1-5.3)
+  // test('should have Blog link in navbar', async ({ page }) => {
+  //   await page.goto('/')
 
-    const blogLink = page.locator('nav a[href="/blog"]')
-    await expect(blogLink).toBeVisible()
-    expect(await blogLink.textContent()).toContain('Blog')
-  })
+  //   const blogLink = page.locator('nav a[href="/blog"]')
+  //   await expect(blogLink).toBeVisible()
+  //   expect(await blogLink.textContent()).toContain('Blog')
+  // })
 
   test('should have Sign In link in navbar', async ({ page }) => {
     await page.goto('/')

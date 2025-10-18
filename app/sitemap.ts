@@ -31,12 +31,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.8,
     },
-    {
-      url: `${baseUrl}/blog`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
+    // TODO: Add blog to sitemap when blog is implemented (Task 5.1-5.3)
+    // {
+    //   url: `${baseUrl}/blog`,
+    //   lastModified: new Date(),
+    //   changeFrequency: 'weekly',
+    //   priority: 0.7,
+    // },
     {
       url: `${baseUrl}/auth/signin`,
       lastModified: new Date(),

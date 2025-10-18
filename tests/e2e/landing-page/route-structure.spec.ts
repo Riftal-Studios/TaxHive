@@ -98,7 +98,8 @@ test.describe('Marketing Route Structure', () => {
 
 test.describe('Marketing vs Authenticated Route Separation', () => {
   test('marketing routes should be publicly accessible', async ({ page }) => {
-    const marketingRoutes = ['/', '/features', '/pricing', '/blog']
+    // Blog removed until implemented (Task 5.1-5.3)
+    const marketingRoutes = ['/', '/features', '/pricing']
 
     for (const route of marketingRoutes) {
       const response = await page.goto(route)

@@ -22,7 +22,7 @@ export default function robots(): MetadataRoute.Robots {
           '/',
           '/features',
           '/pricing',
-          '/blog',
+          // '/blog', // TODO: Add when blog is implemented (Task 5.1-5.3)
           '/auth/signin',
           '/auth/signup',
         ],

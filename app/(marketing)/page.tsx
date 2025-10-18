@@ -4,6 +4,17 @@ import { HeroIllustration } from '@/components/marketing/hero-illustration'
 import { FeatureCard } from '@/components/marketing/feature-card'
 import { CTASection } from '@/components/marketing/cta-section'
 
+// JSON-LD Schema Component
+function JsonLd({ data }: { data: object }) {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      suppressHydrationWarning
+    />
+  )
+}
+
 /**
  * Landing Page - Main marketing page for TaxHive
  *
@@ -115,18 +126,9 @@ export default function LandingPage() {
   return (
     <>
       {/* Structured Data - JSON-LD for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-      />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={softwareApplicationSchema} />
+      <JsonLd data={websiteSchema} />
 
       <div className="landing-page">
       {/* Hero Section - Enhanced with trust badges and imagery */}

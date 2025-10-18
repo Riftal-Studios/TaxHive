@@ -19,18 +19,18 @@ test.describe('Landing Page - Features Section', () => {
 
   test('each feature card should have icon, title, and description', async ({ page }) => {
     const featuresSection = page.locator('section.features, section:has(h2:text-matches(".*GST.*Compliance.*", "i"))')
-    const firstCard = featuresSection.locator('.feature-card, div:has(h3)').first()
+    const firstCard = featuresSection.locator('.feature-card').first()
 
     // Check for icon (SVG)
     const icon = firstCard.locator('svg').first()
     await expect(icon).toBeVisible()
 
     // Check for title (H3)
-    const title = firstCard.locator('h3')
+    const title = firstCard.locator('h3').first()
     await expect(title).toBeVisible()
 
     // Check for description (paragraph)
-    const description = firstCard.locator('p')
+    const description = firstCard.locator('p').first()
     await expect(description).toBeVisible()
   })
 
@@ -40,17 +40,20 @@ test.describe('Landing Page - Features Section', () => {
   })
 
   test('should include "LUT Declaration" feature', async ({ page }) => {
-    const feature = page.locator('text=/LUT.*Declaration/i')
+    const featuresSection = page.locator('section.features, section:has(h2:text-matches(".*GST.*Compliance.*", "i"))')
+    const feature = featuresSection.locator('text=/LUT.*Declaration/i').first()
     await expect(feature).toBeVisible()
   })
 
   test('should include "RBI Exchange Rates" feature', async ({ page }) => {
-    const feature = page.locator('text=/RBI.*Exchange.*Rates/i')
+    const featuresSection = page.locator('section.features, section:has(h2:text-matches(".*GST.*Compliance.*", "i"))')
+    const feature = featuresSection.locator('text=/RBI.*Exchange.*Rates/i').first()
     await expect(feature).toBeVisible()
   })
 
   test('should include "Professional PDF" feature', async ({ page }) => {
-    const feature = page.locator('text=/Professional.*PDF/i')
+    const featuresSection = page.locator('section.features, section:has(h2:text-matches(".*GST.*Compliance.*", "i"))')
+    const feature = featuresSection.locator('text=/Professional.*PDF/i').first()
     await expect(feature).toBeVisible()
   })
 
@@ -91,7 +94,7 @@ test.describe('Landing Page - Features Section', () => {
 
   test('feature cards should have consistent styling', async ({ page }) => {
     const featuresSection = page.locator('section.features, section:has(h2:text-matches(".*GST.*Compliance.*", "i"))')
-    const cards = featuresSection.locator('.feature-card, div:has(h3)').all()
+    const cards = featuresSection.locator('.feature-card').all()
 
     const cardList = await cards
     expect(cardList.length).toBeGreaterThanOrEqual(4)
@@ -99,8 +102,8 @@ test.describe('Landing Page - Features Section', () => {
     // All cards should have similar structure
     for (const card of cardList.slice(0, 4)) {
       await expect(card.locator('svg').first()).toBeVisible()
-      await expect(card.locator('h3')).toBeVisible()
-      await expect(card.locator('p')).toBeVisible()
+      await expect(card.locator('h3').first()).toBeVisible()
+      await expect(card.locator('p').first()).toBeVisible()
     }
   })
 

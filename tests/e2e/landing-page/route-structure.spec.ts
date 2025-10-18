@@ -30,18 +30,25 @@ test.describe('Marketing Route Structure', () => {
     await page.goto('/')
 
     // Should have marketing-specific content
-    // (This will fail until we implement the marketing page)
     const body = await page.textContent('body')
     expect(body).toBeTruthy()
 
-    // Should NOT show authenticated app content
-    expect(body).not.toContain('Dashboard')
-    expect(body).not.toContain('Invoices')
+    // Should have marketing CTA
+    expect(body).toContain('Start Free Trial')
+
+    // Should NOT show authenticated app navigation or dashboard links
+    // (Note: marketing copy may mention "invoices" but shouldn't have app navigation)
+    const navText = await page.locator('nav').textContent()
+    expect(navText).not.toContain('Dashboard')
+    expect(navText).not.toContain('Create Invoice')
   })
 
   test('should have different layout than authenticated routes', async ({ page, context }) => {
     // First, check root route (marketing)
     await page.goto('/')
+
+    // Wait for nav element to be present (handles SSR/hydration)
+    await page.waitForSelector('nav')
     const marketingNav = await page.locator('nav').count()
 
     // Marketing should have a nav element

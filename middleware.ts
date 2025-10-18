@@ -15,17 +15,23 @@ const ONBOARDING_EXEMPT_PATHS = [
 export default withAuth(
   async function middleware(req) {
     const token = req.nextauth.token
-    
-    // If user is authenticated and trying to access auth pages, redirect to dashboard
+
+    // If user is authenticated and trying to access root or auth pages, redirect to dashboard
+    if (token && req.nextUrl.pathname === '/') {
+      // Redirect to onboarding if not completed, otherwise to dashboard
+      const redirectUrl = token.onboardingCompleted ? '/dashboard' : '/onboarding'
+      return NextResponse.redirect(new URL(redirectUrl, req.url))
+    }
+
     if (token && req.nextUrl.pathname.startsWith('/auth/')) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
-    
+
     // Check if path is exempt from onboarding check
-    const isExemptPath = ONBOARDING_EXEMPT_PATHS.some(path => 
+    const isExemptPath = ONBOARDING_EXEMPT_PATHS.some(path =>
       req.nextUrl.pathname.startsWith(path)
     )
-    
+
     // Check onboarding status for authenticated users
     if (token && !isExemptPath) {
       // If onboarding is not completed, redirect to onboarding
@@ -33,7 +39,7 @@ export default withAuth(
         return NextResponse.redirect(new URL('/onboarding', req.url))
       }
     }
-    
+
     return NextResponse.next()
   },
   {
@@ -43,8 +49,12 @@ export default withAuth(
         if (req.nextUrl.pathname.startsWith('/auth/')) {
           return true
         }
-        // Allow access to home page without token
-        if (req.nextUrl.pathname === '/') {
+        // Allow access to marketing pages without token
+        const marketingPaths = ['/', '/features', '/pricing', '/blog']
+        const isMarketingPath = marketingPaths.some(path =>
+          req.nextUrl.pathname === path || req.nextUrl.pathname.startsWith(path + '/')
+        )
+        if (isMarketingPath) {
           return true
         }
         // Require token for all other pages
@@ -62,11 +72,11 @@ export const config = {
      * - api/trpc (tRPC endpoints need separate auth)
      * - api/health (health check endpoint)
      * - api/invoices/public (public invoice API endpoints)
-     * - invoice (public invoice pages)
+     * - invoice/ (public invoice pages - note the trailing slash to not match /invoices)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api/auth|api/trpc|api/health|api/invoices/public|invoice|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/auth|api/trpc|api/health|api/invoices/public|invoice/|_next/static|_next/image|favicon.ico).*)',
   ],
 }

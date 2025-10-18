@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { TrustBadge } from '@/components/marketing/trust-badge'
 import { HeroIllustration } from '@/components/marketing/hero-illustration'
 import { FeatureCard } from '@/components/marketing/feature-card'
+import { CTASection } from '@/components/marketing/cta-section'
 
 /**
  * Landing Page - Main marketing page for TaxHive
@@ -231,23 +232,13 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA Section - Placeholder */}
-      <section className="cta py-16 bg-indigo-600 dark:bg-indigo-800">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">
-            Ready to simplify your GST invoicing?
-          </h2>
-          <p className="text-xl mb-8 text-indigo-100">
-            Join hundreds of Indian exporters using TaxHive
-          </p>
-          <a
-            href="/auth/signup"
-            className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-lg hover:bg-gray-50 text-lg font-medium shadow-lg hover:shadow-xl transition-all"
-          >
-            Start Free Trial
-          </a>
-        </div>
-      </section>
+      {/* CTA Section */}
+      <CTASection
+        headline="Ready to simplify your GST invoicing?"
+        description="Join hundreds of Indian exporters using TaxHive"
+        buttonText="Start Free Trial"
+        buttonHref="/auth/signup"
+      />
       </div>
     </>
   )

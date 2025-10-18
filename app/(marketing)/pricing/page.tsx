@@ -26,6 +26,7 @@ export default function PricingPage() {
       cta: 'Start Free',
       ctaLink: '/auth/signup',
       highlighted: false,
+      comingSoon: false,
     },
     {
       name: 'Professional',
@@ -42,9 +43,10 @@ export default function PricingPage() {
         'Priority email support',
         'Phone support',
       ],
-      cta: 'Start Free Trial',
-      ctaLink: '/auth/signup',
+      cta: 'Coming Soon',
+      ctaLink: '#',
       highlighted: true,
+      comingSoon: true,
     },
     {
       name: 'Enterprise',
@@ -61,9 +63,10 @@ export default function PricingPage() {
         'SLA guarantee',
         '24/7 priority support',
       ],
-      cta: 'Contact Sales',
-      ctaLink: 'mailto:sales@taxhive.app',
+      cta: 'Coming Soon',
+      ctaLink: '#',
       highlighted: false,
+      comingSoon: true,
     },
   ]
 
@@ -91,12 +94,19 @@ export default function PricingPage() {
               <div
                 key={plan.name}
                 className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden ${
-                  plan.highlighted
+                  plan.comingSoon ? 'opacity-60' : ''
+                } ${
+                  plan.highlighted && !plan.comingSoon
                     ? 'ring-2 ring-indigo-600 dark:ring-indigo-400 transform scale-105'
                     : 'border border-gray-200 dark:border-gray-700'
                 }`}
               >
-                {plan.highlighted && (
+                {plan.comingSoon && (
+                  <div className="bg-gray-500 text-white text-center py-2 text-sm font-medium">
+                    Coming Soon
+                  </div>
+                )}
+                {plan.highlighted && !plan.comingSoon && (
                   <div className="bg-indigo-600 text-white text-center py-2 text-sm font-medium">
                     Most Popular
                   </div>
@@ -118,16 +128,25 @@ export default function PricingPage() {
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
                     {plan.description}
                   </p>
-                  <Link
-                    href={plan.ctaLink}
-                    className={`block w-full text-center py-3 px-6 rounded-lg font-medium transition-colors ${
-                      plan.highlighted
-                        ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                        : 'bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-50 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    {plan.cta}
-                  </Link>
+                  {plan.comingSoon ? (
+                    <button
+                      disabled
+                      className="block w-full text-center py-3 px-6 rounded-lg font-medium bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500"
+                    >
+                      {plan.cta}
+                    </button>
+                  ) : (
+                    <Link
+                      href={plan.ctaLink}
+                      className={`block w-full text-center py-3 px-6 rounded-lg font-medium transition-colors ${
+                        plan.highlighted
+                          ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                          : 'bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-50 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {plan.cta}
+                    </Link>
+                  )}
                   <ul className="mt-8 space-y-3">
                     {plan.features.map((feature) => (
                       <li

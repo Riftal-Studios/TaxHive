@@ -1,7 +1,10 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
-// Pages that don't require onboarding completion
+/**
+ * Pages that don't require onboarding completion
+ * Users can access these pages even if they haven't completed onboarding
+ */
 const ONBOARDING_EXEMPT_PATHS = [
   '/onboarding',
   '/auth/',
@@ -16,28 +19,34 @@ export default withAuth(
   async function middleware(req) {
     const token = req.nextauth.token
 
-    // If user is authenticated and trying to access root or auth pages, redirect to dashboard
+    /**
+     * Redirect authenticated users from marketing pages to app
+     * - Unauthenticated users see marketing landing page
+     * - Authenticated users go to dashboard or onboarding
+     */
     if (token && req.nextUrl.pathname === '/') {
-      // Redirect to onboarding if not completed, otherwise to dashboard
       const redirectUrl = token.onboardingCompleted ? '/dashboard' : '/onboarding'
       return NextResponse.redirect(new URL(redirectUrl, req.url))
     }
 
+    /**
+     * Redirect authenticated users trying to access auth pages
+     * (signin, signup, etc.) to dashboard
+     */
     if (token && req.nextUrl.pathname.startsWith('/auth/')) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
 
-    // Check if path is exempt from onboarding check
+    /**
+     * Onboarding check: Redirect users who haven't completed onboarding
+     * to the onboarding flow (except for exempt paths)
+     */
     const isExemptPath = ONBOARDING_EXEMPT_PATHS.some(path =>
       req.nextUrl.pathname.startsWith(path)
     )
 
-    // Check onboarding status for authenticated users
-    if (token && !isExemptPath) {
-      // If onboarding is not completed, redirect to onboarding
-      if (!token.onboardingCompleted) {
-        return NextResponse.redirect(new URL('/onboarding', req.url))
-      }
+    if (token && !isExemptPath && !token.onboardingCompleted) {
+      return NextResponse.redirect(new URL('/onboarding', req.url))
     }
 
     return NextResponse.next()

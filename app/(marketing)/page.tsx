@@ -1,5 +1,19 @@
 import type { Metadata } from 'next'
 
+/**
+ * Landing Page - Main marketing page for TaxHive
+ *
+ * This is the root route (/) for unauthenticated users
+ * SEO-optimized with comprehensive meta tags for search engines
+ *
+ * Sections:
+ * - Hero: Main value proposition with CTAs
+ * - Features: Key product features (GST compliance, LUT, RBI rates, PDFs)
+ * - CTA: Final conversion section
+ *
+ * Note: Authenticated users are redirected to /dashboard via middleware
+ */
+
 export const metadata: Metadata = {
   title: 'TaxHive - GST-Compliant Invoice Management for Indian Exporters',
   description:

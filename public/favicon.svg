@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <linearGradient id="faviconGradient" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#6366F1" stop-opacity="1"/>
+        <stop offset="1" stop-color="#4F46E5" stop-opacity="1"/>
+    </linearGradient>
+
+    <!-- Hexagon background -->
+    <path fill="url(#faviconGradient)" d="M 256 32 L 448 144 L 448 368 L 256 480 L 64 368 L 64 144 Z"/>
+
+    <!-- Document icon -->
+    <g transform="translate(128, 120)">
+        <path fill="#FFFFFF" opacity="0.95" d="M 48 256 L 208 256 C 221.255 256 232 245.255 232 232 L 232 72 L 176 72 L 176 32 L 56 32 C 42.745 32 32 42.745 32 56 L 32 232 C 32 245.255 42.745 256 56 256 L 48 256 Z M 176 72 L 232 128 L 176 128 Z"/>
+    </g>
+</svg>

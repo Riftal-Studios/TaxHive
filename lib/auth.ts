@@ -81,6 +81,7 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: "/auth/signin",
+    signOut: "/", // Redirect to home page after logout
     error: "/auth/error",
   },
   callbacks: {

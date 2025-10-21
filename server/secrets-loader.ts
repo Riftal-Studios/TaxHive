@@ -1,7 +1,9 @@
 import { readFileSync, existsSync } from 'fs'
 
-// Track if secrets have already been loaded
-let secretsLoaded = false
+// Use global to persist across hot-reloads in development
+declare global {
+  var __DOCKER_SECRETS_LOADED__: boolean | undefined
+}
 
 /**
  * Load Docker secrets at runtime
@@ -14,8 +16,8 @@ export function loadDockerSecrets(): void {
     return
   }
 
-  // Skip if already loaded
-  if (secretsLoaded) {
+  // Skip if already loaded (check global flag that persists across hot-reloads)
+  if (global.__DOCKER_SECRETS_LOADED__) {
     return
   }
 
@@ -74,9 +76,9 @@ export function loadDockerSecrets(): void {
   }
 
   console.log('Docker secrets loading complete')
-  
-  // Mark as loaded
-  secretsLoaded = true
+
+  // Mark as loaded (persist across hot-reloads)
+  global.__DOCKER_SECRETS_LOADED__ = true
 }
 
 // Load secrets immediately when this module is imported

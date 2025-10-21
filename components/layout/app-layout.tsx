@@ -49,7 +49,10 @@ export function AppLayout({ children }: AppLayoutProps) {
               <span className="text-sm text-gray-700 dark:text-gray-300">{session?.user?.email}</span>
               <ThemeSwitcher />
               <button
-                onClick={() => signOut()}
+                onClick={async () => {
+                  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+                  await signOut({ callbackUrl: `${currentOrigin}/` })
+                }}
                 className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 Sign out

@@ -30,6 +30,7 @@ import {
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material'
 import { enqueueSnackbar } from 'notistack'
+import { Logo } from '@/components/logo'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -144,6 +145,9 @@ export default function SignUpPage() {
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Logo width={64} height={64} />
+          </Box>
           <Typography component="h1" variant="h5" align="center" gutterBottom>
             Create your TaxHive account
           </Typography>

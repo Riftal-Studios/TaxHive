@@ -24,11 +24,12 @@ import {
   Lock as LockIcon,
 } from '@mui/icons-material'
 import { enqueueSnackbar } from 'notistack'
+import { Logo } from '@/components/logo'
 
 export default function SignInPage() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
-  
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -39,7 +40,7 @@ export default function SignInPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    
+
     try {
       const result = await signIn('credentials', {
         email,
@@ -47,12 +48,12 @@ export default function SignInPage() {
         redirect: false,
         callbackUrl,
       })
-      
+
       if (result?.error) {
         setError(result.error)
       } else if (result?.ok) {
         enqueueSnackbar('Signed in successfully!', { variant: 'success' })
-        // Use window.location for dynamic callback URL to avoid typed routes issue
+        // NextAuth will handle the redirect properly with trustHost: true
         window.location.href = callbackUrl
       }
     } catch {
@@ -74,6 +75,9 @@ export default function SignInPage() {
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Logo width={64} height={64} />
+          </Box>
           <Typography component="h1" variant="h5" align="center" gutterBottom>
             Sign in to TaxHive
           </Typography>

@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     url: 'https://taxhive.app',
     images: [
       {
-        url: '/og-image.png',
+        url: '/logo-light.svg',
         width: 1200,
         height: 630,
         alt: 'TaxHive - GST-Compliant Invoice Management',
@@ -76,7 +76,7 @@ export default function LandingPage() {
     '@type': 'Organization',
     name: 'TaxHive',
     url: 'https://taxhive.app',
-    logo: 'https://taxhive.app/logo.png',
+    logo: 'https://taxhive.app/logo-light.svg',
     description:
       'GST-compliant invoice management system for Indian businesses exporting services',
     address: {

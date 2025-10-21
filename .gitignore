@@ -26,13 +26,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+# Only .env.example should be committed to git
 .env
-.env*.local
-.env.secrets
-.env.production
+.env.*
 !.env.example
-!.env.development
-!.env.production.template
 
 # vercel
 .vercel

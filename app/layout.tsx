@@ -10,6 +10,14 @@ import { ThemeProvider } from "@/components/theme-provider"
 export const metadata: Metadata = {
   title: "TaxHive - GST-Compliant Invoice Management",
   description: "Invoice management system for Indian businesses exporting services with GST compliance",
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/logo-light.svg', sizes: '180x180', type: 'image/svg+xml' },
+    ],
+  },
 }
 
 export default async function RootLayout({

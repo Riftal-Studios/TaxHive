@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Logo } from '@/components/logo'
 
 /**
  * Marketing Navbar Component
@@ -33,9 +34,10 @@ export function MarketingNavbar() {
           {/* Brand/Logo */}
           <Link
             href="/"
-            className="text-xl font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+            className="flex items-center gap-2 text-xl font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
           >
-            TaxHive
+            <Logo width={40} height={40} />
+            <span>TaxHive</span>
           </Link>
 
           {/* Desktop Navigation */}

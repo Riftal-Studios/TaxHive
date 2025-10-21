@@ -1,94 +1,91 @@
-'use client'
+"use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { ThemeProvider as MUIThemeProvider } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
-import { SnackbarProvider } from 'notistack'
-import { theme as lightTheme, darkTheme } from '@/lib/theme'
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { ThemeProvider as MUIThemeProvider } from "@mui/material/styles";
+import CssBaseline from "@mui/material/CssBaseline";
+import { SnackbarProvider } from "notistack";
+import { theme as lightTheme, darkTheme } from "@/lib/theme";
 
 interface ThemeContextType {
-  isDarkMode: boolean
-  toggleTheme: () => void
+  isDarkMode: boolean;
+  toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function useTheme() {
-  const context = useContext(ThemeContext)
+  const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider')
+    throw new Error("useTheme must be used within a ThemeProvider");
   }
-  return context
+  return context;
 }
 
 interface ThemeProviderProps {
-  children: React.ReactNode
-  defaultMode?: 'light' | 'dark' | 'system'
+  children: React.ReactNode;
+  defaultMode?: "light" | "dark" | "system";
 }
 
-export function ThemeProvider({ children, defaultMode = 'system' }: ThemeProviderProps) {
-  const [mounted, setMounted] = useState(false)
-  const [isDarkMode, setIsDarkMode] = useState(false)
+export function ThemeProvider({
+  children,
+  defaultMode = "system",
+}: ThemeProviderProps) {
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-    
     // Check for saved theme preference or use system preference
-    const savedTheme = localStorage.getItem('theme-mode')
+    const savedTheme = localStorage.getItem("theme-mode");
     if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark')
-    } else if (defaultMode === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setIsDarkMode(prefersDark)
+      setIsDarkMode(savedTheme === "dark");
+    } else if (defaultMode === "system") {
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)",
+      ).matches;
+      setIsDarkMode(prefersDark);
     } else {
-      setIsDarkMode(defaultMode === 'dark')
+      setIsDarkMode(defaultMode === "dark");
     }
-  }, [defaultMode])
+  }, [defaultMode]);
 
   useEffect(() => {
     // Update the document class for Tailwind dark mode
     if (isDarkMode) {
-      document.documentElement.classList.add('dark')
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark')
+      document.documentElement.classList.remove("dark");
     }
-  }, [isDarkMode])
+  }, [isDarkMode]);
 
   useEffect(() => {
     // Listen for system theme changes
-    if (defaultMode === 'system' && !localStorage.getItem('theme-mode')) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    if (defaultMode === "system" && !localStorage.getItem("theme-mode")) {
+      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = (e: MediaQueryListEvent) => {
-        setIsDarkMode(e.matches)
-      }
-      
-      mediaQuery.addEventListener('change', handleChange)
-      return () => mediaQuery.removeEventListener('change', handleChange)
+        setIsDarkMode(e.matches);
+      };
+
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
     }
-  }, [defaultMode])
+  }, [defaultMode]);
 
   const toggleTheme = () => {
-    const newMode = !isDarkMode
-    setIsDarkMode(newMode)
-    localStorage.setItem('theme-mode', newMode ? 'dark' : 'light')
-  }
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    localStorage.setItem("theme-mode", newMode ? "dark" : "light");
+  };
 
-  // Prevent SSR mismatch
-  if (!mounted) {
-    return null
-  }
-
-  const activeTheme = isDarkMode ? darkTheme : lightTheme
+  const activeTheme = isDarkMode ? darkTheme : lightTheme;
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
       <MUIThemeProvider theme={activeTheme}>
         <CssBaseline />
-        <SnackbarProvider 
+        <SnackbarProvider
           maxSnack={3}
           anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'right',
+            vertical: "bottom",
+            horizontal: "right",
           }}
           autoHideDuration={5000}
         >
@@ -96,5 +93,5 @@ export function ThemeProvider({ children, defaultMode = 'system' }: ThemeProvide
         </SnackbarProvider>
       </MUIThemeProvider>
     </ThemeContext.Provider>
-  )
+  );
 }

@@ -69,6 +69,7 @@ export async function createTestInvoice(userId: string, clientId: string, overri
 
 export async function cleanupDatabase() {
   // Delete in correct order to respect foreign keys
+  await prisma.feedback.deleteMany()
   await prisma.emailHistory.deleteMany()
   await prisma.payment.deleteMany()
   await prisma.invoiceItem.deleteMany()

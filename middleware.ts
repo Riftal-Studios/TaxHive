@@ -87,7 +87,12 @@ export const config = {
      * - favicon.ico (favicon file)
      * - sitemap.xml (sitemap for SEO)
      * - robots.txt (robots file for SEO)
+     * - *.svg (SVG files)
+     * - *.png (PNG images)
+     * - *.jpg, *.jpeg (JPEG images)
+     * - *.ico (icon files)
+     * - *.webp (WebP images)
      */
-    '/((?!api/auth|api/trpc|api/health|api/invoices/public|invoice/|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/((?!api/auth|api/trpc|api/health|api/invoices/public|invoice/|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.svg$|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.ico$|.*\\.webp$).*)',
   ],
 }

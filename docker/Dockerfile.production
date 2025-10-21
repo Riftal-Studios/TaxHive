@@ -45,7 +45,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXTAUTH_URL
 # Set environment variables from build args
 ENV NEXTAUTH_URL=${NEXTAUTH_URL}
-# NEXTAUTH_SECRET will be provided at runtime, not during build
+# Provide a dummy NEXTAUTH_SECRET for build time only
+# The real secret will be provided at runtime via Docker secrets
+ENV NEXTAUTH_SECRET=build-time-secret-will-be-replaced-at-runtime
 RUN npm run build
 
 # Production stage

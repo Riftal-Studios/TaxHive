@@ -84,6 +84,18 @@ export const authOptions: NextAuthOptions = {
     error: "/auth/error",
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // If url is a relative path, prepend baseUrl
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+      // If url is on the same origin (same protocol and domain), allow it
+      else if (new URL(url).origin === baseUrl) {
+        return url;
+      }
+      // Otherwise, default to baseUrl (home page)
+      return baseUrl;
+    },
     async signIn() {
       return true;
     },

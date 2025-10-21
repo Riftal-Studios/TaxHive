@@ -71,6 +71,9 @@ COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 
+# Copy public directory for static assets (logos, favicon, etc.)
+COPY --from=builder --chown=node:node /app/public ./public
+
 # Copy source files needed by queue worker
 COPY --from=builder --chown=node:node /app/lib ./lib
 COPY --from=builder --chown=node:node /app/server ./server

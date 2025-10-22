@@ -1,6 +1,6 @@
-# GST Hive 🐝
+# TaxHive 🐝
 
-A modern GST-compliant invoice management system for Indian businesses exporting services. Built with Next.js, TypeScript, and PostgreSQL.
+A modern GST-compliant invoice management system for Indian freelancers. Built with Next.js, TypeScript, and PostgreSQL.
 
 ## CI/CD Status
 

@@ -1,6 +1,14 @@
-# GST Hive 🐝 
+# GST Hive 🐝
 
 A modern GST-compliant invoice management system for Indian businesses exporting services. Built with Next.js, TypeScript, and PostgreSQL.
+
+## CI/CD Status
+
+![Test](https://github.com/Riftal-Studios/TaxHive/actions/workflows/test.yml/badge.svg)
+![Deploy to Staging](https://github.com/Riftal-Studios/TaxHive/actions/workflows/staging.yml/badge.svg)
+![Deploy to Production](https://github.com/Riftal-Studios/TaxHive/actions/workflows/production.yml/badge.svg)
+![Promote to Production](https://github.com/Riftal-Studios/TaxHive/actions/workflows/promote-to-production.yml/badge.svg)
+![Rollback](https://github.com/Riftal-Studios/TaxHive/actions/workflows/rollback.yml/badge.svg)
 
 > **Note**: This project uses automated CI/CD with GitHub Actions for seamless deployments to staging and production environments.
 

@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Unset NODE_ENV to let Next.js handle it automatically
+# This prevents build issues when NODE_ENV is manually set
+unset NODE_ENV
+
 # Run lint first (fast)
 echo "🔍 Running ESLint..."
 npm run lint

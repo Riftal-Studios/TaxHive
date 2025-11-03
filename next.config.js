@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Temporarily disable standalone output to fix build error
-  // ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
+  // Enable standalone output for Docker builds
+  ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
   eslint: {
     // Disable ESLint during builds to avoid circular dependency errors
     ignoreDuringBuilds: true,

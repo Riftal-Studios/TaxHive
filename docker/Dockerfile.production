@@ -77,6 +77,7 @@ COPY --from=builder --chown=node:node /app/public ./public
 # Copy source files needed by queue worker
 COPY --from=builder --chown=node:node /app/lib ./lib
 COPY --from=builder --chown=node:node /app/server ./server
+COPY --from=builder --chown=node:node /app/scripts ./scripts
 
 # Copy Prisma schema and migrations
 COPY --chown=node:node prisma ./prisma

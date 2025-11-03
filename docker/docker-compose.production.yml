@@ -129,6 +129,13 @@ services:
       - invoices:/app/public/invoices
     networks:
       - taxhive-internal
+    # Queue worker doesn't expose HTTP endpoints, so check if process is running
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep -q queue-worker || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Cloudflare Tunnel for secure external access
   cloudflared:

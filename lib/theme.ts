@@ -1,11 +1,11 @@
 import { createTheme, alpha } from "@mui/material/styles";
-import { Roboto } from "next/font/google";
 
-const roboto = Roboto({
-  weight: ["300", "400", "500", "700"],
-  subsets: ["latin"],
-  display: "swap",
-});
+// Use system fonts as fallback for environments where Google Fonts cannot be reached
+const roboto = {
+  style: {
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  },
+};
 
 declare module "@mui/material/styles" {
   interface Theme {

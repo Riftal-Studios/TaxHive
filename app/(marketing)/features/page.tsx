@@ -1,99 +1,111 @@
-import type { Metadata } from 'next'
-import Link from 'next/link'
+import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: 'Features - TaxHive',
+  title: "Features - TaxHive",
   description:
-    'Discover all the powerful features of TaxHive for GST-compliant invoice management, LUT support, RBI exchange rates, and professional PDF generation.',
-}
+    "Discover all the powerful features of TaxHive for GST-compliant invoice management, LUT support, RBI exchange rates, and professional PDF generation.",
+};
 
 export default function FeaturesPage() {
   const features = [
     {
-      category: 'GST Compliance',
+      category: "GST Compliance",
       items: [
         {
-          title: 'GST Rule 46 Compliance',
-          description: 'Every invoice automatically meets all GST Rule 46 requirements for export invoices.',
+          title: "GST Rule 46 Compliance",
+          description:
+            "Every invoice automatically meets all GST Rule 46 requirements for export invoices.",
         },
         {
-          title: 'LUT Declaration Support',
-          description: 'Automatic LUT declaration on invoices with your registered LUT number and date.',
+          title: "LUT Declaration Support",
+          description:
+            "Automatic LUT declaration on invoices with your registered LUT number and date.",
         },
         {
-          title: 'Zero-Rated Supply',
-          description: 'Proper handling of zero-rated supplies for export services with 0% IGST.',
+          title: "Zero-Rated Supply",
+          description:
+            "Proper handling of zero-rated supplies for export services with 0% IGST.",
         },
         {
-          title: 'HSN/SAC Codes',
-          description: 'Support for 8-digit HSN/SAC codes required for export invoices.',
+          title: "HSN/SAC Codes",
+          description:
+            "Support for 8-digit HSN/SAC codes required for export invoices.",
         },
       ],
     },
     {
-      category: 'Invoice Management',
+      category: "Invoice Management",
       items: [
         {
-          title: 'Professional PDF Generation',
-          description: 'Generate beautiful, compliant invoice PDFs with your company branding.',
+          title: "Professional PDF Generation",
+          description:
+            "Generate beautiful, compliant invoice PDFs with your company branding.",
         },
         {
-          title: 'Sequential Invoice Numbers',
-          description: 'Automatic FY{YY-YY}/{NUMBER} format invoice numbering as per GST rules.',
+          title: "Sequential Invoice Numbers",
+          description:
+            "Automatic FY{YY-YY}/{NUMBER} format invoice numbering as per GST rules.",
         },
         {
-          title: 'Multi-Currency Support',
-          description: 'Invoice in foreign currencies with automatic INR conversion.',
+          title: "Multi-Currency Support",
+          description:
+            "Invoice in foreign currencies with automatic INR conversion.",
         },
         {
-          title: 'Client Management',
-          description: 'Organize and manage all your international clients in one place.',
+          title: "Client Management",
+          description:
+            "Organize and manage all your international clients in one place.",
         },
       ],
     },
     {
-      category: 'Exchange Rates',
+      category: "Exchange Rates",
       items: [
         {
-          title: 'RBI Reference Rates',
-          description: 'Fetch official RBI reference exchange rates automatically.',
+          title: "RBI Reference Rates",
+          description:
+            "Fetch official RBI reference exchange rates automatically.",
         },
         {
-          title: 'Daily Rate Updates',
-          description: 'Exchange rates updated daily via automated cron jobs.',
+          title: "Daily Rate Updates",
+          description: "Exchange rates updated daily via automated cron jobs.",
         },
         {
-          title: 'Manual Override',
-          description: 'Override exchange rates when needed for specific invoices.',
+          title: "Manual Override",
+          description:
+            "Override exchange rates when needed for specific invoices.",
         },
         {
-          title: 'Rate History',
-          description: 'Track historical exchange rates for all your invoices.',
+          title: "Rate History",
+          description: "Track historical exchange rates for all your invoices.",
         },
       ],
     },
     {
-      category: 'Payment Tracking',
+      category: "Payment Tracking",
       items: [
         {
-          title: 'Payment Status',
-          description: 'Track payment status: Draft, Sent, Viewed, Paid, Partially Paid, Overdue.',
+          title: "Payment Status",
+          description:
+            "Track payment status: Draft, Sent, Viewed, Paid, Partially Paid, Overdue.",
         },
         {
-          title: 'Payment Records',
-          description: 'Record multiple payments against a single invoice.',
+          title: "Payment Records",
+          description: "Record multiple payments against a single invoice.",
         },
         {
-          title: 'Outstanding Balance',
-          description: 'Automatic calculation of outstanding amounts and due dates.',
+          title: "Outstanding Balance",
+          description:
+            "Automatic calculation of outstanding amounts and due dates.",
         },
         {
-          title: 'Payment Reminders',
-          description: 'Email reminders for pending and overdue invoices.',
+          title: "Payment Reminders",
+          description: "Email reminders for pending and overdue invoices.",
         },
       ],
     },
-  ]
+  ];
 
   return (
     <div className="features-page">
@@ -105,8 +117,8 @@ export default function FeaturesPage() {
               Everything You Need for GST-Compliant Export Invoicing
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-              TaxHive provides all the tools Indian exporters need to create professional,
-              compliant invoices for international clients.
+              TaxHive provides all the tools Indian freelancers need to create
+              professional, compliant invoices for international clients.
             </p>
             <Link
               href="/auth/signup"
@@ -122,7 +134,7 @@ export default function FeaturesPage() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           {features.map((category, idx) => (
-            <div key={category.category} className={idx > 0 ? 'mt-16' : ''}>
+            <div key={category.category} className={idx > 0 ? "mt-16" : ""}>
               <h2 className="text-3xl font-bold mb-8 text-gray-900 dark:text-gray-50">
                 {category.category}
               </h2>
@@ -153,7 +165,7 @@ export default function FeaturesPage() {
             Ready to streamline your export invoicing?
           </h2>
           <p className="text-xl mb-8 text-indigo-100">
-            Join hundreds of Indian exporters using TaxHive
+            Join hundreds of Indian freelancers using TaxHive
           </p>
           <Link
             href="/auth/signup"
@@ -164,5 +176,5 @@ export default function FeaturesPage() {
         </div>
       </section>
     </div>
-  )
+  );
 }

@@ -107,8 +107,12 @@ export default function PaymentStatusChart({ data, loading = false }: PaymentSta
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend 
-              formatter={(value) => STATUS_LABELS[value] || value}
+            <Legend
+              formatter={(value, entry: any) => {
+                const label = STATUS_LABELS[value] || value
+                const count = entry?.payload?.count || 0
+                return `${label} (${count})`
+              }}
               wrapperStyle={{ paddingTop: '10px' }}
             />
           </PieChart>

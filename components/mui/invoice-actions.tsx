@@ -25,8 +25,8 @@ interface InvoiceActionsProps {
   pdfGenerating?: boolean
 }
 
-export function MUIInvoiceActions({ 
-  invoiceId, 
+export function MUIInvoiceActions({
+  invoiceId,
   invoiceNumber,
   pdfUrl,
   clientEmail,
@@ -34,11 +34,21 @@ export function MUIInvoiceActions({
   pdfGenerating = false
 }: InvoiceActionsProps) {
   const router = useRouter()
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(pdfGenerating)
   const [jobId, setJobId] = useState<string | null>(null)
   const [pdfReady, setPdfReady] = useState(!!pdfUrl)
   const [showEmailComposer, setShowEmailComposer] = useState(false)
-  
+
+  // Sync isGenerating state with pdfGenerating prop
+  useEffect(() => {
+    setIsGenerating(pdfGenerating)
+  }, [pdfGenerating])
+
+  // Sync pdfReady state with pdfUrl prop
+  useEffect(() => {
+    setPdfReady(!!pdfUrl)
+  }, [pdfUrl])
+
   // Queue PDF generation
   const queuePDFMutation = api.invoices.queuePDFGeneration.useMutation({
     onSuccess: (data) => {

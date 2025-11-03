@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { api } from '@/lib/trpc/client'
 import { InvoiceForm } from '@/components/invoices/invoice-form'
 import { enqueueSnackbar } from 'notistack'
-import type { InvoiceItem } from '@prisma/client'
 import { toSafeNumber } from '@/lib/utils/decimal'
 
 // Type for the form data that matches what InvoiceForm expects
@@ -125,7 +124,7 @@ function EditInvoiceContent({ id }: { id: string }) {
   }
   
   // Extract line items properly
-  const lineItems = invoice.lineItems.map((item: InvoiceItem) => ({
+  const lineItems = invoice.lineItems.map((item: any) => ({
     id: item.id,
     description: item.description,
     sacCode: item.serviceCode,

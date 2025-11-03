@@ -251,7 +251,7 @@ export function MUILayout({ children, user }: MUILayoutProps) {
               <ListItemIcon>
                 <SettingsIcon fontSize="small" />
               </ListItemIcon>
-              Settings
+              <ListItemText>Settings</ListItemText>
             </MenuItem>
             <MenuItem
               onClick={() => {
@@ -266,20 +266,20 @@ export function MUILayout({ children, user }: MUILayoutProps) {
                   <DarkModeIcon fontSize="small" />
                 )}
               </ListItemIcon>
-              {isDarkMode ? "Light Mode" : "Dark Mode"}
+              <ListItemText>{isDarkMode ? "Light Mode" : "Dark Mode"}</ListItemText>
             </MenuItem>
             <MenuItem onClick={handleFeedbackOpen}>
               <ListItemIcon>
                 <FeedbackIcon fontSize="small" />
               </ListItemIcon>
-              Send Feedback
+              <ListItemText>Send Feedback</ListItemText>
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleSignOut}>
               <ListItemIcon>
                 <LogoutIcon fontSize="small" />
               </ListItemIcon>
-              Sign Out
+              <ListItemText>Sign Out</ListItemText>
             </MenuItem>
           </Menu>
         </Toolbar>

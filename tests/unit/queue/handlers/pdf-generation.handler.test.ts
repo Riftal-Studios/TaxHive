@@ -87,7 +87,7 @@ describe('PDF Generation Handler', () => {
 
     const result = await pdfGenerationHandler(mockJob)
 
-    // Verify database queries
+    // Verify database queries - should include payments
     expect(db.invoice.findUniqueOrThrow).toHaveBeenCalledWith({
       where: { id: 'invoice-123', userId: 'user-456' },
       include: {
@@ -95,22 +95,32 @@ describe('PDF Generation Handler', () => {
         client: true,
         lineItems: true,
         lut: true,
+        payments: {
+          orderBy: {
+            paymentDate: 'asc'
+          }
+        },
       },
     })
 
     // Verify PDF generation
     expect(pdfGenerator.generateInvoicePDF).toHaveBeenCalledWith(mockInvoice, mockInvoice.user)
 
-    // Verify PDF upload
+    // Verify PDF upload with timestamp in filename
     expect(pdfUploader.uploadPDF).toHaveBeenCalledWith(
       mockPdfBuffer,
-      'invoice-123.pdf'
+      expect.stringMatching(/^invoice-123-\d+\.pdf$/)
     )
 
-    // Verify invoice update
+    // Verify invoice update with pdfStatus
     expect(db.invoice.update).toHaveBeenCalledWith({
       where: { id: 'invoice-123' },
-      data: { pdfUrl: mockPdfUrl },
+      data: {
+        pdfUrl: mockPdfUrl,
+        pdfStatus: 'completed',
+        pdfGeneratedAt: expect.any(Date),
+        pdfError: null,
+      },
     })
 
     // Verify result
@@ -132,7 +142,15 @@ describe('PDF Generation Handler', () => {
 
     expect(pdfGenerator.generateInvoicePDF).not.toHaveBeenCalled()
     expect(pdfUploader.uploadPDF).not.toHaveBeenCalled()
-    expect(db.invoice.update).not.toHaveBeenCalled()
+
+    // Should call db.invoice.update with pdfStatus='failed'
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'invoice-123' },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: expect.stringContaining('Invoice not found'),
+      }
+    })
   })
 
   it('should handle PDF generation error', async () => {
@@ -146,7 +164,15 @@ describe('PDF Generation Handler', () => {
     )
 
     expect(pdfUploader.uploadPDF).not.toHaveBeenCalled()
-    expect(db.invoice.update).not.toHaveBeenCalled()
+
+    // Should call db.invoice.update with pdfStatus='failed'
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'invoice-123' },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: expect.stringContaining('PDF generation failed'),
+      }
+    })
   })
 
   it('should handle PDF upload error', async () => {
@@ -160,7 +186,14 @@ describe('PDF Generation Handler', () => {
 
     await expect(pdfGenerationHandler(mockJob)).rejects.toThrow('Upload failed')
 
-    expect(db.invoice.update).not.toHaveBeenCalled()
+    // Should call db.invoice.update with pdfStatus='failed'
+    expect(db.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'invoice-123' },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: expect.stringContaining('Upload failed'),
+      }
+    })
   })
 
   it('should update job progress during processing', async () => {

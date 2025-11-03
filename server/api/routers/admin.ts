@@ -1,11 +1,11 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
-import { updateExchangeRates, getExchangeRate } from '@/lib/exchange-rates'
+import { updateExchangeRates } from '@/lib/exchange-rates'
 import { TRPCError } from '@trpc/server'
 import { CURRENCY_CODES } from '@/lib/constants'
 
 export const adminRouter = createTRPCRouter({
-  updateExchangeRates: protectedProcedure.mutation(async ({ ctx }) => {
+  updateExchangeRates: protectedProcedure.mutation(async () => {
     // You might want to add additional admin role check here
     const result = await updateExchangeRates()
     

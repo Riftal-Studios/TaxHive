@@ -1,3 +1,8 @@
+// Only import server-only in Next.js context, not in standalone Node.js scripts
+if (typeof window === 'undefined' && process.env.NEXT_RUNTIME) {
+  require('server-only')
+}
+
 import { Queue, Worker, Job as BullMQJob, QueueEvents } from 'bullmq'
 import Redis from 'ioredis'
 import { 

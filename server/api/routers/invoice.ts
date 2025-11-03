@@ -1,13 +1,11 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
-import { 
-  generateInvoiceNumber, 
-  getCurrentFiscalYear, 
-  calculateSubtotal, 
-  calculateGST, 
-  calculateTotal, 
-  validateHSNCode 
+import {
+  generateInvoiceNumber,
+  getCurrentFiscalYear,
+  calculateSubtotal,
+  calculateTotal
 } from '@/lib/invoice-utils'
 import { generateSecureToken, getTokenExpirationDate } from '@/lib/utils/token'
 import { getNextInvoiceSequence } from '@/lib/invoice-number-utils'
@@ -903,7 +901,7 @@ export const invoiceRouter = createTRPCRouter({
     .input(z.object({
       jobId: z.string(),
     }))
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       const queueService = getQueue()
       if (!queueService) {
         throw new TRPCError({
@@ -984,7 +982,7 @@ export const invoiceRouter = createTRPCRouter({
       const recalculatedTotalInINR = Number(invoice.totalAmount) * Number(invoice.exchangeRate)
 
       // Update invoice with recalculated value
-      const updated = await ctx.prisma.invoice.update({
+      await ctx.prisma.invoice.update({
         where: { id: input.id },
         data: {
           totalInINR: recalculatedTotalInINR,

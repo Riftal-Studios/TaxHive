@@ -57,8 +57,9 @@ export async function GET(
       headers.set('Content-Type', 'application/pdf')
       headers.set('Content-Disposition', `inline; filename="${invoice.invoiceNumber}.pdf"`)
       headers.set('Cache-Control', 'private, max-age=3600')
-      
-      return new NextResponse(pdfBuffer, { headers })
+
+      // Convert Buffer to Uint8Array for NextResponse
+      return new NextResponse(new Uint8Array(pdfBuffer), { headers })
     } catch (error) {
       console.error('Error reading PDF file:', error)
       return new NextResponse('PDF file not found', { status: 404 })

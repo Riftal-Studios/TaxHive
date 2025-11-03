@@ -33,9 +33,9 @@ describe('BrowserPool', () => {
 
     // Re-import the module to get a fresh instance
     vi.resetModules()
-    const module = await import('@/lib/browser-pool')
-    BrowserPool = module.BrowserPool
-    getBrowserPool = module.getBrowserPool
+    const browserPoolModule = await import('@/lib/browser-pool')
+    BrowserPool = browserPoolModule.BrowserPool
+    getBrowserPool = browserPoolModule.getBrowserPool
   })
 
   afterEach(() => {

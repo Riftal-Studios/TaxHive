@@ -1,6 +1,6 @@
 'use client'
 
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, type LegendPayload } from 'recharts'
 
 interface PaymentStatusChartProps {
   data: Array<{
@@ -108,9 +108,10 @@ export default function PaymentStatusChart({ data, loading = false }: PaymentSta
             </Pie>
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              formatter={(value, entry: any) => {
+              formatter={(value: string, entry: LegendPayload) => {
                 const label = STATUS_LABELS[value] || value
-                const count = entry?.payload?.count || 0
+                // Access count from the payload which contains the chart data
+                const count = (entry.payload as { count?: number })?.count || 0
                 return `${label} (${count})`
               }}
               wrapperStyle={{ paddingTop: '10px' }}

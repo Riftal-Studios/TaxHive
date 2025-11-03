@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import type { Session } from 'next-auth'
 
+// Mock server-only to allow imports in test environment
+vi.mock('server-only', () => ({}))
+
 // First, set up all mocks before any imports
 const mockEnqueueJob = vi.fn()
 const mockGetJob = vi.fn()

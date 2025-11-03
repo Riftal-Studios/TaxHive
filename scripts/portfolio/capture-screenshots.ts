@@ -90,7 +90,7 @@ async function login(page: Page) {
 async function captureScreenshot(
   page: Page,
   screenshot: Screenshot,
-  index: number
+  _index: number
 ) {
   console.log(`  📸 Capturing: ${screenshot.name}`)
   console.log(`     ${screenshot.description}`)

@@ -138,44 +138,47 @@ export function EditPaymentModal({
   // Initialize form with payment data
   useEffect(() => {
     if (payment && open) {
-      setAmount(String(toSafeNumber(payment.amount)))
-      setPaymentDate(new Date(payment.paymentDate))
-      setPaymentMethod(payment.paymentMethod as string)
-      setReference(payment.reference || '')
-      setNotes(payment.notes || '')
-      
-      // Payment flow details
-      if (payment.amountReceivedBeforeFees) {
-        setAmountReceivedBeforeFees(String(toSafeNumber(payment.amountReceivedBeforeFees)))
-      }
-      if (payment.platformFeesInCurrency) {
-        setPlatformFeesInCurrency(String(toSafeNumber(payment.platformFeesInCurrency)))
-      }
-      
-      // Bank credit details
-      if (payment.creditedAmount) {
-        setCreditedAmount(String(toSafeNumber(payment.creditedAmount)))
-      }
-      if (payment.actualExchangeRate) {
-        setActualExchangeRate(String(toSafeNumber(payment.actualExchangeRate)))
-      }
-      if (payment.bankChargesInr) {
-        setBankChargesInr(String(toSafeNumber(payment.bankChargesInr)))
-      }
-      if (payment.fircNumber) {
-        setFircNumber(payment.fircNumber)
-      }
-      if (payment.fircDate) {
-        setFircDate(new Date(payment.fircDate))
-      }
-      if (payment.fircDocumentUrl) {
-        setFircDocumentUrl(payment.fircDocumentUrl)
-      }
-      
-      // Set active tab based on available data
-      if (payment.creditedAmount || payment.fircNumber) {
-        setActiveTab(1)
-      }
+      // Defer state updates to avoid synchronous setState in effect
+      setTimeout(() => {
+        setAmount(String(toSafeNumber(payment.amount)))
+        setPaymentDate(new Date(payment.paymentDate))
+        setPaymentMethod(payment.paymentMethod as string)
+        setReference(payment.reference || '')
+        setNotes(payment.notes || '')
+
+        // Payment flow details
+        if (payment.amountReceivedBeforeFees) {
+          setAmountReceivedBeforeFees(String(toSafeNumber(payment.amountReceivedBeforeFees)))
+        }
+        if (payment.platformFeesInCurrency) {
+          setPlatformFeesInCurrency(String(toSafeNumber(payment.platformFeesInCurrency)))
+        }
+
+        // Bank credit details
+        if (payment.creditedAmount) {
+          setCreditedAmount(String(toSafeNumber(payment.creditedAmount)))
+        }
+        if (payment.actualExchangeRate) {
+          setActualExchangeRate(String(toSafeNumber(payment.actualExchangeRate)))
+        }
+        if (payment.bankChargesInr) {
+          setBankChargesInr(String(toSafeNumber(payment.bankChargesInr)))
+        }
+        if (payment.fircNumber) {
+          setFircNumber(payment.fircNumber)
+        }
+        if (payment.fircDate) {
+          setFircDate(new Date(payment.fircDate))
+        }
+        if (payment.fircDocumentUrl) {
+          setFircDocumentUrl(payment.fircDocumentUrl)
+        }
+
+        // Set active tab based on available data
+        if (payment.creditedAmount || payment.fircNumber) {
+          setActiveTab(1)
+        }
+      }, 0)
     }
   }, [payment, open])
 

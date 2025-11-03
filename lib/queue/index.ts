@@ -1,3 +1,8 @@
+// Only import server-only in Next.js context, not in standalone Node.js scripts
+if (typeof window === 'undefined' && process.env.NEXT_RUNTIME) {
+  require('server-only')
+}
+
 import { BullMQService } from './bullmq.service'
 import type { QueueService } from './types'
 

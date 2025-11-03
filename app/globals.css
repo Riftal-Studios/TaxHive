@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4 source configuration */
+@source "app/**/*.{js,ts,jsx,tsx,mdx}";
+@source "components/**/*.{js,ts,jsx,tsx,mdx}";
+@source "pages/**/*.{js,ts,jsx,tsx,mdx}";
+
+/* Dark mode configuration */
+@variant dark (&:where(.dark, .dark *));
+
+/* Custom theme */
+@theme {
+  --color-background: oklch(0.9 0 0);
+  --color-foreground: oklch(0.1 0 0);
+}
 
 :root {
   --foreground-rgb: 0, 0, 0;

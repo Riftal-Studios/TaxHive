@@ -107,8 +107,9 @@ export async function GET(
       headers.set('Content-Type', 'application/pdf')
       headers.set('Content-Disposition', `attachment; filename="${downloadFilename}"`)
       headers.set('Content-Length', pdfBuffer.length.toString())
-      
-      return new NextResponse(pdfBuffer, { headers })
+
+      // Convert Buffer to Uint8Array for NextResponse
+      return new NextResponse(new Uint8Array(pdfBuffer), { headers })
     } catch (error) {
       console.error('Error generating/reading PDF:', error)
       return new NextResponse('Failed to generate PDF', { status: 500 })

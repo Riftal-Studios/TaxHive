@@ -34,17 +34,20 @@ export function ThemeProvider({
 
   useEffect(() => {
     // Check for saved theme preference or use system preference
-    const savedTheme = localStorage.getItem("theme-mode");
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === "dark");
-    } else if (defaultMode === "system") {
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)",
-      ).matches;
-      setIsDarkMode(prefersDark);
-    } else {
-      setIsDarkMode(defaultMode === "dark");
-    }
+    // Defer state updates to avoid synchronous setState in effect
+    setTimeout(() => {
+      const savedTheme = localStorage.getItem("theme-mode");
+      if (savedTheme) {
+        setIsDarkMode(savedTheme === "dark");
+      } else if (defaultMode === "system") {
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        setIsDarkMode(prefersDark);
+      } else {
+        setIsDarkMode(defaultMode === "dark");
+      }
+    }, 0);
   }, [defaultMode]);
 
   useEffect(() => {

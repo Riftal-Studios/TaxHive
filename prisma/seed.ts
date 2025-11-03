@@ -6,12 +6,16 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Seeding database...')
 
+  // Hash the password for demo account
+  const hashedPassword = await hash('demo123', 12)
+
   // Create a test user
   const testUser = await prisma.user.upsert({
     where: { email: 'test@taxhive.app' },
     update: {},
     create: {
       email: 'test@taxhive.app',
+      password: hashedPassword,
       name: 'Test User',
       emailVerified: new Date(),
       gstin: '29ABCDE1234F1Z5',
@@ -21,6 +25,8 @@ async function main() {
   })
 
   console.log('Created test user:', testUser.email)
+  console.log('📧 Demo Login: test@taxhive.app')
+  console.log('🔑 Demo Password: demo123')
 
   // Create LUT for the test user
   let lut = await prisma.lUT.findFirst({

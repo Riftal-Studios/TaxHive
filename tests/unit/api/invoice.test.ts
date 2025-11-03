@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { TRPCError } from '@trpc/server'
 import type { Session } from 'next-auth'
 
+// Mock server-only to allow imports in test environment
+vi.mock('server-only', () => ({}))
+
 // Mock dependencies first before importing them
 vi.mock('@/lib/prisma', () => ({
   db: {

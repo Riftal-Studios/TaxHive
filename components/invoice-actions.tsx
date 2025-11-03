@@ -13,19 +13,24 @@ interface InvoiceActionsProps {
   clientName: string
 }
 
-export function InvoiceActions({ 
-  invoiceId, 
+export function InvoiceActions({
+  invoiceId,
   invoiceNumber,
   pdfUrl,
   clientEmail,
-  clientName 
+  clientName
 }: InvoiceActionsProps) {
   const router = useRouter()
   const [isGenerating, setIsGenerating] = useState(false)
   const [jobId, setJobId] = useState<string | null>(null)
   const [pdfReady, setPdfReady] = useState(!!pdfUrl)
   const [showEmailComposer, setShowEmailComposer] = useState(false)
-  
+
+  // Sync pdfReady state with pdfUrl prop
+  useEffect(() => {
+    setPdfReady(!!pdfUrl)
+  }, [pdfUrl])
+
   // Queue PDF generation
   const queuePDFMutation = api.invoices.queuePDFGeneration.useMutation({
     onSuccess: (data) => {

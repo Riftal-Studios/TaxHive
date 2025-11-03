@@ -7,7 +7,6 @@ import { Decimal } from '@prisma/client/runtime/library'
 const mockSetContent = vi.fn()
 const mockPdf = vi.fn(() => Buffer.from('mock-pdf-content'))
 const mockPageClose = vi.fn()
-const mockBrowserClose = vi.fn()
 
 const mockPage = {
   setContent: mockSetContent,
@@ -17,14 +16,13 @@ const mockPage = {
 
 const mockBrowser = {
   newPage: vi.fn(() => mockPage),
-  close: mockBrowserClose,
 }
 
-// Mock puppeteer
-vi.mock('puppeteer', () => ({
-  default: {
-    launch: vi.fn(() => mockBrowser),
-  },
+// Mock browser pool
+vi.mock('@/lib/browser-pool', () => ({
+  getBrowserPool: vi.fn(() => ({
+    execute: vi.fn(async (fn) => await fn(mockBrowser)),
+  })),
 }))
 
 describe('PDF Invoice Generator', () => {
@@ -131,7 +129,6 @@ describe('PDF Invoice Generator', () => {
     mockSetContent.mockClear()
     mockPdf.mockClear()
     mockPageClose.mockClear()
-    mockBrowserClose.mockClear()
   })
 
   it('should generate PDF with all GST-compliant fields', async () => {
@@ -225,8 +222,10 @@ describe('PDF Invoice Generator', () => {
   })
 
   it('should handle PDF generation errors gracefully', async () => {
-    const puppeteer = await import('puppeteer')
-    puppeteer.default.launch = vi.fn().mockRejectedValueOnce(new Error('Puppeteer error'))
+    const { getBrowserPool } = await import('@/lib/browser-pool')
+    vi.mocked(getBrowserPool).mockReturnValueOnce({
+      execute: vi.fn().mockRejectedValueOnce(new Error('Browser pool error')),
+    } as any)
 
     await expect(generateInvoicePDF(mockInvoice, mockUser))
       .rejects.toThrow('Failed to generate PDF')

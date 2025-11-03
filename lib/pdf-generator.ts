@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer'
+import { getBrowserPool } from './browser-pool'
 
 // Re-export for backward compatibility
 export { uploadPDF } from './pdf-uploader'
@@ -17,39 +17,27 @@ export async function generateInvoicePDF(
   invoice: InvoiceWithRelations,
   user: User
 ): Promise<Buffer> {
-  let browser
-  
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    const browserPool = getBrowserPool()
+
+    return await browserPool.execute(async (browser) => {
+      const page = await browser.newPage()
+      try {
+        const html = generateInvoiceHTML(invoice, user)
+        await page.setContent(html, { waitUntil: 'networkidle0' })
+        const pdf = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+        })
+        return Buffer.from(pdf)
+      } finally {
+        await page.close()
+      }
     })
-    
-    const page = await browser.newPage()
-    const html = generateInvoiceHTML(invoice, user)
-    
-    await page.setContent(html, { waitUntil: 'networkidle0' })
-    
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm',
-      },
-    })
-    
-    await page.close()
-    return Buffer.from(pdf)
   } catch (error) {
     console.error('PDF generation error:', error)
     throw new Error('Failed to generate PDF: ' + (error as Error).message)
-  } finally {
-    if (browser) {
-      await browser.close()
-    }
   }
 }
 

@@ -61,20 +61,32 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
       const timestamp = Date.now()
       const pdfUrl = await uploadPDF(pdfBuffer, `${invoiceId}-${timestamp}.pdf`)
 
-      // Update invoice with PDF URL and status
-      await db.invoice.update({
-        where: { id: invoiceId },
-        data: { 
-          pdfUrl,
-          pdfStatus: 'completed',
-          pdfGeneratedAt: new Date(),
-          pdfError: null,
-        },
-      })
+      // Update invoice with PDF URL and status - wrap in try-catch for safety
+      try {
+        await db.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            pdfUrl,
+            pdfStatus: 'completed',
+            pdfGeneratedAt: new Date(),
+            pdfError: null,
+          },
+        })
+      } catch (dbError) {
+        console.error(`Failed to update invoice ${invoiceId} with PDF URL:`, dbError)
+        // PDF was generated but database update failed
+        // The healthcheck will detect this as an orphaned job and reset it
+        throw new Error(`PDF generated but database update failed: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`)
+      }
 
-      // Cleanup old PDF file if it exists
+      // Cleanup old PDF file if it exists (best effort, don't fail job if cleanup fails)
       if (oldPdfUrl && oldPdfUrl !== pdfUrl) {
-        await cleanupOldPDF(oldPdfUrl)
+        try {
+          await cleanupOldPDF(oldPdfUrl)
+        } catch (cleanupError) {
+          console.warn(`Failed to cleanup old PDF ${oldPdfUrl}:`, cleanupError)
+          // Don't fail the job because of cleanup error
+        }
       }
 
       if (updateProgress) {
@@ -114,14 +126,22 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
   
   // All attempts failed, mark as failed
   const errorMessage = lastError instanceof Error ? lastError.message : 'PDF generation failed'
-  await db.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      pdfStatus: 'failed',
-      pdfError: `Failed after ${maxRetries} attempts: ${errorMessage}`,
-    }
-  })
-  
+
+  // Use try-catch to ensure we don't lose the error if database update fails
+  try {
+    await db.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        pdfStatus: 'failed',
+        pdfError: `Failed after ${maxRetries} attempts: ${errorMessage}`,
+      }
+    })
+  } catch (dbError) {
+    console.error(`Failed to update invoice ${invoiceId} status to failed:`, dbError)
+    // Continue to throw the original error even if database update fails
+    // The healthcheck script will clean this up later
+  }
+
   // Re-throw the error so the job is marked as failed
   throw lastError
 }

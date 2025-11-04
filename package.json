@@ -17,6 +17,8 @@
     "db:studio": "prisma studio",
     "generate": "prisma generate",
     "worker": "tsx scripts/queue-worker.ts",
+    "cleanup:stuck-pdfs": "tsx scripts/cleanup-stuck-pdfs.ts",
+    "healthcheck:pdf-queue": "tsx scripts/pdf-queue-healthcheck.ts",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",

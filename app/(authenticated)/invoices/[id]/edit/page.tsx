@@ -83,7 +83,7 @@ function EditInvoiceContent({ id }: { id: string }) {
   // Add submit handler
   const handleSubmit = useCallback((formData: InvoiceFormData) => {
     if (!invoice?.id) return
-    
+
     updateMutation.mutate({
       id: invoice.id,
       clientId: formData.clientId,
@@ -97,7 +97,7 @@ function EditInvoiceContent({ id }: { id: string }) {
       notes: formData.notes,
       exchangeRate: formData.currency !== 'INR' ? (manualExchangeRate || exchangeRateData?.rate || formData.exchangeRate) : 1,
     })
-  }, [invoice?.id, updateMutation, manualExchangeRate, exchangeRateData?.rate])
+  }, [invoice, updateMutation, manualExchangeRate, exchangeRateData?.rate])
   
   if (isLoading || clientsLoading || lutsLoading) {
     return (
@@ -124,7 +124,7 @@ function EditInvoiceContent({ id }: { id: string }) {
   }
   
   // Extract line items properly
-  const lineItems = invoice.lineItems.map((item: any) => ({
+  const lineItems = invoice.lineItems.map((item) => ({
     id: item.id,
     description: item.description,
     sacCode: item.serviceCode,

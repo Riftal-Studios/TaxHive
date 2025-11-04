@@ -360,7 +360,7 @@ async function createInvoices(
   userId: string,
   clients: Client[],
   activeLutId: string,
-  exchangeRates: any[]
+  exchangeRates: { currency: string; rate: number }[]
 ) {
   console.log('📄 Creating invoices with line items...')
   
@@ -685,7 +685,12 @@ async function main() {
     const exchangeRates = await createExchangeRates()
 
     // Create invoices with line items
-    const invoices = await createInvoices(user.id, clients, activeLut.id, exchangeRates)
+    // Convert Decimal to number for the function
+    const exchangeRatesForInvoices = exchangeRates.map(er => ({
+      currency: er.currency,
+      rate: Number(er.rate)
+    }))
+    const invoices = await createInvoices(user.id, clients, activeLut.id, exchangeRatesForInvoices)
 
     // Create payments
     const payments = await createPayments(invoices)

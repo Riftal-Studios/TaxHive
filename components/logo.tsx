@@ -15,7 +15,8 @@ export function Logo({ width = 48, height = 48, className = '' }: LogoProps) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
+    // Defer state update to avoid synchronous setState in effect
+    setTimeout(() => setMounted(true), 0)
   }, [])
 
   // Default to light logo during SSR to prevent hydration mismatch

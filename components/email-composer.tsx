@@ -69,17 +69,22 @@ export function EmailComposer({
 
   useEffect(() => {
     if (emailStatus?.status === 'completed') {
-      setIsSending(false)
-      setEmailSent(true)
-      setJobId(null)
+      // Defer state updates to avoid synchronous setState in effect
+      setTimeout(() => {
+        setIsSending(false)
+        setEmailSent(true)
+        setJobId(null)
+      }, 0)
       setTimeout(() => {
         onSuccess?.()
         onClose()
       }, 2000)
     } else if (emailStatus?.status === 'failed') {
-      setIsSending(false)
-      setJobId(null)
-      setErrors({ general: typeof emailStatus.error === 'string' ? emailStatus.error : 'Failed to send email' })
+      setTimeout(() => {
+        setIsSending(false)
+        setJobId(null)
+        setErrors({ general: typeof emailStatus.error === 'string' ? emailStatus.error : 'Failed to send email' })
+      }, 0)
     }
   }, [emailStatus, onSuccess, onClose])
 

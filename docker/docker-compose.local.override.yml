@@ -4,7 +4,10 @@ services:
   postgres:
     ports:
       - "5432:5432"
-  
+
   redis:
     ports:
       - "6379:6379"
+
+  app:
+    # No ports exposed - access via Cloudflare tunnel at dev.taxhive.app

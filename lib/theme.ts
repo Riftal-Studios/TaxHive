@@ -271,6 +271,21 @@ export const theme = createTheme({
         },
       },
     },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          backgroundColor: "#1F2937",
+          color: "#F9FAFB",
+          fontSize: "0.875rem",
+          borderRadius: 6,
+          padding: "8px 12px",
+          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        },
+        arrow: {
+          color: "#1F2937",
+        },
+      },
+    },
     MuiAlert: {
       styleOverrides: {
         root: {
@@ -692,6 +707,21 @@ export const darkTheme = createTheme({
           "&.Mui-error": {
             color: "#F87171",
           },
+        },
+      },
+    },
+    MuiTooltip: {
+      styleOverrides: {
+        tooltip: {
+          backgroundColor: "#F9FAFB",
+          color: "#111827",
+          fontSize: "0.875rem",
+          borderRadius: 6,
+          padding: "8px 12px",
+          boxShadow: "0 4px 6px -1px rgb(255 255 255 / 0.1), 0 2px 4px -2px rgb(255 255 255 / 0.1)",
+        },
+        arrow: {
+          color: "#F9FAFB",
         },
       },
     },

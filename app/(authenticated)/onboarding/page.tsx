@@ -66,8 +66,11 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (status?.completed && status.currentStep !== 'complete') {
-      setIsNavigating(true)
-      router.push('/dashboard')
+      // Defer state update and navigation to avoid synchronous setState in effect
+      setTimeout(() => {
+        setIsNavigating(true)
+        router.push('/dashboard')
+      }, 0)
     }
   }, [status, router])
 

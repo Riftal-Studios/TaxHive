@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind v4 source configuration */
+@source "app/**/*.{js,ts,jsx,tsx,mdx}";
+@source "components/**/*.{js,ts,jsx,tsx,mdx}";
+@source "pages/**/*.{js,ts,jsx,tsx,mdx}";
+
+/* Dark mode configuration */
+@variant dark (&:where(.dark, .dark *));
+
+/* Custom theme */
+@theme {
+  --color-background: oklch(0.9 0 0);
+  --color-foreground: oklch(0.1 0 0);
+}
 
 :root {
   --foreground-rgb: 0, 0, 0;
@@ -23,4 +35,43 @@ body {
 
 body {
   @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors;
+}
+
+/* Print-specific styles */
+@media print {
+  /* Hide navigation, buttons, and UI chrome when printing */
+  nav,
+  header,
+  footer,
+  button:not(.print-visible),
+  .MuiButton-root,
+  .MuiIconButton-root,
+  .MuiButtonGroup-root,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure invoice content is visible and properly formatted */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  .MuiCard-root,
+  .MuiPaper-root {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Add page breaks after sections if needed */
+  .MuiCard-root {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
 }

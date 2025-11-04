@@ -7,6 +7,9 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { ThemeProvider } from "@/components/theme-provider"
 
+// Force dynamic rendering for all pages since we use session
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: "TaxHive - GST-Compliant Invoice Management",
   description: "Invoice management system for Indian businesses exporting services with GST compliance",

@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
-import { Decimal } from '@prisma/client/runtime/library'
+import { startOfMonth, subMonths, format } from 'date-fns'
 
 // Helper to get the start of the current fiscal year (April 1st)
 function getCurrentFiscalYearStart(): Date {

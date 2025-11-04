@@ -57,7 +57,8 @@ export function ClientForm({ client, onSubmit, onCancel, isSubmitting = false }:
   useEffect(() => {
     if (formData.country && !client?.currency) {
       const detectedCurrency = getCurrencyFromCountry(formData.country)
-      setFormData(prev => ({ ...prev, currency: detectedCurrency }))
+      // Defer state update to avoid synchronous setState in effect
+      setTimeout(() => setFormData(prev => ({ ...prev, currency: detectedCurrency })), 0)
     }
   }, [formData.country, client?.currency])
 

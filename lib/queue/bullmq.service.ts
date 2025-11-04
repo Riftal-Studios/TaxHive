@@ -1,3 +1,8 @@
+// Only import server-only in Next.js context, not in standalone Node.js scripts
+if (typeof window === 'undefined' && process.env.NEXT_RUNTIME) {
+  require('server-only')
+}
+
 import { Queue, Worker, Job as BullMQJob, QueueEvents } from 'bullmq'
 import Redis from 'ioredis'
 import { 
@@ -152,6 +157,15 @@ export class BullMQService implements QueueService {
 
     worker.on('failed', (job, err) => {
       console.error(`Job ${job?.id} failed:`, err)
+    })
+
+    // Handle stalled jobs - jobs that were being processed but worker lost connection
+    worker.on('stalled', (jobId) => {
+      console.warn(`Job ${jobId} has stalled and will be retried`)
+    })
+
+    worker.on('error', (err) => {
+      console.error(`Worker error for ${type}:`, err)
     })
   }
 

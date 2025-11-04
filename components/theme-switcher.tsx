@@ -7,20 +7,23 @@ export function ThemeSwitcher() {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    // Check for saved theme preference or default to light
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    
-    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light')
-    setTheme(initialTheme)
-    
-    // Apply theme to document
-    if (initialTheme === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
+    // Defer state updates to avoid synchronous setState in effect
+    setTimeout(() => {
+      setMounted(true)
+      // Check for saved theme preference or default to light
+      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+
+      const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light')
+      setTheme(initialTheme)
+
+      // Apply theme to document
+      if (initialTheme === 'dark') {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }, 0)
   }, [])
 
   const toggleTheme = () => {

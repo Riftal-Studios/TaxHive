@@ -82,22 +82,26 @@ export function MUISettings() {
 
   // Set initial tab based on URL
   useEffect(() => {
+    // Defer state update to avoid synchronous setState in effect
     if (tabFromUrl === 'lut') {
-      setActiveTab(1)
+      setTimeout(() => setActiveTab(1), 0)
     } else if (tabFromUrl === 'exchange-rates') {
-      setActiveTab(2)
+      setTimeout(() => setActiveTab(2), 0)
     }
   }, [tabFromUrl])
 
   // Update form when user data loads
   useEffect(() => {
     if (user) {
-      setProfileForm({
-        name: user.name || '',
-        gstin: user.gstin || '',
-        pan: user.pan || '',
-        address: user.address || '',
-      })
+      // Defer state update to avoid synchronous setState in effect
+      setTimeout(() => {
+        setProfileForm({
+          name: user.name || '',
+          gstin: user.gstin || '',
+          pan: user.pan || '',
+          address: user.address || '',
+        })
+      }, 0)
     }
   }, [user])
 

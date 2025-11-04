@@ -36,3 +36,42 @@ body {
 body {
   @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors;
 }
+
+/* Print-specific styles */
+@media print {
+  /* Hide navigation, buttons, and UI chrome when printing */
+  nav,
+  header,
+  footer,
+  button:not(.print-visible),
+  .MuiButton-root,
+  .MuiIconButton-root,
+  .MuiButtonGroup-root,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure invoice content is visible and properly formatted */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  .MuiCard-root,
+  .MuiPaper-root {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Add page breaks after sections if needed */
+  .MuiCard-root {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+}

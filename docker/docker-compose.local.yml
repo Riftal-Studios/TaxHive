@@ -93,6 +93,9 @@ services:
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       CRON_SECRET: ${CRON_SECRET}
       NODE_ENV: ${NODE_ENV:-development}
+      # Next.js HMR/WebSocket configuration for Docker
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,7 +109,11 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: taxhive-dev-tunnel
     restart: unless-stopped
-    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    command:
+      - tunnel
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}
     environment:
       CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     env_file:

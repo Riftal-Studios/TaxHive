@@ -201,7 +201,13 @@ export function MUIInvoiceDetail({ invoiceId }: InvoiceDetailProps) {
   })
 
   const handlePrint = () => {
-    window.print()
+    // If PDF exists, open it in a new tab for printing
+    if (typedInvoice.pdfUrl) {
+      window.open(`/api/invoices/${typedInvoice.id}/pdf`, '_blank')
+    } else {
+      // Otherwise, print the current page (with print-friendly CSS)
+      window.print()
+    }
   }
   
   const handleStatusClick = (event: React.MouseEvent<HTMLElement>) => {

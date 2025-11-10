@@ -108,7 +108,7 @@ jobs:
           target: /tmp/
 
       - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.3
         with:
           host: ${{ inputs.vps_host }}
           username: ${{ inputs.vps_user }}
@@ -235,7 +235,7 @@ jobs:
             rm -f /tmp/deployment.tar.gz
 
       - name: Run database migrations
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.3
         with:
           host: ${{ inputs.vps_host }}
           username: ${{ inputs.vps_user }}
@@ -284,7 +284,7 @@ jobs:
             echo "✅ Migrations completed successfully"
 
       - name: Health check
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.3
         with:
           host: ${{ inputs.vps_host }}
           username: ${{ inputs.vps_user }}
@@ -329,7 +329,7 @@ jobs:
 
       - name: Cleanup old images
         if: success()
-        uses: appleboy/ssh-action@v1.2.2
+        uses: appleboy/ssh-action@v1.2.3
         with:
           host: ${{ inputs.vps_host }}
           username: ${{ inputs.vps_user }}

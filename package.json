@@ -39,7 +39,7 @@
     "@mui/x-date-pickers": "^8.9.2",
     "@prisma/client": "^6.17.1",
     "@t3-oss/env-nextjs": "^0.13.8",
-    "@tailwindcss/postcss": "^4.1.16",
+    "@tailwindcss/postcss": "^4.1.17",
     "@tanstack/react-query": "^5.90.5",
     "@trpc/client": "^11.6.0",
     "@trpc/next": "^11.6.0",

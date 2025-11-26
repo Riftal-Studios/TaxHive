@@ -20,6 +20,7 @@ model User {
   gstin         String?   // GST Identification Number
   pan           String?   // PAN Number
   address       String?
+  role          UserRole  @default(USER)
   onboardingCompleted Boolean @default(false)
   onboardingStep String?  // Current step: profile, client, lut, invoice, complete
   createdAt     DateTime  @default(now())
@@ -305,4 +306,9 @@ enum FeedbackStatus {
   NEW
   REVIEWED
   RESOLVED
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }

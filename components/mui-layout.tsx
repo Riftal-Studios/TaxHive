@@ -34,6 +34,7 @@ import {
   Receipt as LUTIcon,
   Payment as PaymentIcon,
   Feedback as FeedbackIcon,
+  AdminPanelSettings as AdminIcon,
 } from "@mui/icons-material";
 import { signOut } from "next-auth/react";
 import { useTheme as useAppTheme } from "@/components/theme-provider";
@@ -48,6 +49,7 @@ interface MUILayoutProps {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    role?: string;
   };
 }
 
@@ -57,6 +59,12 @@ const menuItems = [
   { text: "Clients", icon: <ClientsIcon />, href: "/clients" },
   { text: "Payments", icon: <PaymentIcon />, href: "/payments" },
   { text: "LUT Management", icon: <LUTIcon />, href: "/luts" },
+];
+
+const adminMenuItems = [
+  { text: "Admin Dashboard", icon: <AdminIcon />, href: "/admin" },
+  { text: "Users", icon: <ClientsIcon />, href: "/admin/users" },
+  { text: "Feedback", icon: <FeedbackIcon />, href: "/admin/feedback" },
 ];
 
 const bottomMenuItems: Array<{
@@ -150,6 +158,45 @@ export function MUILayout({ children, user }: MUILayoutProps) {
             </ListItemButton>
           </ListItem>
         ))}
+
+        {user?.role === "ADMIN" && (
+          <>
+            <ListSubheader
+              sx={{ background: "transparent", fontWeight: 600, mt: 2, mb: 1 }}
+            >
+              Admin
+            </ListSubheader>
+            {adminMenuItems.map((item) => (
+              <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+                <ListItemButton
+                  onClick={() => {
+                    router.push(item.href);
+                    if (isMobile) {
+                      setMobileOpen(false);
+                    }
+                  }}
+                  selected={pathname === item.href || pathname.startsWith(item.href + "/")}
+                  sx={{
+                    borderRadius: 2,
+                    "&.Mui-selected": {
+                      backgroundColor: "error.main",
+                      color: "error.contrastText",
+                      "&:hover": {
+                        backgroundColor: "error.dark",
+                      },
+                      "& .MuiListItemIcon-root": {
+                        color: "error.contrastText",
+                      },
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.text} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </>
+        )}
       </List>
 
       <Divider />

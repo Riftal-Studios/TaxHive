@@ -49,6 +49,32 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   })
 })
 
+const enforceUserIsAdmin = t.middleware(async ({ ctx, next }) => {
+  if (!ctx.session?.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' })
+  }
+
+  const user = await ctx.prisma.user.findUnique({
+    where: { id: ctx.session.user.id },
+    select: { role: true },
+  })
+
+  if (user?.role !== 'ADMIN') {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Admin access required',
+    })
+  }
+
+  return next({
+    ctx: {
+      session: { ...ctx.session, user: ctx.session.user },
+    },
+  })
+})
+
 export const publicProcedure = t.procedure
 
 export const protectedProcedure = t.procedure.use(enforceUserIsAuthed)
+
+export const adminProcedure = t.procedure.use(enforceUserIsAdmin)

@@ -96,8 +96,9 @@ describe('Exchange Rate Fetch Queue Integration', () => {
 
     const completedJob = await queueService.getJob(job.id)
     expect(completedJob?.status).toBe('completed')
-    expect(completedJob?.result.source).toBe('FALLBACK')
-    expect(completedJob?.result.ratesFetched).toBe(2)
+    const result = completedJob?.result as { source: string; ratesFetched: number }
+    expect(result.source).toBe('FALLBACK')
+    expect(result.ratesFetched).toBe(2)
 
     // Verify fallback rates were saved
     const savedRates = await prisma.exchangeRate.findMany()

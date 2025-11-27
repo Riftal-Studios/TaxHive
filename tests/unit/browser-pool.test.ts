@@ -155,7 +155,7 @@ describe('BrowserPool', () => {
     expect(mockBrowserClose).not.toHaveBeenCalled()
 
     // Should be able to reuse the browser
-    await pool.execute(async (browser) => {
+    await pool.execute(async (browser: Browser) => {
       expect(browser).toBeDefined()
     })
 

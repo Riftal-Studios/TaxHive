@@ -48,6 +48,7 @@ describe('Client Router', () => {
         company: 'Test Company',
         address: '123 Test Street, Test City',
         country: 'United States',
+        currency: 'USD',
         phone: '+1-555-0123',
         taxId: 'US123456789',
       })
@@ -67,6 +68,7 @@ describe('Client Router', () => {
           email: 'invalid-email',
           address: '123 Test Street',
           country: 'United States',
+          currency: 'USD',
         })
       ).rejects.toThrow()
     })
@@ -80,18 +82,20 @@ describe('Client Router', () => {
         email: 'client@example.com',
         address: '123 Street',
         country: 'USA',
+        currency: 'USD',
       })
 
       // Create another user and their client (should not be returned)
       const otherUser = await createTestUser()
       const otherCtx = { ...ctx, session: { user: { id: otherUser.id } } }
       const otherCaller = appRouter.createCaller(otherCtx)
-      
+
       await otherCaller.clients.create({
         name: 'Other Client',
         email: 'other@example.com',
         address: '456 Avenue',
         country: 'Canada',
+        currency: 'CAD',
       })
 
       // List should only return test user's client
@@ -108,6 +112,7 @@ describe('Client Router', () => {
         email: 'original@example.com',
         address: 'Original Address',
         country: 'USA',
+        currency: 'USD',
       })
 
       await caller.clients.update({
@@ -116,6 +121,7 @@ describe('Client Router', () => {
         email: 'updated@example.com',
         address: 'Updated Address',
         country: 'Canada',
+        currency: 'CAD',
         isActive: false,
       })
 
@@ -131,6 +137,7 @@ describe('Client Router', () => {
         email: 'test@example.com',
         address: '123 Street',
         country: 'USA',
+        currency: 'USD',
       })
 
       // Try to update with different user
@@ -145,6 +152,7 @@ describe('Client Router', () => {
           email: 'hacked@example.com',
           address: 'Hacked Address',
           country: 'Hacked Country',
+          currency: 'USD',
           isActive: true,
         })
       ).rejects.toThrow()

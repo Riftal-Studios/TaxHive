@@ -43,6 +43,10 @@ describe('checkPDFStatus', () => {
     expires: '2025-12-31',
   }
 
+  const mockReq = {
+    headers: new Headers(),
+  } as any
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -66,6 +70,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -100,6 +105,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -132,6 +138,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -176,6 +183,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -200,6 +208,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 

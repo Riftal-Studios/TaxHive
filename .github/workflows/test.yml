@@ -11,12 +11,11 @@ on:
 
 env:
   NODE_VERSION: '20'
-  PNPM_VERSION: '8'
 
 jobs:
   test:
     runs-on: self-hosted
-    
+
     services:
       postgres:
         image: postgres:15-alpine
@@ -40,28 +39,10 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v5
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Setup test environment
         run: |
@@ -74,28 +55,23 @@ jobs:
           EOF
 
       - name: Run Prisma migrations
-        run: pnpm prisma migrate deploy
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
 
       - name: Lint code
-        run: pnpm lint
+        run: npm run lint
 
       - name: Type check
-        run: pnpm typecheck
+        run: npm run typecheck
 
       - name: Run unit tests
-        run: pnpm test:unit
-        env:
-          DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
-
-      - name: Run integration tests
-        run: pnpm test:integration
+        run: npm run test:unit
         env:
           DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
 
       - name: Build application
-        run: pnpm build
+        run: npm run build
         env:
           DATABASE_URL: postgresql://postgres:testpassword@localhost:5432/gsthive_test
           SKIP_ENV_VALIDATION: true

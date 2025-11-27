@@ -201,7 +201,9 @@ export function AdminFeedback() {
                   <TableRow key={item.id} hover>
                     <TableCell>
                       <Tooltip title={item.type}>
-                        {typeIcons[item.type as FeedbackType]}
+                        <Box component="span" sx={{ display: 'flex' }}>
+                          {typeIcons[item.type as FeedbackType]}
+                        </Box>
                       </Tooltip>
                     </TableCell>
                     <TableCell>

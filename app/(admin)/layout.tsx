@@ -2,6 +2,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { MUILayout } from '@/components/mui-layout'
 
 export default async function AdminLayout({
   children,
@@ -24,5 +25,9 @@ export default async function AdminLayout({
     redirect('/dashboard')
   }
 
-  return <>{children}</>
+  return (
+    <MUILayout user={session?.user}>
+      {children}
+    </MUILayout>
+  )
 }

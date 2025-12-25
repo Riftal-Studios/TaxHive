@@ -47,6 +47,7 @@ export const authOptions: NextAuthOptions = {
             password: true,
             name: true,
             emailVerified: true,
+            role: true,
           },
         });
 
@@ -75,6 +76,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          role: user.role,
         };
       },
     }),
@@ -105,6 +107,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.name = token.name;
         session.user.email = token.email;
+        session.user.role = token.role;
         session.user.onboardingCompleted = token.onboardingCompleted;
         session.user.onboardingStep = token.onboardingStep;
       }
@@ -117,6 +120,8 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        token.role = (user as any).role;
       }
 
       // Only fetch fresh user data on sign in or when explicitly updating the session
@@ -132,6 +137,7 @@ export const authOptions: NextAuthOptions = {
           token.id = dbUser.id;
           token.name = dbUser.name;
           token.email = dbUser.email;
+          token.role = dbUser.role;
           token.onboardingCompleted = dbUser.onboardingCompleted;
           token.onboardingStep = dbUser.onboardingStep;
         }

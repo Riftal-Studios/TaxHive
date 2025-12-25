@@ -248,7 +248,7 @@ describe('BullMQService', () => {
     })
 
     it('should return null for non-existent job', async () => {
-      vi.mocked(Queue.prototype.getJob).mockResolvedValue(null)
+      vi.mocked(Queue.prototype.getJob).mockResolvedValue(undefined)
 
       const job = await bullmqService.getJob('non-existent')
 

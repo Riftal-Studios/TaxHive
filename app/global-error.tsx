@@ -1,6 +1,30 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+
+/**
+ * Log critical error details
+ */
+function logCriticalError(error: Error & { digest?: string }) {
+  const errorDetails = {
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+    digest: error.digest,
+    url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+    timestamp: new Date().toISOString(),
+  }
+
+  console.error('=== CRITICAL Global Error ===')
+  console.error('Message:', errorDetails.message)
+  console.error('Name:', errorDetails.name)
+  console.error('Digest:', errorDetails.digest)
+  console.error('URL:', errorDetails.url)
+  console.error('Timestamp:', errorDetails.timestamp)
+  console.error('Stack:', errorDetails.stack)
+  console.error('=============================')
+}
 
 export default function GlobalError({
   error,
@@ -9,9 +33,10 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  const [showDetails, setShowDetails] = useState(false)
+
   useEffect(() => {
-    // Log the error to an error reporting service
-    console.error(error)
+    logCriticalError(error)
   }, [error])
 
   return (
@@ -52,10 +77,17 @@ export default function GlobalError({
             }}>
               An unexpected error occurred. Please try again.
             </p>
+            {error.digest && (
+              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1.5rem' }}>
+                Error ID: <code style={{ backgroundColor: '#e5e7eb', padding: '0.25rem 0.5rem', borderRadius: '0.25rem' }}>{error.digest}</code>
+              </p>
+            )}
+
             <div style={{
               display: 'flex',
               gap: '1rem',
-              justifyContent: 'center'
+              justifyContent: 'center',
+              marginBottom: '1.5rem'
             }}>
               <button
                 onClick={reset}
@@ -86,6 +118,40 @@ export default function GlobalError({
                 Go to Dashboard
               </a>
             </div>
+
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              style={{
+                fontSize: '0.875rem',
+                color: '#6b7280',
+                background: 'none',
+                border: 'none',
+                textDecoration: 'underline',
+                cursor: 'pointer'
+              }}
+            >
+              {showDetails ? 'Hide details' : 'Show error details'}
+            </button>
+
+            {showDetails && (
+              <div style={{
+                marginTop: '1rem',
+                padding: '1rem',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '0.5rem',
+                textAlign: 'left',
+                overflowX: 'auto'
+              }}>
+                <p style={{ fontSize: '0.875rem', fontFamily: 'monospace', color: '#dc2626', marginBottom: '0.5rem' }}>
+                  {error.name}: {error.message}
+                </p>
+                {error.stack && (
+                  <pre style={{ fontSize: '0.75rem', color: '#4b5563', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {error.stack}
+                  </pre>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </body>

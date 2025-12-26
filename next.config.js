@@ -3,6 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   // Enable standalone output for Docker builds
   ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
+  // Enable source maps in production for better error tracking
+  productionBrowserSourceMaps: true,
   eslint: {
     // Disable ESLint during builds to avoid circular dependency errors
     ignoreDuringBuilds: true,

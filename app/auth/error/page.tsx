@@ -1,9 +1,10 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-export default function AuthError() {
+function AuthErrorContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
 
@@ -20,9 +21,9 @@ export default function AuthError() {
     <div className="flex min-h-screen flex-col items-center justify-center p-24">
       <div className="w-full max-w-md space-y-8 text-center">
         <div className="space-y-4">
-          <div className="text-6xl">❌</div>
+          <div className="text-6xl text-red-500">Error</div>
           <h1 className="text-3xl font-bold">Authentication Error</h1>
-          <p className="text-gray-600">{message}</p>
+          <p className="text-gray-600 dark:text-gray-400">{message}</p>
           <Link
             href="/auth/signin"
             className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
@@ -32,5 +33,23 @@ export default function AuthError() {
         </div>
       </div>
     </div>
+  )
+}
+
+function AuthErrorLoading() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center p-24">
+      <div className="w-full max-w-md space-y-8 text-center">
+        <div className="text-gray-400">Loading...</div>
+      </div>
+    </div>
+  )
+}
+
+export default function AuthError() {
+  return (
+    <Suspense fallback={<AuthErrorLoading />}>
+      <AuthErrorContent />
+    </Suspense>
   )
 }

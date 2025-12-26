@@ -1,7 +1,7 @@
 'use client'
 
 import { signIn } from 'next-auth/react'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -16,6 +16,7 @@ import {
   InputAdornment,
   LinearProgress,
   Link as MuiLink,
+  CircularProgress,
 } from '@mui/material'
 import {
   Visibility,
@@ -26,7 +27,7 @@ import {
 import { enqueueSnackbar } from 'notistack'
 import { Logo } from '@/components/logo'
 
-export default function SignInPage() {
+function SignInForm() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
 
@@ -166,5 +167,34 @@ export default function SignInPage() {
         </Paper>
       </Box>
     </Container>
+  )
+}
+
+function SignInLoading() {
+  return (
+    <Container component="main" maxWidth="sm">
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Paper elevation={3} sx={{ p: 4, width: '100%', textAlign: 'center' }}>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>Loading...</Typography>
+        </Paper>
+      </Box>
+    </Container>
+  )
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<SignInLoading />}>
+      <SignInForm />
+    </Suspense>
   )
 }

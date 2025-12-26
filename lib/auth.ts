@@ -86,15 +86,31 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async redirect({ url, baseUrl }) {
-      // If url is a relative path, prepend baseUrl
-      if (url.startsWith("/")) {
-        return `${baseUrl}${url}`;
+      // Handle invalid or malformed URLs gracefully
+      try {
+        // If url is a relative path, prepend baseUrl
+        if (url.startsWith("/")) {
+          return `${baseUrl}${url}`;
+        }
+
+        // Skip URLs that contain encoded quotes or are clearly malformed
+        // These are typically from bots or malformed requests
+        if (url.includes("%22") || url.includes("%27") || url.includes("/_next/")) {
+          console.warn("Rejected malformed callback URL:", url);
+          return baseUrl;
+        }
+
+        // Parse the URL and check if it's on the same origin
+        const parsedUrl = new URL(url);
+        if (parsedUrl.origin === baseUrl) {
+          return url;
+        }
+      } catch {
+        // If URL parsing fails, log and return safe default
+        console.warn("Failed to parse callback URL:", url);
       }
-      // If url is on the same origin (same protocol and domain), allow it
-      else if (new URL(url).origin === baseUrl) {
-        return url;
-      }
-      // Otherwise, default to baseUrl (home page)
+
+      // Default to baseUrl (home page) for any invalid or external URLs
       return baseUrl;
     },
     async signIn() {

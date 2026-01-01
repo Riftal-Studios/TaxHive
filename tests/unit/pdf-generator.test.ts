@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Prisma } from '@prisma/client'
+const Decimal = Prisma.Decimal
 
 // Create mock functions
 const mockSetContent = vi.fn()

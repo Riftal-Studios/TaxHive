@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { prisma } from '@/lib/prisma'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Prisma } from '@prisma/client'
+const Decimal = Prisma.Decimal
 
 // Helper to create test data
 async function createTestData() {

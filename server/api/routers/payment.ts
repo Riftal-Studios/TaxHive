@@ -1,8 +1,10 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Prisma } from '@prisma/client'
 import { getQueueService } from '@/lib/queue'
+
+const Decimal = Prisma.Decimal
 
 // Get queue service lazily to avoid connection during build
 const getQueue = () => getQueueService()
@@ -552,7 +554,7 @@ export const paymentRouter = createTRPCRouter({
         acc[currency].total = acc[currency].total.add(payment.amount)
         acc[currency].count += 1
         return acc
-      }, {} as Record<string, { total: Decimal; count: number }>)
+      }, {} as Record<string, { total: Prisma.Decimal; count: number }>)
 
       // Convert to response format
       const summary = Object.entries(summaryByCurrency).map(([currency, data]) => ({

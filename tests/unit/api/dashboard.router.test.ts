@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { dashboardRouter } from '@/server/api/routers/dashboard'
 import type { Session } from 'next-auth'
-import { Decimal } from '@prisma/client/runtime/library'
+import { Prisma } from '@prisma/client'
+const Decimal = Prisma.Decimal
 
 // Mock Prisma
 const mockPrismaInvoice = {

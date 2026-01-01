@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { pdfGenerationHandler } from '@/lib/queue/handlers/pdf-generation.handler'
-import type { Job } from '@/lib/queue/types'
+import type { Job, PdfGenerationJobData } from '@/lib/queue/types'
 import * as pdfGenerator from '@/lib/pdf-generator'
 import * as pdfUploader from '@/lib/pdf-uploader'
 import { db } from '@/lib/prisma'
@@ -17,7 +17,7 @@ vi.mock('@/lib/prisma', () => ({
 }))
 
 describe('PDF Generation Handler', () => {
-  const mockJob: Job = {
+  const mockJob: Job<PdfGenerationJobData> = {
     id: 'job-1',
     type: 'PDF_GENERATION',
     data: {

@@ -6,6 +6,7 @@ import { SessionProvider } from "@/components/providers/SessionProvider"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeScript } from "./theme-script"
 
 // Force dynamic rendering for all pages since we use session
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,9 @@ export default async function RootLayout({
   
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body>
         <SessionProvider session={session}>
           <TRPCReactProvider>

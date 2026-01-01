@@ -30,25 +30,14 @@ export function ThemeProvider({
   children,
   defaultMode = "system",
 }: ThemeProviderProps) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    // Check for saved theme preference or use system preference
-    // Defer state updates to avoid synchronous setState in effect
-    setTimeout(() => {
-      const savedTheme = localStorage.getItem("theme-mode");
-      if (savedTheme) {
-        setIsDarkMode(savedTheme === "dark");
-      } else if (defaultMode === "system") {
-        const prefersDark = window.matchMedia(
-          "(prefers-color-scheme: dark)",
-        ).matches;
-        setIsDarkMode(prefersDark);
-      } else {
-        setIsDarkMode(defaultMode === "dark");
-      }
-    }, 0);
-  }, [defaultMode]);
+  // Initialize from document class (set by ThemeScript before hydration) to prevent flash
+  // ThemeScript already applied the correct theme from localStorage/system preference
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark");
+    }
+    return false;
+  });
 
   useEffect(() => {
     // Update the document class for Tailwind dark mode
@@ -61,7 +50,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     // Listen for system theme changes
-    if (defaultMode === "system" && !localStorage.getItem("theme-mode")) {
+    if (defaultMode === "system" && !localStorage.getItem("theme")) {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = (e: MediaQueryListEvent) => {
         setIsDarkMode(e.matches);
@@ -75,7 +64,7 @@ export function ThemeProvider({
   const toggleTheme = () => {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
-    localStorage.setItem("theme-mode", newMode ? "dark" : "light");
+    localStorage.setItem("theme", newMode ? "dark" : "light");
   };
 
   const activeTheme = isDarkMode ? darkTheme : lightTheme;

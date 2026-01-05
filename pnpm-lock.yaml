@@ -96,7 +96,7 @@ importers:
         specifier: ^3.0.2
         version: 3.0.2(csstype@3.2.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       puppeteer:
-        specifier: ^24.26.1
+        specifier: ^24.34.0
         version: 24.34.0(typescript@5.9.3)
       react:
         specifier: ^19.2.0

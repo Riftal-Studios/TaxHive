@@ -34,7 +34,7 @@
     "@heroicons/react": "^2.2.0",
     "@mui/icons-material": "^7.3.5",
     "@mui/lab": "^7.0.0-beta.14",
-    "@mui/material": "^7.3.5",
+    "@mui/material": "^7.3.6",
     "@mui/x-data-grid": "^8.14.1",
     "@mui/x-date-pickers": "^8.9.2",
     "@prisma/adapter-pg": "^7.2.0",

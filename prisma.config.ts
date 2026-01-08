@@ -1,14 +1,21 @@
 import 'dotenv/config'
 import { defineConfig } from 'prisma/config'
 
-export default defineConfig({
+// Only include datasource config when DATABASE_URL is available
+// This allows prisma generate to work without DATABASE_URL (for Docker builds)
+// while still supporting prisma migrate deploy when DATABASE_URL is set
+const config = defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: {
     path: 'prisma/migrations',
   },
-  datasource: {
-    // Use process.env directly to allow prisma generate without DATABASE_URL
-    // (required for Docker builds where DB connection isn't needed)
-    url: process.env.DATABASE_URL ?? '',
-  },
+  ...(process.env.DATABASE_URL
+    ? {
+        datasource: {
+          url: process.env.DATABASE_URL,
+        },
+      }
+    : {}),
 })
+
+export default config

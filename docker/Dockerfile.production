@@ -36,8 +36,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client (dummy DATABASE_URL for config loading - not used for generate)
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
 
 # Build Next.js application
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -79,8 +79,9 @@ COPY --from=builder --chown=node:node /app/lib ./lib
 COPY --from=builder --chown=node:node /app/server ./server
 COPY --from=builder --chown=node:node /app/scripts ./scripts
 
-# Copy Prisma schema and migrations
+# Copy Prisma schema, migrations, and config
 COPY --chown=node:node prisma ./prisma
+COPY --chown=node:node prisma.config.ts ./prisma.config.ts
 
 # Copy package.json
 COPY --chown=node:node package.json ./package.json

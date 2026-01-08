@@ -1,23 +1,13 @@
 # Development Dockerfile with hot reload support
 FROM node:20-alpine AS development
 
-# Install necessary packages
+# Install necessary packages (Chromium removed - using Gotenberg for PDF generation)
 RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
     ca-certificates \
-    ttf-freefont \
     nodejs \
     yarn \
     openssl \
     openssl-dev
-
-# Tell Puppeteer to use installed chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 

@@ -20,6 +20,24 @@ services:
     networks:
       - app
 
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: taxhive-dev-gotenberg
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--api-port=3000"
+      - "--api-timeout=60s"
+    ports:
+      - "3001:3000"  # Expose on 3001 to avoid conflict with Next.js
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: taxhive-dev-redis
@@ -93,6 +111,7 @@ services:
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       CRON_SECRET: ${CRON_SECRET}
       NODE_ENV: ${NODE_ENV:-development}
+      GOTENBERG_URL: http://gotenberg:3000
       # Next.js HMR/WebSocket configuration for Docker
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
@@ -100,6 +119,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     networks:
       - app
@@ -145,10 +166,13 @@ services:
       RBI_API_KEY: ${RBI_API_KEY}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       NODE_ENV: ${NODE_ENV:-development}
+      GOTENBERG_URL: http://gotenberg:3000
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     networks:
       - app

@@ -18,7 +18,24 @@ services:
       retries: 5
     # NO PORTS EXPOSED
 
-  # Redis for queue/caching - Internal only  
+  # Gotenberg for PDF generation - Internal only
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+    command:
+      - "gotenberg"
+      - "--api-port=3000"
+      - "--api-timeout=60s"
+    networks:
+      - taxhive-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # NO PORTS EXPOSED
+
+  # Redis for queue/caching - Internal only
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -70,10 +87,13 @@ services:
       RBI_API_KEY: ${RBI_API_KEY}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       CRON_SECRET: ${CRON_SECRET}
+      GOTENBERG_URL: http://gotenberg:3000
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
@@ -119,10 +139,13 @@ services:
       RBI_API_KEY: ${RBI_API_KEY}
       EXCHANGE_RATE_API_KEY: ${EXCHANGE_RATE_API_KEY}
       CRON_SECRET: ${CRON_SECRET}
+      GOTENBERG_URL: http://gotenberg:3000
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      gotenberg:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads

@@ -1,21 +1,11 @@
 # Production Dockerfile with multi-stage build
 FROM node:20-alpine AS base
 
-# Install dependencies for Puppeteer and other system requirements
+# Install system dependencies (Chromium removed - using Gotenberg for PDF generation)
 RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
     ca-certificates \
-    ttf-freefont \
     openssl \
     openssl-dev
-
-# Tell Puppeteer to use installed chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Dependencies stage
 FROM base AS deps

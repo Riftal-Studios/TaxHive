@@ -1,4 +1,4 @@
-import { getBrowserPool } from './browser-pool'
+import { getGotenbergClient } from './gotenberg-client'
 
 // Re-export for backward compatibility
 export { uploadPDF } from './pdf-uploader'
@@ -18,23 +18,26 @@ export async function generateInvoicePDF(
   user: User
 ): Promise<Buffer> {
   try {
-    const browserPool = getBrowserPool()
+    const gotenberg = getGotenbergClient()
 
-    return await browserPool.execute(async (browser) => {
-      const page = await browser.newPage()
-      try {
-        const html = generateInvoiceHTML(invoice, user)
-        await page.setContent(html, { waitUntil: 'networkidle0' })
-        const pdf = await page.pdf({
-          format: 'A4',
-          printBackground: true,
-          margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
-        })
-        return Buffer.from(pdf)
-      } finally {
-        await page.close()
-      }
+    // Generate HTML (existing function - unchanged)
+    const html = generateInvoiceHTML(invoice, user)
+
+    // Convert HTML to PDF using Gotenberg
+    // Options match existing Puppeteer config:
+    // format: 'A4' -> paperWidth: 8.27, paperHeight: 11.7
+    // margin: { top: '20mm', ... } -> 20mm = 0.79 inches
+    const pdfBuffer = await gotenberg.htmlToPdf(html, {
+      paperWidth: 8.27,
+      paperHeight: 11.7,
+      marginTop: 0.79,
+      marginBottom: 0.79,
+      marginLeft: 0.79,
+      marginRight: 0.79,
+      printBackground: true,
     })
+
+    return pdfBuffer
   } catch (error) {
     console.error('PDF generation error:', error)
     throw new Error('Failed to generate PDF: ' + (error as Error).message)

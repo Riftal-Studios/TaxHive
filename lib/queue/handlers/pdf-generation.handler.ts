@@ -102,13 +102,15 @@ export async function pdfGenerationHandler(job: Job<PdfGenerationJobData>): Prom
       lastError = error
       console.error(`PDF generation attempt ${attempt} failed for invoice ${invoiceId}:`, error)
       
-      // Check if error is retryable
+      // Check if error is retryable (includes Gotenberg-specific errors)
       const isRetryable = error instanceof Error && (
         error.message.includes('ECONNREFUSED') ||
         error.message.includes('ETIMEDOUT') ||
         error.message.includes('ENOTFOUND') ||
         error.message.includes('Network') ||
-        error.message.includes('timeout')
+        error.message.includes('timeout') ||
+        error.message.includes('Gotenberg error (5') || // 5xx errors are retryable
+        error.message.includes('aborted') // Request aborted/timeout
       )
       
       // If this is not the last attempt and the error is retryable, wait and retry

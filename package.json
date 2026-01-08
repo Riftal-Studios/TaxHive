@@ -54,7 +54,6 @@
     "next-auth": "^4.24.13",
     "nodemailer": "^7.0.12",
     "notistack": "^3.0.2",
-    "puppeteer": "^24.26.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.1.0",

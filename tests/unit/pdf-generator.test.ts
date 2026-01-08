@@ -4,25 +4,21 @@ import type { Invoice, InvoiceItem, User, Client, LUT } from '@prisma/client'
 import { Prisma } from '@prisma/client'
 const Decimal = Prisma.Decimal
 
-// Create mock functions
-const mockSetContent = vi.fn()
-const mockPdf = vi.fn(() => Buffer.from('mock-pdf-content'))
-const mockPageClose = vi.fn()
+// Create mock function for Gotenberg client
+const mockHtmlToPdf = vi.fn(() => Promise.resolve(Buffer.from('mock-pdf-content')))
+const mockIsHealthy = vi.fn(() => Promise.resolve(true))
 
-const mockPage = {
-  setContent: mockSetContent,
-  pdf: mockPdf,
-  close: mockPageClose,
-}
+// Track the HTML passed to htmlToPdf for assertion
+let capturedHtml = ''
 
-const mockBrowser = {
-  newPage: vi.fn(() => mockPage),
-}
-
-// Mock browser pool
-vi.mock('@/lib/browser-pool', () => ({
-  getBrowserPool: vi.fn(() => ({
-    execute: vi.fn(async (fn) => await fn(mockBrowser)),
+// Mock gotenberg client
+vi.mock('@/lib/gotenberg-client', () => ({
+  getGotenbergClient: vi.fn(() => ({
+    htmlToPdf: vi.fn(async (html: string) => {
+      capturedHtml = html
+      return mockHtmlToPdf()
+    }),
+    isHealthy: mockIsHealthy,
   })),
 }))
 
@@ -35,6 +31,7 @@ describe('PDF Invoice Generator', () => {
     pan: 'ABCDE1234F',
     address: '123 Business St, Bangalore, Karnataka 560001',
     emailVerified: null,
+    password: null,
     onboardingCompleted: true,
     onboardingStep: 'complete',
     createdAt: new Date(),
@@ -49,6 +46,7 @@ describe('PDF Invoice Generator', () => {
     company: 'International Corp Ltd',
     address: '456 Global Ave, New York, NY 10001',
     country: 'USA',
+    currency: 'USD',
     phone: '+1-555-0123',
     taxId: 'US-TAX-123',
     isActive: true,
@@ -87,6 +85,8 @@ describe('PDF Invoice Generator', () => {
     currency: 'USD',
     exchangeRate: new Decimal(83.5),
     exchangeSource: 'RBI Reference Rate',
+    exchangeRateOverridden: false,
+    exchangeRateOverriddenAt: null,
     subtotal: new Decimal(5000),
     igstAmount: new Decimal(0),
     totalAmount: new Decimal(5000),
@@ -95,6 +95,12 @@ describe('PDF Invoice Generator', () => {
     paymentTerms: 'Net 30 days',
     bankDetails: 'Account: 1234567890, IFSC: SBIN0001234',
     pdfUrl: null,
+    pdfStatus: 'pending',
+    pdfError: null,
+    pdfGeneratedAt: null,
+    pdfJobId: null,
+    publicAccessToken: null,
+    tokenExpiresAt: null,
     notes: 'Thank you for your business',
     paymentStatus: 'UNPAID',
     amountPaid: new Decimal(0),
@@ -127,9 +133,9 @@ describe('PDF Invoice Generator', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockSetContent.mockClear()
-    mockPdf.mockClear()
-    mockPageClose.mockClear()
+    capturedHtml = ''
+    mockHtmlToPdf.mockClear()
+    mockHtmlToPdf.mockResolvedValue(Buffer.from('mock-pdf-content'))
   })
 
   it('should generate PDF with all GST-compliant fields', async () => {
@@ -143,53 +149,48 @@ describe('PDF Invoice Generator', () => {
     await generateInvoicePDF(mockInvoice, mockUser)
 
     // Verify HTML content includes all mandatory fields
-    expect(mockSetContent).toHaveBeenCalled()
-    const htmlContent = mockSetContent.mock.calls[0][0]
-    
+    expect(capturedHtml).toBeTruthy()
+
     // Check for supplier GSTIN
-    expect(htmlContent).toContain('GSTIN: 29ABCDE1234F1Z5')
-    
+    expect(capturedHtml).toContain('GSTIN: 29ABCDE1234F1Z5')
+
     // Check for invoice number
-    expect(htmlContent).toContain('Invoice #FY24-25/001')
-    
+    expect(capturedHtml).toContain('Invoice #FY24-25/001')
+
     // Check for HSN/SAC code
-    expect(htmlContent).toContain('99831000')
-    
+    expect(capturedHtml).toContain('99831000')
+
     // Check for place of supply
-    expect(htmlContent).toContain('Outside India (Section 2-6)')
-    
+    expect(capturedHtml).toContain('Outside India (Section 2-6)')
+
     // Check for 0% IGST declaration
-    expect(htmlContent).toContain('IGST @ 0%')
-    
+    expect(capturedHtml).toContain('IGST @ 0%')
+
     // Check for LUT declaration
-    expect(htmlContent).toContain('SUPPLY MEANT FOR EXPORT UNDER LUT NO LUT/2024/001')
-    expect(htmlContent).toContain('TAX NOT PAYABLE')
+    expect(capturedHtml).toContain('SUPPLY MEANT FOR EXPORT UNDER LUT NO LUT/2024/001')
+    expect(capturedHtml).toContain('TAX NOT PAYABLE')
   })
 
   it('should show exchange rate information', async () => {
     await generateInvoicePDF(mockInvoice, mockUser)
 
-    const htmlContent = mockSetContent.mock.calls[0][0]
-    
     // Check for exchange rate
-    expect(htmlContent).toContain('1 USD = ₹83.50')
-    expect(htmlContent).toContain('RBI Reference Rate')
+    expect(capturedHtml).toContain('1 USD = ₹83.50')
+    expect(capturedHtml).toContain('RBI Reference Rate')
   })
 
   it('should calculate and show amounts in both currencies', async () => {
     await generateInvoicePDF(mockInvoice, mockUser)
 
-    const htmlContent = mockSetContent.mock.calls[0][0]
-    
     // Check for USD amounts
-    expect(htmlContent).toContain('$3,000.00')
-    expect(htmlContent).toContain('$2,000.00')
-    expect(htmlContent).toContain('$5,000.00')
-    
+    expect(capturedHtml).toContain('$3,000.00')
+    expect(capturedHtml).toContain('$2,000.00')
+    expect(capturedHtml).toContain('$5,000.00')
+
     // Check for INR amounts
-    expect(htmlContent).toContain('₹2,50,500.00')
-    expect(htmlContent).toContain('₹1,67,000.00')
-    expect(htmlContent).toContain('₹4,17,500.00')
+    expect(capturedHtml).toContain('₹2,50,500.00')
+    expect(capturedHtml).toContain('₹1,67,000.00')
+    expect(capturedHtml).toContain('₹4,17,500.00')
   })
 
   it('should handle invoice without LUT', async () => {
@@ -204,29 +205,29 @@ describe('PDF Invoice Generator', () => {
 
     await generateInvoicePDF(invoiceWithoutLUT, mockUser)
 
-    const htmlContent = mockSetContent.mock.calls[0][0]
-    
     // Should show IGST rate instead of LUT
-    expect(htmlContent).toContain('IGST @ 18%')
-    expect(htmlContent).not.toContain('LUT NO')
+    expect(capturedHtml).toContain('IGST @ 18%')
+    expect(capturedHtml).not.toContain('LUT NO')
   })
 
   it('should include all line items with proper formatting', async () => {
     await generateInvoicePDF(mockInvoice, mockUser)
 
-    const htmlContent = mockSetContent.mock.calls[0][0]
-    
     // Check line items
-    expect(htmlContent).toContain('Website Development - Phase 1')
-    expect(htmlContent).toContain('API Integration Services')
-    expect(htmlContent).toContain('40') // quantity
+    expect(capturedHtml).toContain('Website Development - Phase 1')
+    expect(capturedHtml).toContain('API Integration Services')
+    expect(capturedHtml).toContain('40') // quantity
   })
 
-  it('should handle PDF generation errors gracefully', async () => {
-    const { getBrowserPool } = await import('@/lib/browser-pool')
-    vi.mocked(getBrowserPool).mockReturnValueOnce({
-      execute: vi.fn().mockRejectedValueOnce(new Error('Browser pool error')),
-    } as any)
+  it('should handle Gotenberg errors gracefully', async () => {
+    mockHtmlToPdf.mockRejectedValueOnce(new Error('Gotenberg error (500): Internal server error'))
+
+    await expect(generateInvoicePDF(mockInvoice, mockUser))
+      .rejects.toThrow('Failed to generate PDF')
+  })
+
+  it('should handle Gotenberg timeout errors', async () => {
+    mockHtmlToPdf.mockRejectedValueOnce(new Error('aborted'))
 
     await expect(generateInvoicePDF(mockInvoice, mockUser))
       .rejects.toThrow('Failed to generate PDF')

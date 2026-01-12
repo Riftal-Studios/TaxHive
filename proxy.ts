@@ -15,8 +15,18 @@ const ONBOARDING_EXEMPT_PATHS = [
   '/test-onboarding', // Test page
 ]
 
-export default withAuth(
-  async function middleware(req) {
+/**
+ * Next.js 16 Proxy (formerly Middleware)
+ *
+ * Handles routing-level concerns:
+ * - Redirecting authenticated users from marketing pages
+ * - Redirecting users to onboarding if incomplete
+ * - Basic auth gating for protected routes
+ *
+ * Note: Full authentication validation happens in Server Components
+ */
+const authProxy = withAuth(
+  async function proxyHandler(req) {
     const token = req.nextauth.token
 
     /**
@@ -72,6 +82,9 @@ export default withAuth(
     },
   }
 )
+
+// Export as 'proxy' for Next.js 16 compatibility
+export { authProxy as proxy }
 
 export const config = {
   matcher: [

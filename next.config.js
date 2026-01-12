@@ -5,10 +5,8 @@ const nextConfig = {
   ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
   // Enable source maps in production for better error tracking
   productionBrowserSourceMaps: true,
-  eslint: {
-    // Disable ESLint during builds to avoid circular dependency errors
-    ignoreDuringBuilds: true,
-  },
+  // Note: ESLint config removed - Next.js 16 no longer supports eslint in next.config.js
+  // Run ESLint separately via: npm run lint
   typescript: {
     // Skip type checking during production build (already checked in development)
     ignoreBuildErrors: false,

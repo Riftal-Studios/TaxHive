@@ -1,8 +1,7 @@
-import { PrismaClient, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { hash } from 'bcryptjs'
 import { faker } from '@faker-js/faker'
-
-const prisma = new PrismaClient()
+import { prisma } from '../../lib/prisma'
 
 const DEMO_EMAIL = 'demo@taxhive.app'
 const DEMO_PASSWORD = 'Demo123!'

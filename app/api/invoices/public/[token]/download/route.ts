@@ -95,7 +95,7 @@ export async function GET(
       }
       
       // Create a safe filename
-      const safeClientName = invoice.client.name.replace(/[^a-zA-Z0-9]/g, '_')
+      const safeClientName = invoice.client?.name.replace(/[^a-zA-Z0-9]/g, '_') ?? 'Self_Invoice'
       const downloadFilename = `${invoice.invoiceNumber}_${safeClientName}_${new Date(invoice.invoiceDate).toISOString().split('T')[0]}.pdf`
       
       // Set appropriate headers for download

@@ -55,7 +55,7 @@ interface Invoice {
   client: {
     name: string
     company?: string | null
-  }
+  } | null  // Nullable for self-invoices
 }
 
 interface StatusChipProps {
@@ -159,7 +159,7 @@ export function InvoiceList() {
     setPage(0)
   }
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: { 
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, invoice: {
     id: string
     invoiceNumber: string
     invoiceDate: Date | string
@@ -173,7 +173,7 @@ export function InvoiceList() {
     client: {
       name: string
       company?: string | null
-    }
+    } | null
   }) => {
     setAnchorEl(event.currentTarget)
     // Convert invoice data to match the Invoice interface
@@ -188,10 +188,10 @@ export function InvoiceList() {
       totalInINR: invoice.totalInINR ? toSafeNumber(invoice.totalInINR) : undefined,
       currency: invoice.currency,
       pdfUrl: invoice.pdfUrl,
-      client: {
+      client: invoice.client ? {
         name: invoice.client.name,
         company: invoice.client.company,
-      }
+      } : null
     }
     setSelectedInvoice(formattedInvoice)
   }
@@ -353,9 +353,9 @@ export function InvoiceList() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {invoice.client.name}
+                        {invoice.client?.name ?? 'Self Invoice'}
                       </Typography>
-                      {invoice.client.company && (
+                      {invoice.client?.company && (
                         <Typography variant="caption" color="text.secondary">
                           {invoice.client.company}
                         </Typography>

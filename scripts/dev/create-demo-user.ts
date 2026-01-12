@@ -29,7 +29,7 @@ interface Client {
 interface Invoice {
   id: string
   userId: string
-  clientId: string
+  clientId: string | null
   invoiceNumber: string
   invoiceDate: Date
   dueDate: Date

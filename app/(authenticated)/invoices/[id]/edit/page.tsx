@@ -134,7 +134,7 @@ function EditInvoiceContent({ id }: { id: string }) {
   }))
   
   const initialData = {
-    clientId: invoice.clientId,
+    clientId: invoice.clientId ?? undefined,  // Convert null to undefined for form compatibility
     lutId: invoice.lutId || '',
     issueDate: invoice.invoiceDate.toISOString().split('T')[0],
     dueDate: invoice.dueDate.toISOString().split('T')[0],

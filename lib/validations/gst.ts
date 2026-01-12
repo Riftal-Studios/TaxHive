@@ -302,3 +302,272 @@ export function getLUTExpiryStatus(lutExpiryDate: Date): {
     return { status: 'active', daysRemaining }
   }
 }
+
+// ============================================================================
+// RCM (Reverse Charge Mechanism) Self Invoice - GST Calculation
+// ============================================================================
+
+/**
+ * Standard GST rates applicable for RCM Self Invoices
+ * As per GST Council notifications
+ */
+export const RCM_GST_RATES = [5, 12, 18, 28] as const
+export type RCMGSTRate = typeof RCM_GST_RATES[number]
+
+/**
+ * Result of RCM GST calculation
+ */
+export interface RCMGSTComponents {
+  cgst: number
+  sgst: number
+  igst: number
+  totalTax: number
+  isInterstate: boolean
+  cgstRate: number
+  sgstRate: number
+  igstRate: number
+}
+
+/**
+ * Calculate RCM GST components based on place of supply
+ *
+ * For RCM Self Invoices:
+ * - Intrastate (same state): CGST + SGST (50% each of GST rate)
+ * - Interstate (different states): Full IGST
+ *
+ * @param amount - Taxable amount (before tax)
+ * @param gstRate - GST rate (5, 12, 18, or 28)
+ * @param supplierStateCode - 2-digit state code of unregistered supplier
+ * @param recipientStateCode - 2-digit state code of registered recipient (from GSTIN)
+ * @returns GST components breakdown
+ */
+export function calculateRCMGSTComponents(
+  amount: number,
+  gstRate: number,
+  supplierStateCode: string,
+  recipientStateCode: string
+): RCMGSTComponents {
+  // Validate GST rate
+  if (!RCM_GST_RATES.includes(gstRate as RCMGSTRate)) {
+    throw new Error(`Invalid GST rate for RCM: ${gstRate}. Must be one of: ${RCM_GST_RATES.join(', ')}`)
+  }
+
+  // Validate state codes
+  if (!GST_STATE_CODES[supplierStateCode]) {
+    throw new Error(`Invalid supplier state code: ${supplierStateCode}`)
+  }
+  if (!GST_STATE_CODES[recipientStateCode]) {
+    throw new Error(`Invalid recipient state code: ${recipientStateCode}`)
+  }
+
+  const isInterstate = supplierStateCode !== recipientStateCode
+  const totalTax = amount * (gstRate / 100)
+
+  if (isInterstate) {
+    // Interstate: Full IGST
+    return {
+      cgst: 0,
+      sgst: 0,
+      igst: totalTax,
+      totalTax,
+      isInterstate: true,
+      cgstRate: 0,
+      sgstRate: 0,
+      igstRate: gstRate
+    }
+  } else {
+    // Intrastate: Split into CGST + SGST (50% each)
+    const halfRate = gstRate / 2
+    const halfTax = totalTax / 2
+    return {
+      cgst: halfTax,
+      sgst: halfTax,
+      igst: 0,
+      totalTax,
+      isInterstate: false,
+      cgstRate: halfRate,
+      sgstRate: halfRate,
+      igstRate: 0
+    }
+  }
+}
+
+/**
+ * RCM Self Invoice validation result
+ */
+export interface RCMSelfInvoiceValidation {
+  isValid: boolean
+  errors: string[]
+  warnings: string[]
+}
+
+/**
+ * Rule 47A compliance check - 30 days rule
+ * Self-invoice must be issued within 30 days of receipt of goods/services
+ */
+export const RCM_RULE_47A_DAYS = 30
+
+/**
+ * Validate RCM Self Invoice for GST compliance
+ *
+ * Validates:
+ * - Rule 47A: Invoice date within 30 days of receipt date
+ * - Valid GST rate
+ * - Valid HSN/SAC code
+ * - Required supplier details
+ *
+ * @param invoice - Self invoice details to validate
+ * @returns Validation result with errors and warnings
+ */
+export function validateRCMSelfInvoice(invoice: {
+  invoiceDate: Date
+  dateOfReceiptOfSupply: Date
+  gstRate: number
+  serviceCode: string
+  supplierStateCode: string
+  recipientStateCode: string
+  supplierName: string
+  supplierAddress: string
+  amount: number
+}): RCMSelfInvoiceValidation {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // Rule 47A: Self-invoice must be issued within 30 days of receipt
+  const invoiceDate = new Date(invoice.invoiceDate)
+  const receiptDate = new Date(invoice.dateOfReceiptOfSupply)
+
+  // Invoice date cannot be before receipt date
+  if (invoiceDate < receiptDate) {
+    errors.push('Invoice date cannot be before the date of receipt of supply')
+  }
+
+  // Calculate days difference
+  const daysDiff = Math.floor(
+    (invoiceDate.getTime() - receiptDate.getTime()) / (1000 * 60 * 60 * 24)
+  )
+
+  if (daysDiff > RCM_RULE_47A_DAYS) {
+    errors.push(
+      `Self-invoice must be issued within ${RCM_RULE_47A_DAYS} days of receipt of supply (Rule 47A). ` +
+      `Current delay: ${daysDiff} days`
+    )
+  } else if (daysDiff > 25) {
+    warnings.push(
+      `Self-invoice approaching 30-day deadline (Rule 47A). Days remaining: ${RCM_RULE_47A_DAYS - daysDiff}`
+    )
+  }
+
+  // Validate GST rate
+  if (!RCM_GST_RATES.includes(invoice.gstRate as RCMGSTRate)) {
+    errors.push(
+      `Invalid GST rate: ${invoice.gstRate}%. Valid rates for RCM: ${RCM_GST_RATES.join(', ')}%`
+    )
+  }
+
+  // Validate HSN/SAC code
+  if (!invoice.serviceCode) {
+    errors.push('HSN/SAC code is required for RCM self-invoice')
+  } else {
+    const codeExists = SAC_HSN_CODES.some(item => item.code === invoice.serviceCode)
+    if (!codeExists) {
+      errors.push('HSN/SAC code must be a valid code from the GST Classification Scheme')
+    }
+  }
+
+  // Validate state codes
+  if (!invoice.supplierStateCode) {
+    errors.push('Supplier state code is required')
+  } else if (!GST_STATE_CODES[invoice.supplierStateCode]) {
+    errors.push(`Invalid supplier state code: ${invoice.supplierStateCode}`)
+  }
+
+  if (!invoice.recipientStateCode) {
+    errors.push('Recipient state code is required (from GSTIN)')
+  } else if (!GST_STATE_CODES[invoice.recipientStateCode]) {
+    errors.push(`Invalid recipient state code: ${invoice.recipientStateCode}`)
+  }
+
+  // Validate supplier details
+  if (!invoice.supplierName || invoice.supplierName.trim().length === 0) {
+    errors.push('Supplier name is required')
+  }
+
+  if (!invoice.supplierAddress || invoice.supplierAddress.trim().length === 0) {
+    errors.push('Supplier address is required')
+  }
+
+  // Validate amount
+  if (!invoice.amount || invoice.amount <= 0) {
+    errors.push('Taxable amount must be greater than zero')
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+/**
+ * Get state name from state code
+ */
+export function getStateNameFromCode(stateCode: string): string | null {
+  return GST_STATE_CODES[stateCode] || null
+}
+
+/**
+ * Determine place of supply description for RCM self-invoice
+ * Returns formatted place of supply string for invoice
+ */
+export function getRCMPlaceOfSupply(
+  supplierStateCode: string,
+  recipientStateCode: string
+): string {
+  const supplierState = getStateNameFromCode(supplierStateCode)
+  const recipientState = getStateNameFromCode(recipientStateCode)
+
+  if (!supplierState || !recipientState) {
+    return 'Invalid State'
+  }
+
+  // Place of supply follows IGST Act rules
+  // For services, it's typically the location of the recipient
+  return `${recipientStateCode} - ${recipientState}`
+}
+
+/**
+ * Calculate RCM liability for GSTR-3B Table 3.1(d)
+ * This is the total tax payable under reverse charge
+ */
+export function calculateRCMLiability(gstComponents: RCMGSTComponents): number {
+  return gstComponents.totalTax
+}
+
+/**
+ * Calculate ITC claimable for GSTR-3B Table 4A(3)
+ * ITC on RCM is claimable in the same month it's paid
+ */
+export function calculateITCFromRCM(gstComponents: RCMGSTComponents): number {
+  // Full tax paid under RCM is claimable as ITC
+  return gstComponents.totalTax
+}
+
+/**
+ * Zod schema for RCM GST rate validation
+ */
+export const rcmGstRateSchema = z.number()
+  .refine(
+    (rate) => RCM_GST_RATES.includes(rate as RCMGSTRate),
+    { message: `GST rate must be one of: ${RCM_GST_RATES.join(', ')}%` }
+  )
+
+/**
+ * Zod schema for GST state code validation
+ */
+export const gstStateCodeSchema = z.string()
+  .length(2, 'State code must be 2 digits')
+  .refine(
+    (code) => !!GST_STATE_CODES[code],
+    { message: 'Invalid GST state code' }
+  )

@@ -377,7 +377,7 @@ export function MUIPayments() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {payment.invoice.client.name}
+                            {payment.invoice.client?.name ?? 'Self Invoice'}
                           </Typography>
                         </TableCell>
                         <TableCell>

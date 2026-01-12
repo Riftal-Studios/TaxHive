@@ -34,6 +34,8 @@ import {
   Receipt as LUTIcon,
   Payment as PaymentIcon,
   Feedback as FeedbackIcon,
+  ReceiptLong as SelfInvoiceIcon,
+  Store as SupplierIcon,
 } from "@mui/icons-material";
 import { signOut } from "next-auth/react";
 import { useTheme as useAppTheme } from "@/components/theme-provider";
@@ -54,7 +56,9 @@ interface MUILayoutProps {
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, href: "/dashboard" },
   { text: "Invoices", icon: <InvoiceIcon />, href: "/invoices" },
+  { text: "Self Invoices", icon: <SelfInvoiceIcon />, href: "/self-invoices" },
   { text: "Clients", icon: <ClientsIcon />, href: "/clients" },
+  { text: "Suppliers", icon: <SupplierIcon />, href: "/suppliers" },
   { text: "Payments", icon: <PaymentIcon />, href: "/payments" },
   { text: "LUT Management", icon: <LUTIcon />, href: "/luts" },
 ];

@@ -17,6 +17,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     { name: 'Dashboard', href: '/dashboard' as const },
     { name: 'Clients', href: '/clients' as const },
     { name: 'Invoices', href: '/invoices' as const },
+    { name: 'Self Invoices', href: '/self-invoices' as const },
+    { name: 'Suppliers', href: '/suppliers' as const },
     { name: 'Settings', href: '/settings' as const },
   ]
 

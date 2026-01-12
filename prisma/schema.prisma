@@ -24,14 +24,16 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
-  clients  Client[]
-  invoices Invoice[]
-  luts     LUT[]
-  emailHistory EmailHistory[]
-  otps     OTP[]
-  feedback Feedback[]
+  accounts              Account[]
+  sessions              Session[]
+  clients               Client[]
+  invoices              Invoice[]
+  luts                  LUT[]
+  emailHistory          EmailHistory[]
+  otps                  OTP[]
+  feedback              Feedback[]
+  unregisteredSuppliers UnregisteredSupplier[]
+  paymentVouchers       PaymentVoucher[]
 }
 
 model Account {
@@ -93,17 +95,24 @@ model Client {
 model Invoice {
   id             String        @id @default(cuid())
   userId         String
-  clientId       String
-  invoiceNumber  String        @unique // Format: FY23-24/001
+  clientId       String?       // Optional for self-invoices (no client needed)
+  invoiceNumber  String        @unique // Format: FY23-24/001 or SI/2025-26/0001
   invoiceDate    DateTime
   dueDate        DateTime
   status         String        @default("DRAFT")
-  
+
+  // Invoice Type for RCM Self Invoice
+  invoiceType    InvoiceType   @default(EXPORT)
+
   // GST Compliance Fields
   placeOfSupply  String        @default("Outside India (Section 2-6)")
   serviceCode    String        // HSN/SAC code
-  lutId          String?       // Reference to LUT
-  
+  lutId          String?       // Reference to LUT (for export invoices)
+
+  // RCM Self Invoice Fields
+  unregisteredSupplierId String?     // Link to unregistered supplier
+  dateOfReceiptOfSupply  DateTime?   // Required for RCM - when goods/services received
+
   // Financial Details
   currency       String        @default("USD")
   exchangeRate   Decimal
@@ -111,10 +120,22 @@ model Invoice {
   exchangeRateOverridden Boolean @default(false) // Whether exchange rate was manually changed after invoice creation
   exchangeRateOverriddenAt DateTime? // When exchange rate was manually changed
   subtotal       Decimal
+
+  // GST Details (extended for RCM)
   igstRate       Decimal       @default(0)
   igstAmount     Decimal       @default(0)
+  cgstRate       Decimal       @default(0)  // CGST rate for intrastate RCM
+  cgstAmount     Decimal       @default(0)  // CGST amount
+  sgstRate       Decimal       @default(0)  // SGST rate for intrastate RCM
+  sgstAmount     Decimal       @default(0)  // SGST amount
+
   totalAmount    Decimal
   totalInINR     Decimal
+
+  // RCM Tracking
+  isRCM          Boolean       @default(false)
+  rcmLiability   Decimal       @default(0)  // Total RCM tax liability for GSTR-3B 3.1(d)
+  itcClaimable   Decimal       @default(0)  // ITC claimable for GSTR-3B 4A(3)
   
   // Payment Status
   paymentStatus  String        @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID
@@ -141,17 +162,21 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client      Client        @relation(fields: [clientId], references: [id])
-  lut         LUT?          @relation(fields: [lutId], references: [id])
-  lineItems   InvoiceItem[]
-  payments    Payment[]
-  emailHistory EmailHistory[]
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client               Client?                @relation(fields: [clientId], references: [id])
+  lut                  LUT?                   @relation(fields: [lutId], references: [id])
+  unregisteredSupplier UnregisteredSupplier?  @relation(fields: [unregisteredSupplierId], references: [id])
+  lineItems            InvoiceItem[]
+  payments             Payment[]
+  emailHistory         EmailHistory[]
+  paymentVoucher       PaymentVoucher?
 
   @@index([userId])
   @@index([clientId])
   @@index([status])
   @@index([paymentStatus])
+  @@index([invoiceType])
+  @@index([unregisteredSupplierId])
 }
 
 model InvoiceItem {
@@ -293,6 +318,63 @@ model Feedback {
   @@index([createdAt])
 }
 
+// Unregistered Supplier for RCM Self Invoices
+model UnregisteredSupplier {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  address   String
+  state     String   // State name for place of supply determination
+  stateCode String   // 2-digit GST state code (01-37)
+  pan       String?  // Optional PAN number
+  pincode   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+// Payment Voucher linked to Self Invoice
+model PaymentVoucher {
+  id               String      @id @default(cuid())
+  userId           String
+  voucherNumber    String      @unique // Format: PV/2025-26/0001
+  voucherDate      DateTime
+  selfInvoiceId    String      @unique // One-to-one with self-invoice
+
+  // Supplier details (copied for record keeping)
+  supplierName     String
+  supplierAddress  String
+
+  // Payment details
+  amount           Decimal
+  paymentMode      PaymentMode
+  paymentReference String?
+  notes            String?
+
+  // PDF storage
+  pdfUrl           String?
+  pdfStatus        String      @default("pending") // pending, generating, completed, failed
+  pdfError         String?
+  pdfGeneratedAt   DateTime?
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  selfInvoice Invoice @relation(fields: [selfInvoiceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([voucherDate])
+}
+
 enum FeedbackType {
   BUG
   FEATURE
@@ -304,4 +386,17 @@ enum FeedbackStatus {
   NEW
   REVIEWED
   RESOLVED
+}
+
+enum InvoiceType {
+  EXPORT       // Standard export invoice (current behavior)
+  SELF_INVOICE // RCM self-invoice for unregistered suppliers
+}
+
+enum PaymentMode {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  UPI
+  OTHER
 }

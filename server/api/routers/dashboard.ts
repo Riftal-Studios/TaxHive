@@ -160,8 +160,8 @@ export const dashboardRouter = createTRPCRouter({
         invoiceDate: invoice.invoiceDate,
         amount: Number(invoice.totalInINR),
         status: invoice.status,
-        clientName: invoice.client.name,
-        companyName: invoice.client.company,
+        clientName: invoice.client?.name ?? 'Self Invoice',
+        companyName: invoice.client?.company ?? null,
       }))
     }),
 
@@ -210,8 +210,8 @@ export const dashboardRouter = createTRPCRouter({
         take: limit,
       })
 
-      // Get client details for the grouped results
-      const clientIds = clientGroups.map(g => g.clientId)
+      // Get client details for the grouped results (filter out null clientIds for self-invoices)
+      const clientIds = clientGroups.map(g => g.clientId).filter((id): id is string => id !== null)
       const clientDetails = await ctx.prisma.invoice.findMany({
         where: {
           userId: ctx.session.user.id,

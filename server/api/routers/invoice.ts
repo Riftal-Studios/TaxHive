@@ -695,11 +695,19 @@ export const invoiceRouter = createTRPCRouter({
         })
       }
 
+      // Self-invoices don't have clients, so we can't send emails to them
+      if (!invoice.client) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot send email for self-invoices (no client)',
+        })
+      }
+
       // Get user details for the email
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
       })
-      
+
       if (!user) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -724,7 +732,7 @@ export const invoiceRouter = createTRPCRouter({
           invoice.publicAccessToken = updatedInvoice.publicAccessToken
         }
       }
-      
+
       // Queue invoice email
       const queueService = getQueue()
       if (!queueService) {
@@ -801,18 +809,26 @@ export const invoiceRouter = createTRPCRouter({
         })
       }
 
+      // Self-invoices don't have clients, so we can't send payment reminders
+      if (!invoice.client) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot send payment reminder for self-invoices (no client)',
+        })
+      }
+
       // Get user details for the email
       const user = await ctx.prisma.user.findUnique({
         where: { id: ctx.session.user.id },
       })
-      
+
       if (!user) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'User not found',
         })
       }
-      
+
       // Generate new public access token if not exists or expired
       if (!invoice.publicAccessToken || !invoice.tokenExpiresAt || new Date() > invoice.tokenExpiresAt) {
         await ctx.prisma.invoice.update({
@@ -830,12 +846,12 @@ export const invoiceRouter = createTRPCRouter({
           invoice.publicAccessToken = updatedInvoice.publicAccessToken
         }
       }
-      
+
       // Calculate days overdue
       const dueDate = new Date(invoice.dueDate)
       const today = new Date()
       const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
-      
+
       // Queue payment reminder email
       const queueService = getQueue()
       if (!queueService) {

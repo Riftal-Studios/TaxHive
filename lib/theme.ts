@@ -437,13 +437,38 @@ export const darkTheme = createTheme({
         },
       },
     },
+    MuiTable: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "transparent",
+        },
+      },
+    },
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "transparent",
+        },
+      },
+    },
+    MuiTableBody: {
+      styleOverrides: {
+        root: {
+          backgroundColor: "transparent",
+        },
+      },
+    },
     MuiTableCell: {
       styleOverrides: {
         root: {
           borderBottom: "1px solid #374151",
+          backgroundColor: "transparent",
         },
         head: {
           backgroundColor: "#111827",
+          color: "#E5E7EB",
+        },
+        body: {
           color: "#E5E7EB",
         },
       },
@@ -451,6 +476,7 @@ export const darkTheme = createTheme({
     MuiTableRow: {
       styleOverrides: {
         root: {
+          backgroundColor: "transparent",
           "&:hover": {
             backgroundColor: alpha("#F9FAFB", 0.05),
           },

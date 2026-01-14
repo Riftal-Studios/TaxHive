@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Session } from 'next-auth'
 import { TRPCError } from '@trpc/server'
+import { NextRequest } from 'next/server'
 
 // Mock server-only to allow imports in test environment
 vi.mock('server-only', () => ({}))
@@ -43,6 +44,8 @@ describe('checkPDFStatus', () => {
     expires: '2025-12-31',
   }
 
+  const mockReq = new NextRequest('http://localhost:3000')
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -66,6 +69,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -100,6 +104,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -132,6 +137,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -176,6 +182,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 
@@ -200,6 +207,7 @@ describe('checkPDFStatus', () => {
     const ctx = {
       session: mockSession,
       prisma: db as any,
+      req: mockReq,
     }
     const caller = invoiceRouter.createCaller(ctx)
 

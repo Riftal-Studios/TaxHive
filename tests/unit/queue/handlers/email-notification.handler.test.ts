@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { emailNotificationHandler } from '@/lib/queue/handlers/email-notification.handler'
-import type { Job } from '@/lib/queue/types'
+import type { Job, EmailNotificationJobData } from '@/lib/queue/types'
 import * as emailService from '@/lib/email/service'
 import { db } from '@/lib/prisma'
 
@@ -22,7 +22,7 @@ describe('Email Notification Handler', () => {
   })
 
   describe('Invoice Email', () => {
-    const mockJob: Job = {
+    const mockJob: Job<EmailNotificationJobData> = {
       id: 'job-1',
       type: 'EMAIL_NOTIFICATION',
       data: {
@@ -90,7 +90,7 @@ describe('Email Notification Handler', () => {
   })
 
   describe('Payment Reminder Email', () => {
-    const mockJob: Job = {
+    const mockJob: Job<EmailNotificationJobData> = {
       id: 'job-2',
       type: 'EMAIL_NOTIFICATION',
       data: {
@@ -151,7 +151,7 @@ describe('Email Notification Handler', () => {
   })
 
   describe('LUT Expiry Reminder Email', () => {
-    const mockJob: Job = {
+    const mockJob: Job<EmailNotificationJobData> = {
       id: 'job-3',
       type: 'EMAIL_NOTIFICATION',
       data: {
@@ -201,7 +201,7 @@ describe('Email Notification Handler', () => {
   })
 
   describe('Error Handling', () => {
-    const mockJob: Job = {
+    const mockJob: Job<EmailNotificationJobData> = {
       id: 'job-4',
       type: 'EMAIL_NOTIFICATION',
       data: {

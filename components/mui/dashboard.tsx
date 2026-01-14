@@ -26,6 +26,11 @@ import { api } from '@/lib/trpc/client'
 import { MUIRevenueChart } from './charts/revenue-chart'
 import { MUIPaymentStatusChart } from './charts/payment-status-chart'
 import { MUIRecentInvoices } from './recent-invoices'
+import { LUTExpiryBanner } from './lut/lut-expiry-banner'
+import { ComplianceHealthCard } from './dashboard/compliance-health'
+import { GSTSummaryCard } from './dashboard/gst-summary'
+import { FilingCalendarCard } from './dashboard/filing-calendar'
+import { ITCHealthCard } from './dashboard/itc-health'
 
 interface MetricCardProps {
   title: string
@@ -147,6 +152,10 @@ export function MUIDashboard() {
           Overview of your freelance business performance
         </Typography>
       </Box>
+
+      {/* LUT Expiry Banner */}
+      <LUTExpiryBanner />
+
       {/* Metric Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid
@@ -246,6 +255,39 @@ export function MUIDashboard() {
           />
         </Grid>
       </Grid>
+
+      {/* Compliance & GST Widgets */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid
+          size={{
+            xs: 12,
+            lg: 6
+          }}>
+          <ComplianceHealthCard />
+        </Grid>
+        <Grid
+          size={{
+            xs: 12,
+            lg: 6
+          }}>
+          <GSTSummaryCard />
+        </Grid>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
+          <FilingCalendarCard />
+        </Grid>
+        <Grid
+          size={{
+            xs: 12,
+            md: 6
+          }}>
+          <ITCHealthCard />
+        </Grid>
+      </Grid>
+
       {/* Charts Row */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid

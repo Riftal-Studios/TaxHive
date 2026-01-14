@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import type { UnregisteredSupplier } from '@prisma/client'
+import { SupplierType } from '@prisma/client'
 import { formatCurrency, validateHSNCode, calculateLineAmount, calculateSubtotal } from '@/lib/invoice-utils'
 import { SAC_HSN_CODES } from '@/lib/constants'
 import {
@@ -9,7 +10,11 @@ import {
   calculateRCMGSTComponents,
   validateRCMSelfInvoice,
   RCM_RULE_47A_DAYS,
-  GST_STATE_CODES
+  GST_STATE_CODES,
+  // Import of Services functions
+  IMPORT_OF_SERVICES_GST_RATES,
+  calculateImportOfServicesGST,
+  validateImportOfServicesInvoice,
 } from '@/lib/validations/gst'
 import { generateUUID } from '@/lib/utils/uuid'
 import {
@@ -33,6 +38,7 @@ interface LineItem {
 
 export interface SelfInvoiceFormData {
   supplierId: string
+  supplierType: SupplierType
   dateOfReceiptOfSupply: string
   invoiceDate: string
   gstRate: number
@@ -45,6 +51,11 @@ export interface SelfInvoiceFormData {
   notes: string
   paymentMode: string
   paymentReference: string
+  // Foreign currency fields (for Import of Services)
+  foreignCurrency?: string
+  foreignAmount?: number
+  exchangeRate?: number
+  exchangeSource?: string
 }
 
 interface SelfInvoiceFormProps {
@@ -52,7 +63,7 @@ interface SelfInvoiceFormProps {
   userStateCode: string // Derived from user's GSTIN
   onSubmit: (data: SelfInvoiceFormData) => void | Promise<void>
   onCancel: () => void
-  onAddSupplier?: () => void
+  onAddSupplier?: (type: SupplierType) => void
   initialData?: Partial<SelfInvoiceFormData & { lineItems: LineItem[] }>
 }
 
@@ -62,6 +73,9 @@ interface FormErrors {
   invoiceDate?: string
   gstRate?: string
   paymentMode?: string
+  foreignCurrency?: string
+  foreignAmount?: string
+  exchangeRate?: string
   lineItems?: Record<string, Record<string, string>>
 }
 
@@ -72,6 +86,17 @@ const PAYMENT_MODES = [
   { value: 'UPI', label: 'UPI' },
 ]
 
+// Common currencies for Import of Services
+const FOREIGN_CURRENCIES = [
+  { code: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+]
+
 export function SelfInvoiceForm({
   suppliers,
   userStateCode,
@@ -80,6 +105,18 @@ export function SelfInvoiceForm({
   onAddSupplier,
   initialData
 }: SelfInvoiceFormProps) {
+  // Determine initial supplier type based on initial data or default to Indian
+  const getInitialSupplierType = () => {
+    if (initialData?.supplierType) return initialData.supplierType
+    if (initialData?.supplierId) {
+      const supplier = suppliers.find(s => s.id === initialData.supplierId)
+      return supplier?.supplierType || SupplierType.INDIAN_UNREGISTERED
+    }
+    return SupplierType.INDIAN_UNREGISTERED
+  }
+
+  const [supplierType, setSupplierType] = useState<SupplierType>(getInitialSupplierType())
+
   const [formData, setFormData] = useState<{
     supplierId: string
     dateOfReceiptOfSupply: string
@@ -89,6 +126,11 @@ export function SelfInvoiceForm({
     notes: string
     paymentMode: string
     paymentReference: string
+    // Foreign currency
+    foreignCurrency: string
+    foreignAmount: string
+    exchangeRate: string
+    exchangeSource: string
   }>({
     supplierId: initialData?.supplierId || '',
     dateOfReceiptOfSupply: initialData?.dateOfReceiptOfSupply || '',
@@ -107,6 +149,10 @@ export function SelfInvoiceForm({
     notes: initialData?.notes || '',
     paymentMode: initialData?.paymentMode || 'BANK_TRANSFER',
     paymentReference: initialData?.paymentReference || '',
+    foreignCurrency: initialData?.foreignCurrency || 'USD',
+    foreignAmount: initialData?.foreignAmount?.toString() || '',
+    exchangeRate: initialData?.exchangeRate?.toString() || '',
+    exchangeSource: initialData?.exchangeSource || 'RBI Reference Rate',
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
@@ -115,53 +161,118 @@ export function SelfInvoiceForm({
   const [showSacDropdown, setShowSacDropdown] = useState<Record<string, boolean>>({})
   const [sacSearchTerm, setSacSearchTerm] = useState<Record<string, string>>({})
 
+  // Filter suppliers by type
+  const filteredSuppliers = useMemo(
+    () => suppliers.filter(s => s.supplierType === supplierType),
+    [suppliers, supplierType]
+  )
+
   // Selected supplier
   const selectedSupplier = useMemo(
     () => suppliers.find(s => s.id === formData.supplierId),
     [suppliers, formData.supplierId]
   )
 
+  // Clear supplier when type changes
+  useEffect(() => {
+    if (selectedSupplier && selectedSupplier.supplierType !== supplierType) {
+      setFormData(prev => ({ ...prev, supplierId: '' }))
+    }
+  }, [supplierType, selectedSupplier])
+
   // Calculate subtotal
   const subtotal = useMemo(() => calculateSubtotal(formData.lineItems), [formData.lineItems])
 
-  // Calculate GST components
-  const gstComponents = useMemo(() => {
-    if (!selectedSupplier || subtotal === 0) return null
-    try {
-      return calculateRCMGSTComponents(
-        subtotal,
-        formData.gstRate,
-        selectedSupplier.stateCode,
-        userStateCode
-      )
-    } catch {
-      return null
+  // Calculate amount in INR for foreign suppliers
+  const amountInINR = useMemo(() => {
+    if (supplierType === SupplierType.FOREIGN_SERVICE) {
+      const foreignAmt = parseFloat(formData.foreignAmount) || 0
+      const rate = parseFloat(formData.exchangeRate) || 0
+      return foreignAmt * rate
     }
-  }, [subtotal, formData.gstRate, selectedSupplier, userStateCode])
+    return subtotal
+  }, [supplierType, formData.foreignAmount, formData.exchangeRate, subtotal])
+
+  // Calculate GST components - different logic for Indian vs Foreign
+  const gstComponents = useMemo(() => {
+    if (!selectedSupplier) return null
+
+    if (supplierType === SupplierType.FOREIGN_SERVICE) {
+      // Import of Services - always IGST
+      if (amountInINR === 0) return null
+      try {
+        return calculateImportOfServicesGST(
+          amountInINR,
+          formData.gstRate,
+          {
+            foreignCurrency: formData.foreignCurrency,
+            foreignAmount: parseFloat(formData.foreignAmount) || 0,
+            exchangeRate: parseFloat(formData.exchangeRate) || 0,
+          }
+        )
+      } catch {
+        return null
+      }
+    } else {
+      // Indian Unregistered - CGST/SGST or IGST based on state
+      if (subtotal === 0 || !selectedSupplier.stateCode) return null
+      try {
+        return calculateRCMGSTComponents(
+          subtotal,
+          formData.gstRate,
+          selectedSupplier.stateCode,
+          userStateCode
+        )
+      } catch {
+        return null
+      }
+    }
+  }, [subtotal, amountInINR, formData.gstRate, formData.foreignCurrency, formData.foreignAmount, formData.exchangeRate, selectedSupplier, userStateCode, supplierType])
 
   // Total amount
   const total = useMemo(() => {
-    if (!gstComponents) return subtotal
-    return subtotal + gstComponents.totalTax
-  }, [subtotal, gstComponents])
+    const baseAmount = supplierType === SupplierType.FOREIGN_SERVICE ? amountInINR : subtotal
+    if (!gstComponents) return baseAmount
+    return baseAmount + gstComponents.totalTax
+  }, [subtotal, amountInINR, gstComponents, supplierType])
 
   // RCM validation
   const rcmValidation = useMemo(() => {
     if (!selectedSupplier || !formData.dateOfReceiptOfSupply || formData.lineItems.length === 0) {
       return null
     }
-    return validateRCMSelfInvoice({
-      invoiceDate: new Date(formData.invoiceDate),
-      dateOfReceiptOfSupply: new Date(formData.dateOfReceiptOfSupply),
-      gstRate: formData.gstRate,
-      serviceCode: formData.lineItems[0].sacCode || '',
-      supplierStateCode: selectedSupplier.stateCode,
-      recipientStateCode: userStateCode,
-      supplierName: selectedSupplier.name,
-      supplierAddress: selectedSupplier.address,
-      amount: subtotal,
-    })
-  }, [selectedSupplier, formData, userStateCode, subtotal])
+
+    if (supplierType === SupplierType.FOREIGN_SERVICE) {
+      // Import of Services validation
+      return validateImportOfServicesInvoice({
+        invoiceDate: new Date(formData.invoiceDate),
+        dateOfReceiptOfSupply: new Date(formData.dateOfReceiptOfSupply),
+        gstRate: formData.gstRate,
+        serviceCode: formData.lineItems[0].sacCode || '',
+        supplierName: selectedSupplier.name,
+        supplierCountry: selectedSupplier.country || '',
+        supplierCountryName: selectedSupplier.countryName || undefined,
+        amountInINR,
+        foreignCurrency: formData.foreignCurrency,
+        foreignAmount: parseFloat(formData.foreignAmount) || 0,
+        exchangeRate: parseFloat(formData.exchangeRate) || 0,
+      })
+    } else {
+      // Indian Unregistered validation
+      if (!selectedSupplier.stateCode) return null
+      return validateRCMSelfInvoice({
+        invoiceDate: new Date(formData.invoiceDate),
+        dateOfReceiptOfSupply: new Date(formData.dateOfReceiptOfSupply),
+        gstRate: formData.gstRate,
+        serviceCode: formData.lineItems[0].sacCode || '',
+        supplierStateCode: selectedSupplier.stateCode,
+        recipientStateCode: userStateCode,
+        supplierName: selectedSupplier.name,
+        supplierAddress: selectedSupplier.address,
+        amount: subtotal,
+      })
+    }
+  }, [selectedSupplier, formData, userStateCode, subtotal, amountInINR, supplierType])
 
   // Days until 30-day deadline
   const daysUntilDeadline = useMemo(() => {
@@ -172,9 +283,9 @@ export function SelfInvoiceForm({
     return RCM_RULE_47A_DAYS - daysSinceReceipt
   }, [formData.dateOfReceiptOfSupply])
 
-  // Get supplier state name
+  // Get supplier state name (for Indian suppliers)
   const supplierStateName = useMemo(() => {
-    if (!selectedSupplier) return ''
+    if (!selectedSupplier || !selectedSupplier.stateCode) return ''
     return GST_STATE_CODES[selectedSupplier.stateCode] || ''
   }, [selectedSupplier])
 
@@ -182,6 +293,13 @@ export function SelfInvoiceForm({
   const userStateName = useMemo(() => {
     return GST_STATE_CODES[userStateCode] || ''
   }, [userStateCode])
+
+  // GST rates based on supplier type
+  const availableGstRates = useMemo(() => {
+    return supplierType === SupplierType.FOREIGN_SERVICE
+      ? IMPORT_OF_SERVICES_GST_RATES
+      : RCM_GST_RATES
+  }, [supplierType])
 
   // Filter SAC codes
   const getFilteredSacCodes = useCallback((itemId: string) => {
@@ -255,7 +373,9 @@ export function SelfInvoiceForm({
     const newErrors: FormErrors = {}
 
     if (!formData.supplierId) {
-      newErrors.supplierId = 'Supplier is required'
+      newErrors.supplierId = supplierType === SupplierType.FOREIGN_SERVICE
+        ? 'Foreign vendor is required'
+        : 'Supplier is required'
     }
 
     if (!formData.dateOfReceiptOfSupply) {
@@ -266,12 +386,28 @@ export function SelfInvoiceForm({
       newErrors.invoiceDate = 'Invoice date is required'
     }
 
-    if (!formData.gstRate || !RCM_GST_RATES.includes(formData.gstRate as 5 | 12 | 18 | 28)) {
+    const validRates = supplierType === SupplierType.FOREIGN_SERVICE
+      ? IMPORT_OF_SERVICES_GST_RATES
+      : RCM_GST_RATES
+    if (!formData.gstRate || !validRates.includes(formData.gstRate as never)) {
       newErrors.gstRate = 'Valid GST rate is required'
     }
 
     if (!formData.paymentMode) {
       newErrors.paymentMode = 'Payment mode is required for payment voucher'
+    }
+
+    // Foreign currency validation
+    if (supplierType === SupplierType.FOREIGN_SERVICE) {
+      if (!formData.foreignCurrency) {
+        newErrors.foreignCurrency = 'Currency is required'
+      }
+      if (!formData.foreignAmount || parseFloat(formData.foreignAmount) <= 0) {
+        newErrors.foreignAmount = 'Foreign amount must be greater than 0'
+      }
+      if (!formData.exchangeRate || parseFloat(formData.exchangeRate) <= 0) {
+        newErrors.exchangeRate = 'Exchange rate is required'
+      }
     }
 
     // Validate line items
@@ -289,12 +425,15 @@ export function SelfInvoiceForm({
         itemErrors.sacCode = 'Invalid SAC/HSN code'
       }
 
-      if (item.quantity <= 0) {
-        itemErrors.quantity = 'Quantity must be greater than 0'
-      }
+      // Quantity and rate only required for Indian suppliers (line items)
+      if (supplierType === SupplierType.INDIAN_UNREGISTERED) {
+        if (item.quantity <= 0) {
+          itemErrors.quantity = 'Quantity must be greater than 0'
+        }
 
-      if (item.rate <= 0) {
-        itemErrors.rate = 'Rate must be greater than 0'
+        if (item.rate <= 0) {
+          itemErrors.rate = 'Rate must be greater than 0'
+        }
       }
 
       if (Object.keys(itemErrors).length > 0) {
@@ -308,7 +447,7 @@ export function SelfInvoiceForm({
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }, [formData])
+  }, [formData, supplierType])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -319,8 +458,9 @@ export function SelfInvoiceForm({
 
     setIsSubmitting(true)
     try {
-      await onSubmit({
+      const submitData: SelfInvoiceFormData = {
         supplierId: formData.supplierId,
+        supplierType,
         dateOfReceiptOfSupply: formData.dateOfReceiptOfSupply,
         invoiceDate: formData.invoiceDate,
         gstRate: formData.gstRate,
@@ -333,35 +473,106 @@ export function SelfInvoiceForm({
         notes: formData.notes,
         paymentMode: formData.paymentMode,
         paymentReference: formData.paymentReference,
-      })
+      }
+
+      // Add foreign currency fields for Import of Services
+      if (supplierType === SupplierType.FOREIGN_SERVICE) {
+        submitData.foreignCurrency = formData.foreignCurrency
+        submitData.foreignAmount = parseFloat(formData.foreignAmount)
+        submitData.exchangeRate = parseFloat(formData.exchangeRate)
+        submitData.exchangeSource = formData.exchangeSource
+      }
+
+      await onSubmit(submitData)
     } finally {
       setIsSubmitting(false)
     }
-  }, [formData, onSubmit, validateForm])
+  }, [formData, onSubmit, validateForm, supplierType])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-      {/* RCM Banner */}
-      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-amber-800 dark:text-amber-200">
-              RCM Self Invoice - Section 31(3)(f)
-            </h3>
-            <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              <p>
-                This self-invoice is issued under Reverse Charge Mechanism for purchases from unregistered suppliers.
-                GST will be payable by you (the recipient) and ITC can be claimed in the same period.
-              </p>
+      {/* Supplier Type Toggle */}
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          Supplier Type <span className="text-red-500">*</span>
+        </label>
+        <div className="flex space-x-4">
+          <button
+            type="button"
+            onClick={() => setSupplierType(SupplierType.INDIAN_UNREGISTERED)}
+            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+              supplierType === SupplierType.INDIAN_UNREGISTERED
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+            }`}
+          >
+            <div className="font-medium">Indian Unregistered</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Section 31(3)(f) - GSTR-3B Table 3.1(d)
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSupplierType(SupplierType.FOREIGN_SERVICE)}
+            className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+              supplierType === SupplierType.FOREIGN_SERVICE
+                ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+            }`}
+          >
+            <div className="font-medium">Import of Services</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Section 5(3) IGST - GSTR-3B Table 3.1(a)
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* RCM Banner - Different for each type */}
+      {supplierType === SupplierType.INDIAN_UNREGISTERED ? (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                RCM Self Invoice - Section 31(3)(f)
+              </h3>
+              <div className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                <p>
+                  This self-invoice is issued under Reverse Charge Mechanism for purchases from unregistered suppliers.
+                  GST will be payable by you (the recipient) and ITC can be claimed in the same period.
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Import of Services - Section 5(3) IGST Act
+              </h3>
+              <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                <p>
+                  Purchases from foreign service providers are subject to IGST under RCM.
+                  You pay IGST on the INR value and can claim ITC in the same return.
+                  Always uses IGST (no CGST/SGST split).
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 30-Day Warning */}
       {daysUntilDeadline !== null && daysUntilDeadline <= 5 && daysUntilDeadline >= 0 && (
@@ -411,7 +622,7 @@ export function SelfInvoiceForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="supplier" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Unregistered Supplier <span className="text-red-500">*</span>
+            {supplierType === SupplierType.FOREIGN_SERVICE ? 'Foreign Vendor' : 'Unregistered Supplier'} <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <button
@@ -420,29 +631,29 @@ export function SelfInvoiceForm({
               onClick={() => setShowSupplierDropdown(!showSupplierDropdown)}
               className={getDropdownButtonClassName(!!errors.supplierId)}
             >
-              {selectedSupplier ? selectedSupplier.name : 'Select a supplier'}
+              {selectedSupplier ? selectedSupplier.name : `Select a ${supplierType === SupplierType.FOREIGN_SERVICE ? 'vendor' : 'supplier'}`}
             </button>
             {showSupplierDropdown && (
               <div className={dropdownContainerClassName}>
-                {suppliers.length === 0 ? (
+                {filteredSuppliers.length === 0 ? (
                   <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                    No suppliers found.
+                    No {supplierType === SupplierType.FOREIGN_SERVICE ? 'foreign vendors' : 'suppliers'} found.
                     {onAddSupplier && (
                       <button
                         type="button"
                         onClick={() => {
                           setShowSupplierDropdown(false)
-                          onAddSupplier()
+                          onAddSupplier(supplierType)
                         }}
                         className="block mt-2 text-indigo-600 dark:text-indigo-400 hover:underline"
                       >
-                        + Add New Supplier
+                        + Add New {supplierType === SupplierType.FOREIGN_SERVICE ? 'Foreign Vendor' : 'Supplier'}
                       </button>
                     )}
                   </div>
                 ) : (
                   <>
-                    {suppliers.map(supplier => (
+                    {filteredSuppliers.map(supplier => (
                       <button
                         key={supplier.id}
                         type="button"
@@ -454,7 +665,9 @@ export function SelfInvoiceForm({
                       >
                         <div className="font-medium">{supplier.name}</div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {supplier.state} ({supplier.stateCode})
+                          {supplier.supplierType === SupplierType.FOREIGN_SERVICE
+                            ? `${supplier.countryName} (${supplier.country})`
+                            : `${supplier.state} (${supplier.stateCode})`}
                         </div>
                       </button>
                     ))}
@@ -463,11 +676,11 @@ export function SelfInvoiceForm({
                         type="button"
                         onClick={() => {
                           setShowSupplierDropdown(false)
-                          onAddSupplier()
+                          onAddSupplier(supplierType)
                         }}
                         className={`${dropdownItemClassName} text-indigo-600 dark:text-indigo-400 border-t border-gray-200 dark:border-gray-600`}
                       >
-                        + Add New Supplier
+                        + Add New {supplierType === SupplierType.FOREIGN_SERVICE ? 'Foreign Vendor' : 'Supplier'}
                       </button>
                     )}
                   </>
@@ -480,7 +693,7 @@ export function SelfInvoiceForm({
           )}
           {selectedSupplier && (
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {selectedSupplier.address}, {supplierStateName}
+              {selectedSupplier.address}, {supplierType === SupplierType.FOREIGN_SERVICE ? selectedSupplier.countryName : supplierStateName}
             </p>
           )}
         </div>
@@ -495,9 +708,9 @@ export function SelfInvoiceForm({
             onChange={(e) => setFormData(prev => ({ ...prev, gstRate: Number(e.target.value) }))}
             className={selectClassName}
           >
-            {RCM_GST_RATES.map(rate => (
+            {availableGstRates.map(rate => (
               <option key={rate} value={rate}>
-                {rate}%
+                {rate}%{supplierType === SupplierType.FOREIGN_SERVICE ? ' (IGST)' : ''}
               </option>
             ))}
           </select>
@@ -506,6 +719,88 @@ export function SelfInvoiceForm({
           )}
         </div>
       </div>
+
+      {/* Foreign Currency Section - Only for Import of Services */}
+      {supplierType === SupplierType.FOREIGN_SERVICE && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3">
+            Foreign Currency Details
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="foreignCurrency" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Currency <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="foreignCurrency"
+                value={formData.foreignCurrency}
+                onChange={(e) => setFormData(prev => ({ ...prev, foreignCurrency: e.target.value }))}
+                className={selectClassName}
+              >
+                {FOREIGN_CURRENCIES.map(curr => (
+                  <option key={curr.code} value={curr.code}>
+                    {curr.code} - {curr.name} ({curr.symbol})
+                  </option>
+                ))}
+              </select>
+              {errors.foreignCurrency && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.foreignCurrency}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="foreignAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Amount <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500 dark:text-gray-400">
+                  {FOREIGN_CURRENCIES.find(c => c.code === formData.foreignCurrency)?.symbol || '$'}
+                </span>
+                <input
+                  type="number"
+                  id="foreignAmount"
+                  value={formData.foreignAmount}
+                  onChange={(e) => setFormData(prev => ({ ...prev, foreignAmount: e.target.value }))}
+                  className={`${getInputClassName(!!errors.foreignAmount)} pl-8`}
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                />
+              </div>
+              {errors.foreignAmount && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.foreignAmount}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="exchangeRate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Exchange Rate (1 {formData.foreignCurrency} = ₹) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="exchangeRate"
+                value={formData.exchangeRate}
+                onChange={(e) => setFormData(prev => ({ ...prev, exchangeRate: e.target.value }))}
+                className={getInputClassName(!!errors.exchangeRate)}
+                min="0.01"
+                step="0.0001"
+                placeholder="e.g., 83.50"
+              />
+              {errors.exchangeRate && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.exchangeRate}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Use RBI reference rate on date of invoice
+              </p>
+            </div>
+          </div>
+          {amountInINR > 0 && (
+            <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                <span className="font-medium">Amount in INR:</span> {formatCurrency(amountInINR, 'INR')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Dates */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -546,8 +841,8 @@ export function SelfInvoiceForm({
         </div>
       </div>
 
-      {/* Place of Supply Info */}
-      {selectedSupplier && gstComponents && (
+      {/* Place of Supply Info - Only for Indian suppliers */}
+      {supplierType === SupplierType.INDIAN_UNREGISTERED && selectedSupplier && gstComponents && 'isInterstate' in gstComponents && (
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Place of Supply</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -573,16 +868,43 @@ export function SelfInvoiceForm({
         </div>
       )}
 
-      {/* Line Items */}
+      {/* Place of Supply Info - For Foreign suppliers */}
+      {supplierType === SupplierType.FOREIGN_SERVICE && selectedSupplier && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Place of Supply</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Supplier Location:</span>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {selectedSupplier.countryName} ({selectedSupplier.country})
+              </p>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Recipient Location:</span>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {userStateName} ({userStateCode}), India
+              </p>
+            </div>
+            <div>
+              <span className="text-gray-500 dark:text-gray-400">Supply Type:</span>
+              <p className="font-medium text-gray-900 dark:text-white">
+                Import of Services (IGST)
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Line Items - Full for Indian, simplified for Import of Services */}
       <div>
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Line Items <span className="text-red-500">*</span>
+          {supplierType === SupplierType.FOREIGN_SERVICE ? 'Service Details' : 'Line Items'} <span className="text-red-500">*</span>
         </h3>
         <div className="space-y-4">
           {formData.lineItems.map((item) => (
             <div key={item.id} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                <div className="md:col-span-2">
+              <div className={`grid grid-cols-1 gap-4 ${supplierType === SupplierType.INDIAN_UNREGISTERED ? 'md:grid-cols-6' : 'md:grid-cols-3'}`}>
+                <div className={supplierType === SupplierType.INDIAN_UNREGISTERED ? 'md:col-span-2' : ''}>
                   <label htmlFor={`description-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Description <span className="text-red-500">*</span>
                   </label>
@@ -592,7 +914,7 @@ export function SelfInvoiceForm({
                     value={item.description}
                     onChange={(e) => handleLineItemChange(item.id, 'description', e.target.value)}
                     className={getInputClassName(!!errors.lineItems?.[item.id]?.description)}
-                    placeholder="Description of goods/services"
+                    placeholder={supplierType === SupplierType.FOREIGN_SERVICE ? 'e.g., Cloud hosting services' : 'Description of goods/services'}
                   />
                   {errors.lineItems?.[item.id]?.description && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -647,65 +969,83 @@ export function SelfInvoiceForm({
                   )}
                 </div>
 
-                <div>
-                  <label htmlFor={`quantity-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Quantity <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id={`quantity-${item.id}`}
-                    value={item.quantity}
-                    onChange={(e) => handleLineItemChange(item.id, 'quantity', e.target.value)}
-                    className={getInputClassName(!!errors.lineItems?.[item.id]?.quantity)}
-                    min="1"
-                    step="1"
-                  />
-                  {errors.lineItems?.[item.id]?.quantity && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      {errors.lineItems[item.id].quantity}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor={`rate-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Rate (₹) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    id={`rate-${item.id}`}
-                    value={item.rate}
-                    onChange={(e) => handleLineItemChange(item.id, 'rate', e.target.value)}
-                    className={getInputClassName(!!errors.lineItems?.[item.id]?.rate)}
-                    min="0.01"
-                    step="0.01"
-                  />
-                  {errors.lineItems?.[item.id]?.rate && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      {errors.lineItems[item.id].rate}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-end justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Amount
-                    </label>
-                    <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                      ₹{item.amount.toFixed(2)}
+                {/* Quantity and Rate - Only for Indian suppliers */}
+                {supplierType === SupplierType.INDIAN_UNREGISTERED && (
+                  <>
+                    <div>
+                      <label htmlFor={`quantity-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Quantity <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        id={`quantity-${item.id}`}
+                        value={item.quantity}
+                        onChange={(e) => handleLineItemChange(item.id, 'quantity', e.target.value)}
+                        className={getInputClassName(!!errors.lineItems?.[item.id]?.quantity)}
+                        min="1"
+                        step="1"
+                      />
+                      {errors.lineItems?.[item.id]?.quantity && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          {errors.lineItems[item.id].quantity}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                  {formData.lineItems.length > 1 && (
+
+                    <div>
+                      <label htmlFor={`rate-${item.id}`} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Rate (₹) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        id={`rate-${item.id}`}
+                        value={item.rate}
+                        onChange={(e) => handleLineItemChange(item.id, 'rate', e.target.value)}
+                        className={getInputClassName(!!errors.lineItems?.[item.id]?.rate)}
+                        min="0.01"
+                        step="0.01"
+                      />
+                      {errors.lineItems?.[item.id]?.rate && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                          {errors.lineItems[item.id].rate}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-end justify-between">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Amount
+                        </label>
+                        <div className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                          ₹{item.amount.toFixed(2)}
+                        </div>
+                      </div>
+                      {formData.lineItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLineItem(item.id)}
+                          className="ml-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Remove button for foreign suppliers */}
+                {supplierType === SupplierType.FOREIGN_SERVICE && formData.lineItems.length > 1 && (
+                  <div className="flex items-end">
                     <button
                       type="button"
                       onClick={() => handleRemoveLineItem(item.id)}
-                      className="ml-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                      className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                     >
-                      ×
+                      × Remove
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -715,35 +1055,58 @@ export function SelfInvoiceForm({
           onClick={handleAddLineItem}
           className="mt-4 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
         >
-          + Add Line Item
+          + Add {supplierType === SupplierType.FOREIGN_SERVICE ? 'Service' : 'Line Item'}
         </button>
       </div>
 
       {/* Totals */}
       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal:</span>
-            <span>{formatCurrency(subtotal, 'INR')}</span>
-          </div>
+          {supplierType === SupplierType.INDIAN_UNREGISTERED && (
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(subtotal, 'INR')}</span>
+            </div>
+          )}
+          {supplierType === SupplierType.FOREIGN_SERVICE && (
+            <>
+              <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                <span>Foreign Amount:</span>
+                <span>{formData.foreignCurrency} {parseFloat(formData.foreignAmount || '0').toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Taxable Value (INR):</span>
+                <span>{formatCurrency(amountInINR, 'INR')}</span>
+              </div>
+            </>
+          )}
           {gstComponents && (
             <>
-              {gstComponents.isInterstate ? (
+              {'isInterstate' in gstComponents ? (
+                // Indian supplier - could be CGST/SGST or IGST
+                gstComponents.isInterstate ? (
+                  <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                    <span>IGST ({formData.gstRate}%):</span>
+                    <span>{formatCurrency(gstComponents.igst, 'INR')}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                      <span>CGST ({gstComponents.cgstRate}%):</span>
+                      <span>{formatCurrency(gstComponents.cgst, 'INR')}</span>
+                    </div>
+                    <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                      <span>SGST ({gstComponents.sgstRate}%):</span>
+                      <span>{formatCurrency(gstComponents.sgst, 'INR')}</span>
+                    </div>
+                  </>
+                )
+              ) : (
+                // Import of Services - always IGST
                 <div className="flex justify-between text-blue-600 dark:text-blue-400">
                   <span>IGST ({formData.gstRate}%):</span>
                   <span>{formatCurrency(gstComponents.igst, 'INR')}</span>
                 </div>
-              ) : (
-                <>
-                  <div className="flex justify-between text-blue-600 dark:text-blue-400">
-                    <span>CGST ({gstComponents.cgstRate}%):</span>
-                    <span>{formatCurrency(gstComponents.cgst, 'INR')}</span>
-                  </div>
-                  <div className="flex justify-between text-blue-600 dark:text-blue-400">
-                    <span>SGST ({gstComponents.sgstRate}%):</span>
-                    <span>{formatCurrency(gstComponents.sgst, 'INR')}</span>
-                  </div>
-                </>
               )}
               <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                 <span>Total Tax (RCM):</span>
@@ -822,7 +1185,7 @@ export function SelfInvoiceForm({
       {rcmValidation && !rcmValidation.isValid && (
         <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
           <h4 className="text-sm font-medium text-red-900 dark:text-red-200 mb-2">
-            RCM Compliance Issues:
+            {supplierType === SupplierType.FOREIGN_SERVICE ? 'Import of Services' : 'RCM'} Compliance Issues:
           </h4>
           <ul className="list-disc list-inside space-y-1">
             {rcmValidation.errors.map((error, index) => (
@@ -850,21 +1213,36 @@ export function SelfInvoiceForm({
         </div>
       )}
 
-      {/* GSTR-3B Info */}
+      {/* GSTR-3B Info - Different tables based on supplier type */}
       {gstComponents && (
         <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <h4 className="text-sm font-medium text-green-900 dark:text-green-200 mb-2">
             GSTR-3B Reporting
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-700 dark:text-green-300">
-            <div>
-              <span className="font-medium">Table 3.1(d) - RCM Liability:</span>
-              <p>{formatCurrency(gstComponents.totalTax, 'INR')}</p>
-            </div>
-            <div>
-              <span className="font-medium">Table 4A(3) - ITC Claimable:</span>
-              <p>{formatCurrency(gstComponents.totalTax, 'INR')}</p>
-            </div>
+            {supplierType === SupplierType.FOREIGN_SERVICE ? (
+              <>
+                <div>
+                  <span className="font-medium">Table 3.1(a) - Import of Services:</span>
+                  <p>{formatCurrency(gstComponents.totalTax, 'INR')}</p>
+                </div>
+                <div>
+                  <span className="font-medium">Table 4A(3) - ITC Claimable:</span>
+                  <p>{formatCurrency(gstComponents.totalTax, 'INR')}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="font-medium">Table 3.1(d) - RCM Liability:</span>
+                  <p>{formatCurrency(gstComponents.totalTax, 'INR')}</p>
+                </div>
+                <div>
+                  <span className="font-medium">Table 4A(3) - ITC Claimable:</span>
+                  <p>{formatCurrency(gstComponents.totalTax, 'INR')}</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

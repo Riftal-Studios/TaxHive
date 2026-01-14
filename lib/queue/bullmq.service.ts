@@ -5,13 +5,13 @@ if (typeof window === 'undefined' && process.env.NEXT_RUNTIME) {
 
 import { Queue, Worker, Job as BullMQJob, QueueEvents } from 'bullmq'
 import Redis from 'ioredis'
-import { 
-  type QueueService, 
-  type Job, 
-  type JobType, 
+import {
+  type QueueService,
+  type Job,
+  type JobType,
   type JobStatus,
   type JobProgress,
-  type JobOptions, 
+  type JobOptions,
   type JobProcessor,
   type ProcessorOptions,
   type JobFilterOptions,
@@ -22,6 +22,7 @@ import {
   EmailNotificationJobSchema,
   ExchangeRateFetchJobSchema,
   PaymentReminderJobSchema,
+  DocumentProcessingJobSchema,
 } from './types'
 
 interface BullMQConfig {
@@ -93,6 +94,12 @@ export class BullMQService implements QueueService {
         break
       case 'PAYMENT_REMINDER':
         PaymentReminderJobSchema.parse(data)
+        break
+      case 'DOCUMENT_PROCESSING':
+        DocumentProcessingJobSchema.parse(data)
+        break
+      case 'LUT_REMINDER':
+        // LUT_REMINDER is validated elsewhere or has no specific schema
         break
       default:
         throw new Error(`Unknown job type: ${type}`)

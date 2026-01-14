@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
 import { TRPCError } from '@trpc/server'
 import { Prisma } from '@prisma/client'
+import { getLUTStatus, daysUntilLUTExpiry, getLUTExpiryWarning } from '@/lib/lut-utils'
 
 // LUT number validation regex
 // Common formats: AD290320241234567, LUT/GST/2024-25/12345, etc.
@@ -51,6 +52,38 @@ export const lutRouter = createTRPCRouter({
         orderBy: { validTill: 'desc' },
       })
     }),
+
+  // Get the active LUT status for dashboard banner
+  getActiveStatus: protectedProcedure.query(async ({ ctx }) => {
+    const activeLut = await ctx.prisma.lUT.findFirst({
+      where: {
+        userId: ctx.session.user.id,
+        isActive: true,
+      },
+    })
+
+    if (!activeLut) {
+      return {
+        hasActiveLut: false,
+        lut: null,
+        status: null,
+        daysRemaining: null,
+        warning: null,
+      }
+    }
+
+    const status = getLUTStatus(activeLut)
+    const daysRemaining = daysUntilLUTExpiry(activeLut)
+    const warning = getLUTExpiryWarning(activeLut)
+
+    return {
+      hasActiveLut: true,
+      lut: activeLut,
+      status,
+      daysRemaining,
+      warning,
+    }
+  }),
 
   create: protectedProcedure
     .input(
@@ -184,6 +217,100 @@ export const lutRouter = createTRPCRouter({
       return await ctx.prisma.lUT.delete({
         where: { id: input.id },
       })
+    }),
+
+  // Get details for LUT renewal (pre-populated form data)
+  getRenewalDetails: protectedProcedure
+    .input(z.object({ lutId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const previousLut = await ctx.prisma.lUT.findUnique({
+        where: { id: input.lutId, userId: ctx.session.user.id },
+      })
+
+      if (!previousLut) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'LUT not found',
+        })
+      }
+
+      // Calculate suggested dates for the next financial year
+      const previousValidTill = new Date(previousLut.validTill)
+      const suggestedValidFrom = new Date(previousValidTill)
+      suggestedValidFrom.setDate(suggestedValidFrom.getDate() + 1)
+
+      // Next FY typically ends on March 31st of the following year
+      const suggestedValidTill = new Date(suggestedValidFrom)
+      suggestedValidTill.setFullYear(suggestedValidTill.getFullYear() + 1)
+      suggestedValidTill.setMonth(2) // March
+      suggestedValidTill.setDate(31)
+
+      return {
+        previousLut,
+        suggestedValidFrom,
+        suggestedValidTill,
+      }
+    }),
+
+  // Renew an existing LUT
+  renew: protectedProcedure
+    .input(
+      z.object({
+        previousLutId: z.string(),
+        lutNumber: lutNumberSchema,
+        lutDate: z.date(),
+        validFrom: z.date(),
+        validTill: z.date(),
+      }).refine(
+        (data) => data.validFrom <= data.validTill,
+        {
+          message: 'Valid from date must be before valid till date',
+          path: ['validFrom'],
+        }
+      ).refine(
+        (data) => data.lutDate <= data.validFrom,
+        {
+          message: 'LUT date must be before or equal to valid from date',
+          path: ['lutDate'],
+        }
+      )
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { previousLutId, ...lutData } = input
+
+      // Verify ownership of previous LUT
+      const previousLut = await ctx.prisma.lUT.findUnique({
+        where: { id: previousLutId, userId: ctx.session.user.id },
+      })
+
+      if (!previousLut) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Previous LUT not found',
+        })
+      }
+
+      // Create the new LUT with reference to previous
+      const newLUT = await ctx.prisma.lUT.create({
+        data: {
+          userId: ctx.session.user.id,
+          ...lutData,
+          isActive: true,
+          previousLutId: previousLutId,
+        },
+      })
+
+      // Deactivate the previous LUT and any other active LUTs
+      await ctx.prisma.lUT.updateMany({
+        where: {
+          userId: ctx.session.user.id,
+          isActive: true,
+          id: { not: newLUT.id },
+        },
+        data: { isActive: false },
+      })
+
+      return newLUT
     }),
 
   toggleActive: protectedProcedure

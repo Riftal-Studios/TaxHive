@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { exchangeRateFetchHandler } from '@/lib/queue/handlers/exchange-rate-fetch.handler'
-import type { Job } from '@/lib/queue/types'
+import type { Job, ExchangeRateFetchJobData } from '@/lib/queue/types'
 import * as exchangeRates from '@/lib/exchange-rates'
 import { db } from '@/lib/prisma'
 
@@ -18,7 +18,7 @@ describe('Exchange Rate Fetch Handler', () => {
   const testDate = new Date('2024-01-20')
   testDate.setHours(0, 0, 0, 0) // Normalize to start of day
 
-  const mockJob: Job = {
+  const mockJob: Job<ExchangeRateFetchJobData> = {
     id: 'job-1',
     type: 'EXCHANGE_RATE_FETCH',
     data: {

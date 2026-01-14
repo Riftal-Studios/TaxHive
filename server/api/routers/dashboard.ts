@@ -1,6 +1,24 @@
 import { z } from 'zod'
 import { createTRPCRouter, protectedProcedure } from '@/server/api/trpc'
-import { startOfMonth, subMonths, format } from 'date-fns'
+import { startOfMonth, subMonths, format, differenceInDays } from 'date-fns'
+import {
+  calculateComplianceHealth,
+  getComplianceIssues,
+  type LUTStatus,
+} from '@/lib/dashboard/compliance-health'
+import {
+  calculateGSTSummary,
+  type GSTSummaryInput,
+} from '@/lib/dashboard/gst-summary'
+import {
+  generateFilingCalendar,
+  getNextFilingDeadlines,
+  type FilingPeriodData,
+} from '@/lib/dashboard/filing-calendar'
+import {
+  calculateITCHealth,
+  type ITCHealthInput,
+} from '@/lib/dashboard/itc-health'
 
 // Helper to get the start of the current fiscal year (April 1st)
 function getCurrentFiscalYearStart(): Date {
@@ -294,5 +312,318 @@ export const dashboardRouter = createTRPCRouter({
           invoiceCount: data.invoiceCount,
         }))
         .sort((a, b) => a.month.localeCompare(b.month))
+    }),
+
+  getComplianceHealth: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session.user.id
+    const now = new Date()
+
+    // 1. Get LUT status
+    const activeLut = await ctx.prisma.lUT.findFirst({
+      where: {
+        userId,
+        validFrom: { lte: now },
+        validTill: { gte: now },
+      },
+      orderBy: { validTill: 'desc' },
+    })
+
+    let lutStatus: LUTStatus = 'MISSING'
+    let lutDaysRemaining: number | null = null
+
+    if (activeLut) {
+      lutDaysRemaining = differenceInDays(activeLut.validTill, now)
+      if (lutDaysRemaining < 0) {
+        lutStatus = 'EXPIRED'
+      } else if (lutDaysRemaining <= 30) {
+        lutStatus = 'EXPIRING'
+      } else {
+        lutStatus = 'VALID'
+      }
+    } else {
+      // Check if there was ever a LUT (might be expired)
+      const expiredLut = await ctx.prisma.lUT.findFirst({
+        where: { userId },
+        orderBy: { validTill: 'desc' },
+      })
+      if (expiredLut) {
+        lutDaysRemaining = differenceInDays(expiredLut.validTill, now)
+        lutStatus = 'EXPIRED'
+      }
+    }
+
+    // 2. Get filing counts
+    const [pendingFilings, overdueFilings] = await Promise.all([
+      ctx.prisma.gSTFilingPeriod.count({
+        where: {
+          userId,
+          status: { in: ['DRAFT', 'GENERATED', 'IN_REVIEW'] },
+          dueDate: { gte: now },
+        },
+      }),
+      ctx.prisma.gSTFilingPeriod.count({
+        where: {
+          userId,
+          status: { notIn: ['FILED'] },
+          dueDate: { lt: now },
+        },
+      }),
+    ])
+
+    // 3. Get unreconciled ITC
+    const unreconciledITC = await ctx.prisma.gSTR2BEntry.aggregate({
+      where: {
+        upload: { userId },
+        matchStatus: { in: ['PENDING', 'AMOUNT_MISMATCH', 'NOT_IN_2B', 'IN_2B_ONLY'] },
+      },
+      _count: { id: true },
+      _sum: { igst: true, cgst: true, sgst: true },
+    })
+
+    const unreconciledITCCount = unreconciledITC._count.id
+    const unreconciledITCAmount =
+      Number(unreconciledITC._sum.igst || 0) +
+      Number(unreconciledITC._sum.cgst || 0) +
+      Number(unreconciledITC._sum.sgst || 0)
+
+    // Calculate compliance health
+    const healthInput = {
+      lutStatus,
+      lutDaysRemaining,
+      pendingFilingsCount: pendingFilings,
+      overdueFilingsCount: overdueFilings,
+      unreconciledITCCount,
+      unreconciledITCAmount,
+    }
+
+    const health = calculateComplianceHealth(healthInput)
+    const issues = getComplianceIssues(healthInput)
+
+    return {
+      score: health.score,
+      status: health.status,
+      issues,
+      details: {
+        lut: {
+          status: lutStatus,
+          daysRemaining: lutDaysRemaining,
+        },
+        filings: {
+          pending: pendingFilings,
+          overdue: overdueFilings,
+        },
+        itc: {
+          unreconciledCount: unreconciledITCCount,
+          unreconciledAmount: unreconciledITCAmount,
+        },
+      },
+    }
+  }),
+
+  getGSTSummary: protectedProcedure
+    .input(
+      z
+        .object({
+          period: z.string().optional(), // YYYY-MM format, defaults to current month
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      const now = new Date()
+
+      // Determine the period
+      const periodStr = input?.period || format(now, 'yyyy-MM')
+      const [year, month] = periodStr.split('-').map(Number)
+      const periodStart = new Date(year, month - 1, 1)
+      const periodEnd = new Date(year, month, 0, 23, 59, 59, 999)
+
+      // 1. Get output tax from domestic invoices (non-export)
+      const outputTax = await ctx.prisma.invoice.aggregate({
+        where: {
+          userId,
+          invoiceDate: { gte: periodStart, lte: periodEnd },
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+          // Only domestic invoices have output tax
+          client: {
+            country: 'IN',
+          },
+        },
+        _sum: {
+          igstAmount: true,
+          cgstAmount: true,
+          sgstAmount: true,
+        },
+      })
+
+      // 2. Get ITC from matched GSTR-2B entries
+      const returnPeriod = `${month.toString().padStart(2, '0')}${year}` // MMYYYY format
+      const itc = await ctx.prisma.gSTR2BEntry.aggregate({
+        where: {
+          upload: { userId, returnPeriod },
+          matchStatus: 'MATCHED',
+        },
+        _sum: {
+          igst: true,
+          cgst: true,
+          sgst: true,
+        },
+      })
+
+      // 3. Get RCM from self-invoices
+      const rcm = await ctx.prisma.invoice.aggregate({
+        where: {
+          userId,
+          invoiceDate: { gte: periodStart, lte: periodEnd },
+          status: { notIn: ['CANCELLED', 'DRAFT'] },
+          clientId: null, // Self-invoices have no client
+          unregisteredSupplierId: { not: null },
+        },
+        _sum: {
+          igstAmount: true,
+          cgstAmount: true,
+          sgstAmount: true,
+        },
+      })
+
+      // Build input for calculation
+      const summaryInput: GSTSummaryInput = {
+        outputIGST: Number(outputTax._sum.igstAmount || 0),
+        outputCGST: Number(outputTax._sum.cgstAmount || 0),
+        outputSGST: Number(outputTax._sum.sgstAmount || 0),
+        itcIGST: Number(itc._sum.igst || 0),
+        itcCGST: Number(itc._sum.cgst || 0),
+        itcSGST: Number(itc._sum.sgst || 0),
+        rcmIGST: Number(rcm._sum.igstAmount || 0),
+        rcmCGST: Number(rcm._sum.cgstAmount || 0),
+        rcmSGST: Number(rcm._sum.sgstAmount || 0),
+      }
+
+      const summary = calculateGSTSummary(summaryInput)
+
+      return {
+        period: periodStr,
+        ...summary,
+      }
+    }),
+
+  getFilingCalendar: protectedProcedure
+    .input(
+      z
+        .object({
+          monthsAhead: z.number().min(1).max(12).default(3),
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      const monthsAhead = input?.monthsAhead || 3
+
+      // Get filing periods from database
+      const filings = await ctx.prisma.gSTFilingPeriod.findMany({
+        where: { userId },
+        select: {
+          period: true,
+          filingType: true,
+          status: true,
+          approvedAt: true,
+        },
+        orderBy: { period: 'desc' },
+        take: 24, // Last 2 years of filings
+      })
+
+      // Convert to FilingPeriodData format
+      const filingData: FilingPeriodData[] = filings.map((f) => ({
+        period: f.period,
+        filingType: f.filingType,
+        status: f.status,
+        filedAt: f.status === 'FILED' ? f.approvedAt : null,
+      }))
+
+      const calendar = generateFilingCalendar(filingData, monthsAhead)
+      const nextDeadlines = getNextFilingDeadlines(filingData, 4)
+      const overdueCount = calendar.filter((e) => e.isOverdue).length
+
+      return {
+        calendar,
+        nextDeadlines,
+        overdueCount,
+        hasOverdue: overdueCount > 0,
+      }
+    }),
+
+  getITCHealth: protectedProcedure
+    .input(
+      z
+        .object({
+          period: z.string().optional(), // MMYYYY format
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id
+      const now = new Date()
+
+      // Default to current period
+      const periodStr =
+        input?.period ||
+        `${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getFullYear()}`
+
+      // Count entries by match status
+      const entryCounts = await ctx.prisma.gSTR2BEntry.groupBy({
+        by: ['matchStatus'],
+        where: {
+          upload: { userId, returnPeriod: periodStr },
+        },
+        _count: { id: true },
+        _sum: { igst: true, cgst: true, sgst: true },
+      })
+
+      // Build the input for calculation
+      const countMap: Record<
+        string,
+        { count: number; amount: number }
+      > = {}
+
+      for (const entry of entryCounts) {
+        const amount =
+          Number(entry._sum.igst || 0) +
+          Number(entry._sum.cgst || 0) +
+          Number(entry._sum.sgst || 0)
+        countMap[entry.matchStatus] = {
+          count: entry._count.id,
+          amount,
+        }
+      }
+
+      const totalEntries = entryCounts.reduce((sum, e) => sum + e._count.id, 0)
+
+      const healthInput: ITCHealthInput = {
+        totalEntries,
+        matchedCount: countMap['MATCHED']?.count || 0,
+        matchedAmount: countMap['MATCHED']?.amount || 0,
+        amountMismatchCount: countMap['AMOUNT_MISMATCH']?.count || 0,
+        amountMismatchAmount: countMap['AMOUNT_MISMATCH']?.amount || 0,
+        notIn2BCount: countMap['NOT_IN_2B']?.count || 0,
+        notIn2BAmount: countMap['NOT_IN_2B']?.amount || 0,
+        in2BOnlyCount: countMap['IN_2B_ONLY']?.count || 0,
+        in2BOnlyAmount: countMap['IN_2B_ONLY']?.amount || 0,
+        pendingCount: countMap['PENDING']?.count || 0,
+        pendingAmount: countMap['PENDING']?.amount || 0,
+      }
+
+      const health = calculateITCHealth(healthInput)
+
+      return {
+        period: periodStr,
+        ...health,
+        breakdown: {
+          matched: countMap['MATCHED'] || { count: 0, amount: 0 },
+          amountMismatch: countMap['AMOUNT_MISMATCH'] || { count: 0, amount: 0 },
+          notIn2B: countMap['NOT_IN_2B'] || { count: 0, amount: 0 },
+          in2BOnly: countMap['IN_2B_ONLY'] || { count: 0, amount: 0 },
+          pending: countMap['PENDING'] || { count: 0, amount: 0 },
+        },
+      }
     }),
 })

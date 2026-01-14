@@ -11,6 +11,10 @@ import { feedbackRouter } from '@/server/api/routers/feedback'
 import { unregisteredSupplierRouter } from '@/server/api/routers/unregisteredSupplier'
 import { selfInvoiceRouter } from '@/server/api/routers/selfInvoice'
 import { paymentVoucherRouter } from '@/server/api/routers/paymentVoucher'
+import { inboxRouter } from '@/server/api/routers/inbox'
+import { gstr2bRouter } from '@/server/api/routers/gstr2b'
+import { itcLedgerRouter } from '@/server/api/routers/itcLedger'
+import { gstFilingRouter } from '@/server/api/routers/gstFiling'
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -25,6 +29,10 @@ export const appRouter = createTRPCRouter({
   unregisteredSuppliers: unregisteredSupplierRouter,
   selfInvoices: selfInvoiceRouter,
   paymentVouchers: paymentVoucherRouter,
+  inbox: inboxRouter,
+  gstr2b: gstr2bRouter,
+  itcLedger: itcLedgerRouter,
+  gstFiling: gstFilingRouter,
 })
 
 export type AppRouter = typeof appRouter

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { GST_CONSTANTS, SAC_HSN_CODES } from '@/lib/constants'
+import { RcmType } from '@prisma/client'
 
 /**
  * GSTIN validation regex
@@ -570,4 +571,245 @@ export const gstStateCodeSchema = z.string()
   .refine(
     (code) => !!GST_STATE_CODES[code],
     { message: 'Invalid GST state code' }
+  )
+
+// ============================================================================
+// Import of Services RCM - GST Calculation (Phase 3)
+// For foreign vendors like AWS, Figma, GitHub, etc.
+// ============================================================================
+
+/**
+ * Standard GST rates applicable for Import of Services
+ * Same as RCM rates (5, 12, 18, 28)
+ */
+export const IMPORT_OF_SERVICES_GST_RATES = [5, 12, 18, 28] as const
+export type ImportOfServicesGSTRate = typeof IMPORT_OF_SERVICES_GST_RATES[number]
+
+/**
+ * Result of Import of Services GST calculation
+ * Note: Always IGST only, no CGST/SGST split for foreign services
+ */
+export interface ImportOfServicesGSTComponents {
+  cgst: number
+  sgst: number
+  igst: number
+  totalTax: number
+  igstRate: number
+  // Foreign currency details (optional)
+  foreignCurrency?: string
+  foreignAmount?: number
+  exchangeRate?: number
+}
+
+/**
+ * Foreign currency details for Import of Services
+ */
+export interface ForeignCurrencyDetails {
+  foreignCurrency: string
+  foreignAmount: number
+  exchangeRate: number
+}
+
+/**
+ * Calculate GST for Import of Services
+ *
+ * Key differences from Indian RCM:
+ * - Always IGST only (no CGST/SGST split regardless of location)
+ * - Service is deemed to be supplied in India (Section 13 of IGST Act)
+ * - Reports in GSTR-3B Table 3.1(a)
+ *
+ * @param amountInINR - Taxable amount in INR (after applying exchange rate)
+ * @param gstRate - GST rate (5, 12, 18, or 28)
+ * @param foreignDetails - Optional foreign currency details
+ * @returns GST components (always IGST only)
+ */
+export function calculateImportOfServicesGST(
+  amountInINR: number,
+  gstRate: number,
+  foreignDetails?: ForeignCurrencyDetails
+): ImportOfServicesGSTComponents {
+  // Validate GST rate
+  if (!IMPORT_OF_SERVICES_GST_RATES.includes(gstRate as ImportOfServicesGSTRate)) {
+    throw new Error(
+      `Invalid GST rate for Import of Services: ${gstRate}%. Valid rates: ${IMPORT_OF_SERVICES_GST_RATES.join(', ')}%`
+    )
+  }
+
+  const igst = amountInINR * (gstRate / 100)
+
+  return {
+    cgst: 0,          // Always 0 for import of services
+    sgst: 0,          // Always 0 for import of services
+    igst,             // Full tax as IGST
+    totalTax: igst,
+    igstRate: gstRate,
+    // Include foreign currency details if provided
+    ...(foreignDetails && {
+      foreignCurrency: foreignDetails.foreignCurrency,
+      foreignAmount: foreignDetails.foreignAmount,
+      exchangeRate: foreignDetails.exchangeRate,
+    }),
+  }
+}
+
+/**
+ * Determine GSTR-3B table for RCM type
+ *
+ * - Import of Services: 3.1(a) - Outward taxable supplies (includes import RCM)
+ * - Indian Unregistered: 3.1(d) - Inward supplies liable to reverse charge
+ *
+ * @param rcmType - Type of RCM (IMPORT_OF_SERVICES or INDIAN_UNREGISTERED)
+ * @returns GSTR-3B table identifier
+ */
+export function getGSTR3BTable(rcmType: RcmType): '3.1(a)' | '3.1(d)' {
+  switch (rcmType) {
+    case RcmType.IMPORT_OF_SERVICES:
+      return '3.1(a)'
+    case RcmType.INDIAN_UNREGISTERED:
+      return '3.1(d)'
+    default:
+      // Fallback for exhaustiveness
+      return '3.1(d)'
+  }
+}
+
+/**
+ * Import of Services validation result
+ */
+export interface ImportOfServicesValidation {
+  isValid: boolean
+  errors: string[]
+  warnings: string[]
+}
+
+/**
+ * Validate Import of Services Invoice
+ *
+ * Validates:
+ * - Rule 47A: Invoice date within 30 days of receipt date
+ * - Foreign supplier (not India)
+ * - Valid GST rate
+ * - Valid HSN/SAC code
+ * - Exchange rate and foreign currency details
+ *
+ * @param invoice - Import of services invoice details
+ * @returns Validation result with errors and warnings
+ */
+export function validateImportOfServicesInvoice(invoice: {
+  invoiceDate: Date
+  dateOfReceiptOfSupply: Date
+  gstRate: number
+  serviceCode: string
+  supplierName: string
+  supplierCountry: string
+  supplierCountryName?: string
+  amountInINR: number
+  foreignCurrency: string
+  foreignAmount: number
+  exchangeRate: number
+  exchangeRateSource?: string
+}): ImportOfServicesValidation {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // -------------------------
+  // Rule 47A: 30-day rule
+  // -------------------------
+  const invoiceDate = new Date(invoice.invoiceDate)
+  const receiptDate = new Date(invoice.dateOfReceiptOfSupply)
+
+  // Invoice date cannot be before receipt date
+  if (invoiceDate < receiptDate) {
+    errors.push('Invoice date cannot be before the date of receipt of supply')
+  }
+
+  // Calculate days difference
+  const daysDiff = Math.floor(
+    (invoiceDate.getTime() - receiptDate.getTime()) / (1000 * 60 * 60 * 24)
+  )
+
+  if (daysDiff > RCM_RULE_47A_DAYS) {
+    errors.push(
+      `Self-invoice must be issued within ${RCM_RULE_47A_DAYS} days of receipt of supply (Rule 47A). ` +
+      `Current delay: ${daysDiff} days`
+    )
+  } else if (daysDiff > 25) {
+    warnings.push(
+      `Self-invoice approaching 30-day deadline (Rule 47A). Days remaining: ${RCM_RULE_47A_DAYS - daysDiff}`
+    )
+  }
+
+  // -------------------------
+  // Foreign supplier validation
+  // -------------------------
+  if (!invoice.supplierCountry) {
+    errors.push('Supplier country is required for import of services')
+  } else if (invoice.supplierCountry.toUpperCase() === 'IN') {
+    errors.push('Import of services must be from a foreign supplier (not India)')
+  }
+
+  // -------------------------
+  // Foreign currency validation
+  // -------------------------
+  if (!invoice.foreignCurrency) {
+    errors.push('Foreign currency is required for import of services')
+  }
+
+  if (!invoice.exchangeRate || invoice.exchangeRate <= 0) {
+    errors.push('Exchange rate is required for import of services')
+  }
+
+  if (!invoice.exchangeRateSource) {
+    warnings.push('Exchange rate source should be documented for GST compliance')
+  }
+
+  // -------------------------
+  // GST rate validation
+  // -------------------------
+  if (!IMPORT_OF_SERVICES_GST_RATES.includes(invoice.gstRate as ImportOfServicesGSTRate)) {
+    errors.push(
+      `Invalid GST rate: ${invoice.gstRate}%. Valid rates for Import of Services: ${IMPORT_OF_SERVICES_GST_RATES.join(', ')}%`
+    )
+  }
+
+  // -------------------------
+  // HSN/SAC code validation
+  // -------------------------
+  if (!invoice.serviceCode) {
+    errors.push('HSN/SAC code is required for import of services invoice')
+  } else {
+    const codeExists = SAC_HSN_CODES.some(item => item.code === invoice.serviceCode)
+    if (!codeExists) {
+      errors.push('HSN/SAC code must be a valid code from the GST Classification Scheme')
+    }
+  }
+
+  // -------------------------
+  // Supplier details validation
+  // -------------------------
+  if (!invoice.supplierName || invoice.supplierName.trim().length === 0) {
+    errors.push('Supplier name is required')
+  }
+
+  // -------------------------
+  // Amount validation
+  // -------------------------
+  if (!invoice.amountInINR || invoice.amountInINR <= 0) {
+    errors.push('Taxable amount in INR must be greater than zero')
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+  }
+}
+
+/**
+ * Zod schema for Import of Services GST rate validation
+ */
+export const importOfServicesGstRateSchema = z.number()
+  .refine(
+    (rate) => IMPORT_OF_SERVICES_GST_RATES.includes(rate as ImportOfServicesGSTRate),
+    { message: `GST rate must be one of: ${IMPORT_OF_SERVICES_GST_RATES.join(', ')}%` }
   )

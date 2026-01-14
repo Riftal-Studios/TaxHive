@@ -1,49 +1,43 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixtures/data-fixture'
 
 test.describe('RCM Self Invoice Integration Tests', () => {
   test.describe('Complete Workflow: Create Supplier -> Create Self Invoice -> View', () => {
-    test('should complete full self-invoice creation workflow', async ({ page }) => {
+    test('should complete full self-invoice creation workflow', async ({ authenticatedPage }) => {
       // Start from dashboard
-      await page.goto('/dashboard')
-
-      // Skip if not authenticated
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.goto('/dashboard')
 
       // Navigate to suppliers
-      await page.getByRole('link', { name: /suppliers/i }).click()
-      await expect(page).toHaveURL(/\/suppliers/)
+      await authenticatedPage.getByRole('link', { name: /suppliers/i }).click()
+      await expect(authenticatedPage).toHaveURL(/\/suppliers/)
 
       // Create a new supplier
-      await page.getByRole('button', { name: /add.*supplier/i }).click()
-      await expect(page.getByRole('dialog')).toBeVisible()
+      await authenticatedPage.getByRole('button', { name: /add.*supplier/i }).click()
+      await expect(authenticatedPage.getByRole('dialog')).toBeVisible()
 
       // Fill supplier form
       const supplierName = `Integration Test Supplier ${Date.now()}`
-      await page.getByLabel(/name/i).fill(supplierName)
-      await page.getByLabel(/address/i).fill('123 Integration Street, Test City')
-      await page.getByLabel(/state/i).click()
-      await page.getByRole('option', { name: /karnataka/i }).click()
+      await authenticatedPage.getByLabel(/name/i).fill(supplierName)
+      await authenticatedPage.getByLabel(/address/i).fill('123 Integration Street, Test City')
+      await authenticatedPage.getByLabel(/state/i).click()
+      await authenticatedPage.getByRole('option', { name: /karnataka/i }).click()
 
       // Submit supplier
-      await page.getByRole('button', { name: /save|create|add/i }).last().click()
+      await authenticatedPage.getByRole('button', { name: /save|create|add/i }).last().click()
 
       // Wait for dialog to close and supplier to appear
-      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
-      await expect(page.getByText(supplierName)).toBeVisible()
+      await expect(authenticatedPage.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
+      await expect(authenticatedPage.getByText(supplierName)).toBeVisible()
 
       // Navigate to create self-invoice
-      await page.getByRole('link', { name: /self.*invoices/i }).click()
-      await expect(page).toHaveURL(/\/self-invoices/)
+      await authenticatedPage.getByRole('link', { name: /self.*invoices/i }).click()
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices/)
 
       // Click create
-      await page.getByRole('button', { name: /create.*self.*invoice/i }).click()
-      await expect(page).toHaveURL(/\/self-invoices\/new/)
+      await authenticatedPage.getByRole('button', { name: /create.*self.*invoice/i }).click()
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/new/)
 
       // Check if prerequisites are met
-      const warning = page.getByText(/complete.*profile|gstin.*required/i)
+      const warning = authenticatedPage.getByText(/complete.*profile|gstin.*required/i)
       if (await warning.isVisible().catch(() => false)) {
         // Can't continue without GSTIN - test ends here
         test.skip()
@@ -52,49 +46,44 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Fill self-invoice form
       // Select supplier
-      const supplierSelect = page.getByLabel(/supplier/i)
+      const supplierSelect = authenticatedPage.getByLabel(/supplier/i)
       await supplierSelect.click()
-      await page.getByRole('option', { name: new RegExp(supplierName, 'i') }).click()
+      await authenticatedPage.getByRole('option', { name: new RegExp(supplierName, 'i') }).click()
 
       // Fill line item
-      await page.getByLabel(/description/i).first().fill('Integration Test Service')
-      await page.getByLabel(/amount/i).first().fill('10000')
+      await authenticatedPage.getByLabel(/description/i).first().fill('Integration Test Service')
+      await authenticatedPage.getByLabel(/amount/i).first().fill('10000')
 
       // Select GST rate
-      const gstSelect = page.getByLabel(/gst.*rate/i)
+      const gstSelect = authenticatedPage.getByLabel(/gst.*rate/i)
       await gstSelect.click()
-      await page.getByRole('option', { name: /18%/i }).click()
+      await authenticatedPage.getByRole('option', { name: /18%/i }).click()
 
       // Select payment mode
-      const paymentSelect = page.getByLabel(/payment.*mode/i)
+      const paymentSelect = authenticatedPage.getByLabel(/payment.*mode/i)
       await paymentSelect.click()
-      await page.getByRole('option', { name: /bank.*transfer/i }).click()
+      await authenticatedPage.getByRole('option', { name: /bank.*transfer/i }).click()
 
       // Submit
-      await page.getByRole('button', { name: /create.*invoice|save|submit/i }).click()
+      await authenticatedPage.getByRole('button', { name: /create.*invoice|save|submit/i }).click()
 
       // Should redirect to invoice detail
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+/i, { timeout: 10000 })
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+/i, { timeout: 10000 })
 
       // Verify invoice was created
-      await expect(page.getByText(/SI\/\d{4}-\d{2}\/\d+/)).toBeVisible()
-      await expect(page.getByText(supplierName)).toBeVisible()
+      await expect(authenticatedPage.getByText(/SI\/\d{4}-\d{2}\/\d+/)).toBeVisible()
+      await expect(authenticatedPage.getByText(supplierName)).toBeVisible()
     })
   })
 
   test.describe('Intrastate Transaction (CGST + SGST)', () => {
-    test('should show CGST and SGST for same-state supplier', async ({ page }) => {
-      await page.goto('/self-invoices/new')
+    test('should show CGST and SGST for same-state supplier', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices/new')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      await page.waitForLoadState('networkidle')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       // Skip if prerequisites not met
-      const warning = page.getByText(/complete.*profile|no.*supplier/i)
+      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
       if (await warning.isVisible().catch(() => false)) {
         test.skip()
         return
@@ -103,10 +92,10 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       // Get user's state from profile (assumption: we need a same-state supplier)
       // For this test, we'll select a supplier and check the GST breakdown
 
-      const supplierSelect = page.getByLabel(/supplier/i)
+      const supplierSelect = authenticatedPage.getByLabel(/supplier/i)
       await supplierSelect.click()
 
-      const option = page.getByRole('option').first()
+      const option = authenticatedPage.getByRole('option').first()
       if (!(await option.isVisible().catch(() => false))) {
         test.skip()
         return
@@ -114,18 +103,18 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await option.click()
 
       // Fill amount and GST rate
-      await page.getByLabel(/amount/i).first().fill('10000')
-      const gstSelect = page.getByLabel(/gst.*rate/i)
+      await authenticatedPage.getByLabel(/amount/i).first().fill('10000')
+      const gstSelect = authenticatedPage.getByLabel(/gst.*rate/i)
       await gstSelect.click()
-      await page.getByRole('option', { name: /18%/i }).click()
+      await authenticatedPage.getByRole('option', { name: /18%/i }).click()
 
-      await page.waitForTimeout(500)
+      await authenticatedPage.waitForTimeout(500)
 
       // For intrastate: should show CGST 9% and SGST 9%
       // For interstate: should show IGST 18%
-      const hasCgst = await page.getByText(/cgst/i).isVisible().catch(() => false)
-      const hasSgst = await page.getByText(/sgst/i).isVisible().catch(() => false)
-      const hasIgst = await page.getByText(/igst/i).isVisible().catch(() => false)
+      const hasCgst = await authenticatedPage.getByText(/cgst/i).isVisible().catch(() => false)
+      const hasSgst = await authenticatedPage.getByText(/sgst/i).isVisible().catch(() => false)
+      const hasIgst = await authenticatedPage.getByText(/igst/i).isVisible().catch(() => false)
 
       // Should show either CGST+SGST OR IGST
       expect((hasCgst && hasSgst) || hasIgst).toBe(true)
@@ -133,17 +122,12 @@ test.describe('RCM Self Invoice Integration Tests', () => {
   })
 
   test.describe('Interstate Transaction (IGST)', () => {
-    test('should show IGST for different-state supplier', async ({ page }) => {
-      await page.goto('/self-invoices/new')
+    test('should show IGST for different-state supplier', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices/new')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
 
-      await page.waitForLoadState('networkidle')
-
-      const warning = page.getByText(/complete.*profile|no.*supplier/i)
+      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
       if (await warning.isVisible().catch(() => false)) {
         test.skip()
         return
@@ -152,10 +136,10 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       // This test requires a supplier from a different state
       // We'll verify the form correctly shows IGST when applicable
 
-      const supplierSelect = page.getByLabel(/supplier/i)
+      const supplierSelect = authenticatedPage.getByLabel(/supplier/i)
       await supplierSelect.click()
 
-      const options = page.getByRole('option')
+      const options = authenticatedPage.getByRole('option')
       const optionCount = await options.count()
 
       if (optionCount === 0) {
@@ -167,30 +151,25 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       // For now, just select any and verify GST display
       await options.first().click()
 
-      await page.getByLabel(/amount/i).first().fill('10000')
-      const gstSelect = page.getByLabel(/gst.*rate/i)
+      await authenticatedPage.getByLabel(/amount/i).first().fill('10000')
+      const gstSelect = authenticatedPage.getByLabel(/gst.*rate/i)
       await gstSelect.click()
-      await page.getByRole('option', { name: /18%/i }).click()
+      await authenticatedPage.getByRole('option', { name: /18%/i }).click()
 
-      await page.waitForTimeout(500)
+      await authenticatedPage.waitForTimeout(500)
 
       // Verify GST is displayed
-      const hasGst = await page.getByText(/cgst|sgst|igst/i).first().isVisible().catch(() => false)
+      const hasGst = await authenticatedPage.getByText(/cgst|sgst|igst/i).first().isVisible().catch(() => false)
       expect(hasGst).toBe(true)
     })
   })
 
   test.describe('Payment Voucher Auto-generation', () => {
-    test('should auto-generate payment voucher with self-invoice', async ({ page }) => {
-      await page.goto('/self-invoices')
-
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
+    test('should auto-generate payment voucher with self-invoice', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
       // Check if there are existing invoices
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -200,28 +179,23 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Click first invoice to view details
       await invoiceRow.click()
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
 
       // Payment voucher section should be visible
-      await expect(page.getByText(/payment.*voucher|voucher/i)).toBeVisible()
+      await expect(authenticatedPage.getByText(/payment.*voucher|voucher/i)).toBeVisible()
 
       // Payment voucher number should be displayed
-      const pvNumber = page.getByText(/PV\/\d{4}-\d{2}\/\d+/)
+      const pvNumber = authenticatedPage.getByText(/PV\/\d{4}-\d{2}\/\d+/)
       const hasPvNumber = await pvNumber.isVisible().catch(() => false)
 
       // Either has PV number or payment section visible
-      expect(hasPvNumber || await page.getByText(/payment.*voucher/i).isVisible()).toBe(true)
+      expect(hasPvNumber || await authenticatedPage.getByText(/payment.*voucher/i).isVisible()).toBe(true)
     })
 
-    test('should show payment voucher download option', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should show payment voucher download option', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -234,11 +208,11 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await moreButton.click()
 
       // Should show payment voucher download option
-      const downloadVoucher = page.getByText(/download.*voucher/i)
+      const downloadVoucher = authenticatedPage.getByText(/download.*voucher/i)
       const hasVoucherDownload = await downloadVoucher.isVisible().catch(() => false)
 
       // Close menu
-      await page.keyboard.press('Escape')
+      await authenticatedPage.keyboard.press('Escape')
 
       // Test structure exists
       expect(typeof hasVoucherDownload).toBe('boolean')
@@ -246,15 +220,10 @@ test.describe('RCM Self Invoice Integration Tests', () => {
   })
 
   test.describe('Edit Self Invoice', () => {
-    test('should navigate to edit page', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should navigate to edit page', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -267,18 +236,13 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await editButton.click()
 
       // Should navigate to edit page
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+\/edit/i)
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+\/edit/i)
     })
 
-    test('should load existing invoice data in edit form', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should load existing invoice data in edit form', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -288,28 +252,23 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Click edit
       await invoiceRow.getByRole('button', { name: /edit/i }).click()
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+\/edit/i)
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+\/edit/i)
 
-      await page.waitForLoadState('networkidle')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       // Form should have populated fields
-      const supplierSelect = page.getByLabel(/supplier/i)
+      const supplierSelect = authenticatedPage.getByLabel(/supplier/i)
       await expect(supplierSelect).toBeVisible()
 
       // Line items should have values
-      const amountField = page.getByLabel(/amount/i).first()
+      const amountField = authenticatedPage.getByLabel(/amount/i).first()
       await expect(amountField).not.toHaveValue('')
     })
 
-    test('should save changes and redirect', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should save changes and redirect', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -319,36 +278,31 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Go to edit page
       await invoiceRow.getByRole('button', { name: /edit/i }).click()
-      await page.waitForURL(/\/self-invoices\/[a-z0-9]+\/edit/i)
+      await authenticatedPage.waitForURL(/\/self-invoices\/[a-z0-9]+\/edit/i)
 
-      await page.waitForLoadState('networkidle')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       // Update notes field
-      const notesField = page.getByLabel(/notes|remarks/i)
+      const notesField = authenticatedPage.getByLabel(/notes|remarks/i)
       if (await notesField.isVisible().catch(() => false)) {
         await notesField.fill('Updated via integration test')
       }
 
       // Save
-      const saveButton = page.getByRole('button', { name: /save|update/i })
+      const saveButton = authenticatedPage.getByRole('button', { name: /save|update/i })
       await saveButton.click()
 
       // Should redirect to detail or list page
-      await expect(page).not.toHaveURL(/\/edit$/i, { timeout: 10000 })
+      await expect(authenticatedPage).not.toHaveURL(/\/edit$/i, { timeout: 10000 })
     })
   })
 
   test.describe('Invoice Number Sequence', () => {
-    test('should generate sequential invoice numbers', async ({ page }) => {
-      await page.goto('/self-invoices')
-
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
+    test('should generate sequential invoice numbers', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
       // Check existing invoices for SI/ format
-      const invoiceNumbers = page.locator('table tbody tr td:first-child').getByText(/SI\/\d{4}-\d{2}\/\d+/)
+      const invoiceNumbers = authenticatedPage.locator('table tbody tr td:first-child').getByText(/SI\/\d{4}-\d{2}\/\d+/)
 
       const count = await invoiceNumbers.count()
       if (count < 2) {
@@ -368,15 +322,10 @@ test.describe('RCM Self Invoice Integration Tests', () => {
   })
 
   test.describe('RCM Liability Equals ITC Claimable', () => {
-    test('should show equal RCM liability and ITC claimable in summary', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should show equal RCM liability and ITC claimable in summary', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -385,8 +334,8 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       }
 
       // RCM summary should show liability and ITC
-      const rcmLiabilityText = await page.getByText(/rcm liability/i).locator('..').textContent()
-      const itcClaimableText = await page.getByText(/itc claimable/i).locator('..').textContent()
+      const rcmLiabilityText = await authenticatedPage.getByText(/rcm liability/i).locator('..').textContent()
+      const itcClaimableText = await authenticatedPage.getByText(/itc claimable/i).locator('..').textContent()
 
       // Extract amounts (this is a basic check - actual values should match)
       const rcmMatch = rcmLiabilityText?.match(/[\d,]+(\.\d{2})?/)
@@ -400,15 +349,10 @@ test.describe('RCM Self Invoice Integration Tests', () => {
   })
 
   test.describe('Navigation Between Related Pages', () => {
-    test('should navigate from self-invoice to supplier details', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should navigate from self-invoice to supplier details', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -418,25 +362,20 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Go to invoice detail
       await invoiceRow.click()
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
 
       // Look for link to supplier
-      const supplierLink = page.getByRole('link', { name: /view.*supplier|supplier.*details/i })
+      const supplierLink = authenticatedPage.getByRole('link', { name: /view.*supplier|supplier.*details/i })
       const hasLink = await supplierLink.isVisible().catch(() => false)
 
       // Either has link or supplier info displayed
-      expect(hasLink || await page.getByText(/supplier/i).isVisible()).toBe(true)
+      expect(hasLink || await authenticatedPage.getByText(/supplier/i).isVisible()).toBe(true)
     })
 
-    test('should show self-invoice from supplier detail page', async ({ page }) => {
-      await page.goto('/suppliers')
+    test('should show self-invoice from supplier detail page', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/suppliers')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const supplierRow = page.locator('table tbody tr').first()
+      const supplierRow = authenticatedPage.locator('table tbody tr').first()
       const hasSuppliers = await supplierRow.isVisible().catch(() => false)
 
       if (!hasSuppliers) {
@@ -448,20 +387,15 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await supplierRow.click()
 
       // Should show related invoices
-      await expect(page.getByText(/invoices|self.*invoices/i)).toBeVisible()
+      await expect(authenticatedPage.getByText(/invoices|self.*invoices/i)).toBeVisible()
     })
   })
 
   test.describe('Cross-Page Data Consistency', () => {
-    test('should show consistent invoice data across list and detail', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should show consistent invoice data across list and detail', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -478,25 +412,20 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Navigate to detail
       await invoiceRow.click()
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
 
       // Verify same data on detail page
       if (invoiceNumber) {
-        await expect(page.getByText(invoiceNumber)).toBeVisible()
+        await expect(authenticatedPage.getByText(invoiceNumber)).toBeVisible()
       }
     })
   })
 
   test.describe('PDF Generation', () => {
-    test('should have download PDF button on detail page', async ({ page }) => {
-      await page.goto('/self-invoices')
+    test('should have download PDF button on detail page', async ({ authenticatedPage }) => {
+      await authenticatedPage.goto('/self-invoices')
 
-      if (page.url().includes('/auth/signin')) {
-        test.skip()
-        return
-      }
-
-      const invoiceRow = page.locator('table tbody tr').first()
+      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
       const hasInvoices = await invoiceRow.isVisible().catch(() => false)
 
       if (!hasInvoices) {
@@ -506,10 +435,10 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Navigate to detail page
       await invoiceRow.click()
-      await expect(page).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
+      await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
 
       // Look for download button
-      const downloadButton = page.getByRole('button', { name: /download.*pdf|download/i })
+      const downloadButton = authenticatedPage.getByRole('button', { name: /download.*pdf|download/i })
       await expect(downloadButton.first()).toBeVisible()
     })
   })

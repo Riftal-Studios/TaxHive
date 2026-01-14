@@ -141,15 +141,16 @@ describe('PDF Generation Queue Integration', () => {
     expect(completedJob).toBeDefined()
     expect(completedJob?.status).toBe('completed')
     expect(completedJob?.result).toBeDefined()
-    expect(completedJob?.result.success).toBe(true)
-    expect(completedJob?.result.pdfUrl).toBeTruthy()
-    expect(completedJob?.result.invoiceId).toBe(testInvoice.id)
+    const result = completedJob?.result as { success: boolean; pdfUrl: string; invoiceId: string }
+    expect(result?.success).toBe(true)
+    expect(result?.pdfUrl).toBeTruthy()
+    expect(result?.invoiceId).toBe(testInvoice.id)
 
     // Verify invoice was updated with PDF URL
     const updatedInvoice = await prisma.invoice.findUnique({
       where: { id: testInvoice.id },
     })
-    expect(updatedInvoice?.pdfUrl).toBe(completedJob?.result.pdfUrl)
+    expect(updatedInvoice?.pdfUrl).toBe(result?.pdfUrl)
   })
 
   it('should handle job with priority and delay', async () => {

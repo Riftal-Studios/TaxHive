@@ -14,6 +14,7 @@ import { GST_CONSTANTS } from '@/lib/constants'
 import { validateGSTInvoice, exportHsnSacCodeSchema } from '@/lib/validations/gst'
 import { getQueueService, isQueueServiceAvailable } from '@/lib/queue'
 import { db } from '@/lib/prisma'
+import { isLUTValid, daysUntilLUTExpiry, getLUTExpiryWarning } from '@/lib/lut-utils'
 
 // Get queue service lazily to avoid connection during build
 const getQueue = () => {
@@ -54,6 +55,34 @@ export const invoiceRouter = createTRPCRouter({
       
       // Use transaction for atomicity
       return await db.$transaction(async (tx) => {
+        // Validate LUT if provided
+        let lutWarning: { type: 'warning' | 'error'; message: string } | null = null
+
+        if (input.lutId) {
+          const lut = await tx.lUT.findUnique({
+            where: { id: input.lutId, userId },
+          })
+
+          if (!lut) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'LUT not found',
+            })
+          }
+
+          // Check if LUT is valid for the invoice date
+          if (!isLUTValid(lut, input.issueDate)) {
+            const daysExpired = -daysUntilLUTExpiry(lut)
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Cannot create export invoice: LUT ${lut.lutNumber} is expired (expired ${daysExpired} days ago). Please renew your LUT first.`,
+            })
+          }
+
+          // Check for expiry warning (within 30 days)
+          lutWarning = getLUTExpiryWarning(lut)
+        }
+
         // Get the current fiscal year
         const currentFY = getCurrentFiscalYear(input.issueDate)
         
@@ -179,7 +208,7 @@ export const invoiceRouter = createTRPCRouter({
           })
         }
         
-        return invoice
+        return { invoice, lutWarning }
       })
     }),
 
@@ -270,10 +299,10 @@ export const invoiceRouter = createTRPCRouter({
       const userId = ctx.session.user.id
       
       return await db.$transaction(async (tx) => {
-        // Get current invoice to check if exchange rate is being changed
+        // Get current invoice to check if exchange rate is being changed and for LUT validation
         const currentInvoice = await tx.invoice.findUnique({
           where: { id, userId },
-          select: { exchangeRate: true }
+          select: { exchangeRate: true, lutId: true, invoiceDate: true }
         })
 
         if (!currentInvoice) {
@@ -281,6 +310,36 @@ export const invoiceRouter = createTRPCRouter({
             code: 'NOT_FOUND',
             message: 'Invoice not found',
           })
+        }
+
+        // Validate LUT if lutId or issueDate is being changed
+        let lutWarning: { type: 'warning' | 'error'; message: string } | null = null
+        const effectiveLutId = updateData.lutId !== undefined ? updateData.lutId : currentInvoice.lutId
+        const effectiveIssueDate = updateData.issueDate !== undefined ? updateData.issueDate : currentInvoice.invoiceDate
+
+        if (effectiveLutId && (updateData.lutId !== undefined || updateData.issueDate !== undefined)) {
+          const lut = await tx.lUT.findUnique({
+            where: { id: effectiveLutId, userId },
+          })
+
+          if (!lut) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'LUT not found',
+            })
+          }
+
+          // Check if LUT is valid for the invoice date
+          if (!isLUTValid(lut, effectiveIssueDate)) {
+            const daysExpired = -daysUntilLUTExpiry(lut)
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Cannot update invoice: LUT ${lut.lutNumber} is expired (expired ${daysExpired} days ago). Please renew your LUT first.`,
+            })
+          }
+
+          // Check for expiry warning (within 30 days)
+          lutWarning = getLUTExpiryWarning(lut)
         }
 
         // Build update data with proper relation handling
@@ -416,7 +475,7 @@ export const invoiceRouter = createTRPCRouter({
           })
         }
         
-        return invoice
+        return { invoice, lutWarning }
       })
     }),
 

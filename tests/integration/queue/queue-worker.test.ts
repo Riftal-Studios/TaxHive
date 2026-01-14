@@ -129,8 +129,9 @@ describe('Queue Worker Process', () => {
     // Check job status
     const completedJob = await queueService.getJob(job.id)
     expect(completedJob?.status).toBe('completed')
-    expect(completedJob?.result?.success).toBe(true)
-    expect(completedJob?.result?.pdfUrl).toBeTruthy()
+    const result = completedJob?.result as { success: boolean; pdfUrl: string }
+    expect(result?.success).toBe(true)
+    expect(result?.pdfUrl).toBeTruthy()
 
     // Verify invoice was updated
     const updatedInvoice = await prisma.invoice.findUnique({

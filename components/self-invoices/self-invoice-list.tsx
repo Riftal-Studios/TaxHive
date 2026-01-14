@@ -358,7 +358,7 @@ export function SelfInvoiceList() {
                   RCM Liability (This FY)
                 </Typography>
                 <Typography variant="h5" fontWeight={600} color="error.main">
-                  {formatCurrency(rcmSummary.totalTax ?? 0, 'INR')}
+                  {formatCurrency(rcmSummary.combined?.totalTax ?? 0, 'INR')}
                 </Typography>
               </Box>
               <Box textAlign="center">
@@ -366,7 +366,7 @@ export function SelfInvoiceList() {
                   ITC Claimable (This FY)
                 </Typography>
                 <Typography variant="h5" fontWeight={600} color="success.main">
-                  {formatCurrency(rcmSummary.totalTax ?? 0, 'INR')}
+                  {formatCurrency(rcmSummary.combined?.totalTax ?? 0, 'INR')}
                 </Typography>
               </Box>
             </Stack>

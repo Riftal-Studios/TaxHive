@@ -1,3 +1,5 @@
 export { pdfGenerationHandler } from './pdf-generation.handler'
 export { emailNotificationHandler } from './email-notification.handler'
 export { exchangeRateFetchHandler } from './exchange-rate-fetch.handler'
+export { lutReminderHandler } from './lut-reminder.handler'
+export { documentProcessingHandler } from './document-processing.handler'

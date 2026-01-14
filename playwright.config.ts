@@ -1,16 +1,41 @@
 import { defineConfig, devices } from '@playwright/test'
+import 'dotenv/config'
 
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+
+  // Comprehensive reporters for error tracking
+  reporter: [
+    ['html', { open: 'never' }],
+    ['json', { outputFile: 'test-results/results.json' }],
+    ['./tests/e2e/reporters/error-summary-reporter.ts'],
+  ],
+
+  // Global test settings
+  expect: {
+    timeout: 10000,
+  },
+  timeout: 60000,
+
   use: {
     baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
+
+    // Comprehensive recording settings
+    trace: 'on',                    // Always record traces
+    screenshot: 'on',               // Screenshot every test
+    video: 'on-first-retry',        // Video on retries
+
+    // Action defaults
+    actionTimeout: 15000,
+    navigationTimeout: 30000,
   },
+
+  // Output directory for test artifacts
+  outputDir: 'test-results',
 
   projects: [
     {

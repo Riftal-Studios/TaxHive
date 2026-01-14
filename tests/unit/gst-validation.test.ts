@@ -11,8 +11,14 @@ import {
   formatGSTInvoiceNumber,
   validateLUTNumber,
   isLUTExpired,
-  getLUTExpiryStatus
+  getLUTExpiryStatus,
+  // Import of Services RCM
+  calculateImportOfServicesGST,
+  getGSTR3BTable,
+  validateImportOfServicesInvoice,
+  IMPORT_OF_SERVICES_GST_RATES,
 } from '@/lib/validations/gst'
+import { RcmType } from '@prisma/client'
 import { GST_CONSTANTS } from '@/lib/constants'
 
 describe('GST Validation Functions', () => {
@@ -233,6 +239,205 @@ describe('GST Validation Functions', () => {
       status = getLUTExpiryStatus(expiredDate)
       expect(status.status).toBe('expired')
       expect(status.daysRemaining).toBe(0)
+    })
+  })
+
+  // ============================================================================
+  // Import of Services RCM Tests (Phase 3)
+  // ============================================================================
+
+  describe('calculateImportOfServicesGST', () => {
+    it('should calculate IGST only for import of services (always interstate)', () => {
+      const result = calculateImportOfServicesGST(10000, 18)
+
+      expect(result.igst).toBe(1800)
+      expect(result.cgst).toBe(0)
+      expect(result.sgst).toBe(0)
+      expect(result.totalTax).toBe(1800)
+      expect(result.igstRate).toBe(18)
+    })
+
+    it('should handle 5% GST rate', () => {
+      const result = calculateImportOfServicesGST(10000, 5)
+
+      expect(result.igst).toBe(500)
+      expect(result.totalTax).toBe(500)
+      expect(result.igstRate).toBe(5)
+    })
+
+    it('should handle 12% GST rate', () => {
+      const result = calculateImportOfServicesGST(10000, 12)
+
+      expect(result.igst).toBe(1200)
+      expect(result.totalTax).toBe(1200)
+      expect(result.igstRate).toBe(12)
+    })
+
+    it('should handle 28% GST rate', () => {
+      const result = calculateImportOfServicesGST(10000, 28)
+
+      expect(result.igst).toBeCloseTo(2800, 2)
+      expect(result.totalTax).toBeCloseTo(2800, 2)
+      expect(result.igstRate).toBe(28)
+    })
+
+    it('should reject invalid GST rates', () => {
+      expect(() => calculateImportOfServicesGST(10000, 15)).toThrow(
+        'Invalid GST rate for Import of Services'
+      )
+      expect(() => calculateImportOfServicesGST(10000, 0)).toThrow(
+        'Invalid GST rate for Import of Services'
+      )
+    })
+
+    it('should handle decimal amounts', () => {
+      const result = calculateImportOfServicesGST(7325.50, 18)
+
+      // 7325.50 * 0.18 = 1318.59
+      expect(result.igst).toBeCloseTo(1318.59, 2)
+      expect(result.totalTax).toBeCloseTo(1318.59, 2)
+    })
+
+    it('should return foreign currency details when provided', () => {
+      const result = calculateImportOfServicesGST(83500, 18, {
+        foreignCurrency: 'USD',
+        foreignAmount: 1000,
+        exchangeRate: 83.5
+      })
+
+      expect(result.igst).toBe(15030) // 83500 * 0.18
+      expect(result.foreignCurrency).toBe('USD')
+      expect(result.foreignAmount).toBe(1000)
+      expect(result.exchangeRate).toBe(83.5)
+    })
+  })
+
+  describe('getGSTR3BTable', () => {
+    it('should return 3.1(a) for Import of Services', () => {
+      expect(getGSTR3BTable(RcmType.IMPORT_OF_SERVICES)).toBe('3.1(a)')
+    })
+
+    it('should return 3.1(d) for Indian Unregistered suppliers', () => {
+      expect(getGSTR3BTable(RcmType.INDIAN_UNREGISTERED)).toBe('3.1(d)')
+    })
+  })
+
+  describe('validateImportOfServicesInvoice', () => {
+    const validInvoice = {
+      invoiceDate: new Date(),
+      dateOfReceiptOfSupply: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+      gstRate: 18,
+      serviceCode: '99831130', // Valid SAC code
+      supplierName: 'AWS Inc.',
+      supplierCountry: 'US',
+      supplierCountryName: 'United States',
+      amountInINR: 83500,
+      foreignCurrency: 'USD',
+      foreignAmount: 1000,
+      exchangeRate: 83.5,
+      exchangeRateSource: 'RBI',
+    }
+
+    it('should validate correct import of services invoice', () => {
+      const result = validateImportOfServicesInvoice(validInvoice)
+
+      expect(result.isValid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('should reject invoice without exchange rate', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        exchangeRate: 0,
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Exchange rate is required for import of services')
+    })
+
+    it('should reject invoice without foreign currency', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        foreignCurrency: '',
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Foreign currency is required for import of services')
+    })
+
+    it('should reject invoice without supplier country', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        supplierCountry: '',
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Supplier country is required for import of services')
+    })
+
+    it('should reject invoice with Indian supplier', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        supplierCountry: 'IN',
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('Import of services must be from a foreign supplier (not India)')
+    })
+
+    it('should reject invoice exceeding 30-day rule', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        invoiceDate: new Date(),
+        dateOfReceiptOfSupply: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000), // 35 days ago
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors[0]).toContain('Self-invoice must be issued within 30 days')
+    })
+
+    it('should warn when approaching 30-day deadline', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        invoiceDate: new Date(),
+        dateOfReceiptOfSupply: new Date(Date.now() - 27 * 24 * 60 * 60 * 1000), // 27 days ago
+      })
+
+      expect(result.isValid).toBe(true)
+      expect(result.warnings[0]).toContain('approaching 30-day deadline')
+    })
+
+    it('should reject invalid GST rate', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        gstRate: 15,
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors[0]).toContain('Invalid GST rate')
+    })
+
+    it('should reject invalid HSN/SAC code', () => {
+      const result = validateImportOfServicesInvoice({
+        ...validInvoice,
+        serviceCode: '99999999',
+      })
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toContain('HSN/SAC code must be a valid code from the GST Classification Scheme')
+    })
+  })
+
+  describe('IMPORT_OF_SERVICES_GST_RATES', () => {
+    it('should contain standard GST rates', () => {
+      expect(IMPORT_OF_SERVICES_GST_RATES).toContain(5)
+      expect(IMPORT_OF_SERVICES_GST_RATES).toContain(12)
+      expect(IMPORT_OF_SERVICES_GST_RATES).toContain(18)
+      expect(IMPORT_OF_SERVICES_GST_RATES).toContain(28)
+    })
+
+    it('should not contain 0% rate for import of services', () => {
+      expect(IMPORT_OF_SERVICES_GST_RATES).not.toContain(0)
     })
   })
 })

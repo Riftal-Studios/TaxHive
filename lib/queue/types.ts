@@ -6,6 +6,8 @@ export const JobTypeEnum = z.enum([
   'EMAIL_NOTIFICATION',
   'EXCHANGE_RATE_FETCH',
   'PAYMENT_REMINDER',
+  'LUT_REMINDER',
+  'DOCUMENT_PROCESSING',
 ])
 
 export type JobType = z.infer<typeof JobTypeEnum>
@@ -148,11 +150,27 @@ export const PaymentReminderJobSchema = z.object({
   reminderNumber: z.number(),
 })
 
+export const LutReminderJobSchema = z.object({
+  mode: z.enum(['scan', 'single', 'renewal_scan']),
+  lutId: z.string().optional(), // Required when mode is 'single'
+})
+
+export const DocumentProcessingJobSchema = z.object({
+  documentUploadId: z.string(),
+  userId: z.string(),
+  sourceType: z.string(),
+  filename: z.string(),
+  fileUrl: z.string(),
+  mimeType: z.string(),
+})
+
 // Type helpers
 export type PdfGenerationJobData = z.infer<typeof PdfGenerationJobSchema>
 export type EmailNotificationJobData = z.infer<typeof EmailNotificationJobSchema>
 export type ExchangeRateFetchJobData = z.infer<typeof ExchangeRateFetchJobSchema>
 export type PaymentReminderJobData = z.infer<typeof PaymentReminderJobSchema>
+export type LutReminderJobData = z.infer<typeof LutReminderJobSchema>
+export type DocumentProcessingJobData = z.infer<typeof DocumentProcessingJobSchema>
 
 // Job Events
 export interface QueueEvents {

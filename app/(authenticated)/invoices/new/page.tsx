@@ -41,9 +41,16 @@ export default function NewInvoicePage() {
   
   // Create invoice mutation
   const createInvoiceMutation = api.invoices.create.useMutation({
-    onSuccess: (invoice) => {
+    onSuccess: ({ invoice, lutWarning }) => {
       utils.invoices.list.invalidate()
       enqueueSnackbar('Invoice created successfully', { variant: 'success' })
+      // Show LUT expiry warning if applicable
+      if (lutWarning) {
+        enqueueSnackbar(lutWarning.message, {
+          variant: lutWarning.type === 'error' ? 'error' : 'warning',
+          persist: true,
+        })
+      }
       router.push(`/invoices/${invoice.id}`)
     },
     onError: (error) => {

@@ -11,18 +11,18 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  emailVerified DateTime?
-  password      String?   // Hashed password
-  name          String?
-  gstin         String?   // GST Identification Number
-  pan           String?   // PAN Number
-  address       String?
-  onboardingCompleted Boolean @default(false)
-  onboardingStep String?  // Current step: profile, client, lut, invoice, complete
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  emailVerified       DateTime?
+  password            String? // Hashed password
+  name                String?
+  gstin               String? // GST Identification Number
+  pan                 String? // PAN Number
+  address             String?
+  onboardingCompleted Boolean   @default(false)
+  onboardingStep      String? // Current step: profile, client, lut, invoice, complete
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   accounts              Account[]
   sessions              Session[]
@@ -34,6 +34,11 @@ model User {
   feedback              Feedback[]
   unregisteredSuppliers UnregisteredSupplier[]
   paymentVouchers       PaymentVoucher[]
+  // Phase 1: New relations for full GST implementation
+  documentUploads       DocumentUpload[]
+  gstFilingPeriods      GSTFilingPeriod[]
+  gstr2bUploads         GSTR2BUpload[]
+  itcLedgers            ITCLedger[]
 }
 
 model Account {
@@ -72,19 +77,19 @@ model VerificationToken {
 }
 
 model Client {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  email       String
-  company     String?
-  address     String
-  country     String
-  currency    String   @default("USD") // Client's currency based on their country
-  phone       String?
-  taxId       String? // Foreign tax ID if applicable
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  email     String
+  company   String?
+  address   String
+  country   String
+  currency  String   @default("USD") // Client's currency based on their country
+  phone     String?
+  taxId     String? // Foreign tax ID if applicable
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoices Invoice[]
@@ -93,83 +98,92 @@ model Client {
 }
 
 model Invoice {
-  id             String        @id @default(cuid())
-  userId         String
-  clientId       String?       // Optional for self-invoices (no client needed)
-  invoiceNumber  String        @unique // Format: FY23-24/001 or SI/2025-26/0001
-  invoiceDate    DateTime
-  dueDate        DateTime
-  status         String        @default("DRAFT")
+  id            String   @id @default(cuid())
+  userId        String
+  clientId      String? // Optional for self-invoices (no client needed)
+  invoiceNumber String   @unique // Format: FY23-24/001 or SI/2025-26/0001
+  invoiceDate   DateTime
+  dueDate       DateTime
+  status        String   @default("DRAFT")
 
   // Invoice Type for RCM Self Invoice
-  invoiceType    InvoiceType   @default(EXPORT)
+  invoiceType InvoiceType @default(EXPORT)
 
   // GST Compliance Fields
-  placeOfSupply  String        @default("Outside India (Section 2-6)")
-  serviceCode    String        // HSN/SAC code
-  lutId          String?       // Reference to LUT (for export invoices)
+  placeOfSupply String  @default("Outside India (Section 2-6)")
+  serviceCode   String // HSN/SAC code
+  lutId         String? // Reference to LUT (for export invoices)
 
   // RCM Self Invoice Fields
-  unregisteredSupplierId String?     // Link to unregistered supplier
-  dateOfReceiptOfSupply  DateTime?   // Required for RCM - when goods/services received
+  unregisteredSupplierId String? // Link to unregistered supplier
+  dateOfReceiptOfSupply  DateTime? // Required for RCM - when goods/services received
 
   // Financial Details
-  currency       String        @default("USD")
-  exchangeRate   Decimal
-  exchangeSource String        // RBI/Fallback API/Manual
-  exchangeRateOverridden Boolean @default(false) // Whether exchange rate was manually changed after invoice creation
+  currency                 String    @default("USD")
+  exchangeRate             Decimal
+  exchangeSource           String // RBI/Fallback API/Manual
+  exchangeRateOverridden   Boolean   @default(false) // Whether exchange rate was manually changed after invoice creation
   exchangeRateOverriddenAt DateTime? // When exchange rate was manually changed
-  subtotal       Decimal
+  subtotal                 Decimal
 
   // GST Details (extended for RCM)
-  igstRate       Decimal       @default(0)
-  igstAmount     Decimal       @default(0)
-  cgstRate       Decimal       @default(0)  // CGST rate for intrastate RCM
-  cgstAmount     Decimal       @default(0)  // CGST amount
-  sgstRate       Decimal       @default(0)  // SGST rate for intrastate RCM
-  sgstAmount     Decimal       @default(0)  // SGST amount
+  igstRate   Decimal @default(0)
+  igstAmount Decimal @default(0)
+  cgstRate   Decimal @default(0) // CGST rate for intrastate RCM
+  cgstAmount Decimal @default(0) // CGST amount
+  sgstRate   Decimal @default(0) // SGST rate for intrastate RCM
+  sgstAmount Decimal @default(0) // SGST amount
 
-  totalAmount    Decimal
-  totalInINR     Decimal
+  totalAmount Decimal
+  totalInINR  Decimal
 
   // RCM Tracking
-  isRCM          Boolean       @default(false)
-  rcmLiability   Decimal       @default(0)  // Total RCM tax liability for GSTR-3B 3.1(d)
-  itcClaimable   Decimal       @default(0)  // ITC claimable for GSTR-3B 4A(3)
-  
+  isRCM        Boolean  @default(false)
+  rcmType      RcmType? // INDIAN_UNREGISTERED (3.1d) or IMPORT_OF_SERVICES (3.1a)
+  rcmLiability Decimal  @default(0) // Total RCM tax liability for GSTR-3B
+  itcClaimable Decimal  @default(0) // ITC claimable for GSTR-3B 4A(3)
+
+  // Foreign currency details (for import of services)
+  foreignCurrency String? // Original currency (USD, EUR, etc.)
+  foreignAmount   Decimal? // Original amount in foreign currency
+
   // Payment Status
-  paymentStatus  String        @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID
-  amountPaid     Decimal       @default(0)
-  balanceDue     Decimal       @default(0)
-  
+  paymentStatus String  @default("UNPAID") // UNPAID, PARTIALLY_PAID, PAID
+  amountPaid    Decimal @default(0)
+  balanceDue    Decimal @default(0)
+
   // Additional Info
-  description    String?
-  paymentTerms   String?
-  bankDetails    String?
-  notes          String?
-  
+  description  String?
+  paymentTerms String?
+  bankDetails  String?
+  notes        String?
+
   // PDF Storage
   pdfUrl         String?
   pdfStatus      String?   @default("pending") // pending, generating, completed, failed
-  pdfError       String?   // Error message if generation failed
+  pdfError       String? // Error message if generation failed
   pdfGeneratedAt DateTime? // When PDF was last successfully generated
-  pdfJobId       String?   // Queue job ID for tracking
-  
+  pdfJobId       String? // Queue job ID for tracking
+
   // Public access fields
   publicAccessToken String?   @unique
   tokenExpiresAt    DateTime?
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
 
-  user                 User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  client               Client?                @relation(fields: [clientId], references: [id])
-  lut                  LUT?                   @relation(fields: [lutId], references: [id])
-  unregisteredSupplier UnregisteredSupplier?  @relation(fields: [unregisteredSupplierId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client               Client?               @relation(fields: [clientId], references: [id])
+  lut                  LUT?                  @relation(fields: [lutId], references: [id])
+  unregisteredSupplier UnregisteredSupplier? @relation(fields: [unregisteredSupplierId], references: [id])
   lineItems            InvoiceItem[]
   payments             Payment[]
   emailHistory         EmailHistory[]
   paymentVoucher       PaymentVoucher?
+  // Phase 1: New relations for full GST implementation
+  documentUpload       DocumentUpload? // Link back to source document (if created from inbox)
+  filingPlanItems      FilingPlanItem[] // Filing plan items referencing this invoice
+  gstr2bEntries        GSTR2BEntry[] // GSTR-2B entries matched to this invoice
 
   @@index([userId])
   @@index([clientId])
@@ -177,6 +191,7 @@ model Invoice {
   @@index([paymentStatus])
   @@index([invoiceType])
   @@index([unregisteredSupplierId])
+  @@index([rcmType])
 }
 
 model InvoiceItem {
@@ -186,7 +201,7 @@ model InvoiceItem {
   quantity    Decimal
   rate        Decimal
   amount      Decimal
-  serviceCode String  // HSN/SAC code
+  serviceCode String // HSN/SAC code
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -196,26 +211,26 @@ model InvoiceItem {
 model Payment {
   id            String   @id @default(cuid())
   invoiceId     String
-  amount        Decimal  // Amount client sent (Y in the payment flow)
+  amount        Decimal // Amount client sent (Y in the payment flow)
   currency      String
   paymentDate   DateTime
   paymentMethod String
   reference     String?
   notes         String?
-  
+
   // Payment flow details
   amountReceivedBeforeFees Decimal? // Amount before platform fees (Z in the flow)
   platformFeesInCurrency   Decimal? // Platform fees in original currency (Y - Z)
-  
+
   // Bank credit details
   creditedAmount     Decimal? // Actual amount credited to bank in INR
   actualExchangeRate Decimal? // Exchange rate applied (INR per foreign currency unit)
   bankChargesInr     Decimal? // Bank charges in INR if any
-  fircNumber         String?  // FIRC document number
+  fircNumber         String? // FIRC document number
   fircDate           DateTime? // FIRC issue date
-  fircDocumentUrl    String?  // URL to uploaded FIRC document
-  
-  createdAt     DateTime @default(now())
+  fircDocumentUrl    String? // URL to uploaded FIRC document
+
+  createdAt DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -224,30 +239,39 @@ model Payment {
 }
 
 model LUT {
-  id         String    @id @default(cuid())
-  userId     String
-  lutNumber  String
-  lutDate    DateTime
-  validFrom  DateTime
-  validTill  DateTime
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  userId    String
+  lutNumber String
+  lutDate   DateTime
+  validFrom DateTime
+  validTill DateTime
+  isActive  Boolean  @default(true)
+
+  // Reminder tracking for expiry alerts
+  reminderSentAt        DateTime? // When 30-day expiry reminder was sent
+  renewalReminderSentAt DateTime? // When renewal reminder was sent
+
+  // Renewal chain tracking
+  previousLutId String? // Reference to previous LUT for renewal tracking
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoices Invoice[]
 
   @@index([userId])
   @@index([isActive])
+  @@index([validTill])
 }
 
 model ExchangeRate {
-  id         String   @id @default(cuid())
-  currency   String
-  rate       Decimal
-  source     String   // RBI/exchangerate-api.com/Manual
-  date       DateTime
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  currency  String
+  rate      Decimal
+  source    String // RBI/exchangerate-api.com/Manual
+  date      DateTime
+  createdAt DateTime @default(now())
 
   @@unique([currency, date])
   @@index([currency])
@@ -255,19 +279,19 @@ model ExchangeRate {
 }
 
 model EmailHistory {
-  id         String   @id @default(cuid())
-  userId     String
-  invoiceId  String?
-  type       String   // invoice, payment-reminder, lut-expiry, payment-received
-  to         String
-  cc         String?
-  bcc        String?
-  subject    String
-  template   String
-  messageId  String
-  status     String   // SENT, FAILED, BOUNCED
-  sentAt     DateTime
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  invoiceId String?
+  type      String // invoice, payment-reminder, lut-expiry, payment-received
+  to        String
+  cc        String?
+  bcc       String?
+  subject   String
+  template  String
+  messageId String
+  status    String // SENT, FAILED, BOUNCED
+  sentAt    DateTime
+  createdAt DateTime @default(now())
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -284,17 +308,17 @@ model EmailHistory {
 
 model OTP {
   id        String   @id @default(cuid())
-  userId    String?  // Optional for signup OTPs
+  userId    String? // Optional for signup OTPs
   email     String
   code      String
-  purpose   String   // SIGNUP, PASSWORD_RESET, etc.
+  purpose   String // SIGNUP, PASSWORD_RESET, etc.
   expiresAt DateTime
   attempts  Int      @default(0)
   verified  Boolean  @default(false)
   createdAt DateTime @default(now())
-  
+
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([email])
   @@index([code])
   @@index([expiresAt])
@@ -318,16 +342,27 @@ model Feedback {
   @@index([createdAt])
 }
 
-// Unregistered Supplier for RCM Self Invoices
+// Unregistered Supplier for RCM Self Invoices (supports both Indian and Foreign vendors)
 model UnregisteredSupplier {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  address   String
-  state     String   // State name for place of supply determination
-  stateCode String   // 2-digit GST state code (01-37)
-  pan       String?  // Optional PAN number
+  id      String @id @default(cuid())
+  userId  String
+  name    String
+  address String
+
+  // Supplier type determines validation rules
+  supplierType SupplierType @default(INDIAN_UNREGISTERED)
+
+  // For Indian suppliers (required when supplierType = INDIAN_UNREGISTERED)
+  state     String? // State name for place of supply determination
+  stateCode String? // 2-digit GST state code (01-37)
+  pan       String? // Optional PAN number
   pincode   String?
+
+  // For Foreign suppliers (required when supplierType = FOREIGN_SERVICE)
+  country     String? // ISO country code (e.g., "US", "DE")
+  countryName String? // Full country name (e.g., "United States")
+
+  // Common fields
   phone     String?
   email     String?
   isActive  Boolean  @default(true)
@@ -339,19 +374,20 @@ model UnregisteredSupplier {
 
   @@index([userId])
   @@index([isActive])
+  @@index([supplierType])
 }
 
 // Payment Voucher linked to Self Invoice
 model PaymentVoucher {
-  id               String      @id @default(cuid())
-  userId           String
-  voucherNumber    String      @unique // Format: PV/2025-26/0001
-  voucherDate      DateTime
-  selfInvoiceId    String      @unique // One-to-one with self-invoice
+  id            String   @id @default(cuid())
+  userId        String
+  voucherNumber String   @unique // Format: PV/2025-26/0001
+  voucherDate   DateTime
+  selfInvoiceId String   @unique // One-to-one with self-invoice
 
   // Supplier details (copied for record keeping)
-  supplierName     String
-  supplierAddress  String
+  supplierName    String
+  supplierAddress String
 
   // Payment details
   amount           Decimal
@@ -360,19 +396,272 @@ model PaymentVoucher {
   notes            String?
 
   // PDF storage
-  pdfUrl           String?
-  pdfStatus        String      @default("pending") // pending, generating, completed, failed
-  pdfError         String?
-  pdfGeneratedAt   DateTime?
+  pdfUrl         String?
+  pdfStatus      String    @default("pending") // pending, generating, completed, failed
+  pdfError       String?
+  pdfGeneratedAt DateTime?
 
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   selfInvoice Invoice @relation(fields: [selfInvoiceId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([voucherDate])
+}
+
+// ============================================================================
+// Phase 1: New Models for Full GST Implementation
+// ============================================================================
+
+// Smart Inbox - Document Upload for AI-powered classification
+model DocumentUpload {
+  id               String @id @default(cuid())
+  userId           String
+  filename         String // Stored filename (e.g., cuid-based)
+  originalFilename String // Original uploaded filename
+  mimeType         String // application/pdf, image/png, text/csv
+  fileSize         Int // Size in bytes
+  fileUrl          String // S3/storage URL
+
+  // Source information
+  sourceType     DocumentSourceType
+  sourcePlatform String? // e.g., "upwork.com", "aws.amazon.com"
+
+  // Processing status
+  status          DocumentStatus @default(PENDING)
+  processingJobId String? // Queue job ID
+
+  // AI Classification results
+  classification    DocumentClassification?
+  confidenceScore   Decimal? // 0-100 confidence score
+  rawExtractionData Json? // Raw AI response
+  extractedData     Json? // Structured extracted data
+
+  // Key extracted fields for quick filtering
+  extractedAmount      Decimal?
+  extractedCurrency    String?
+  extractedDate        DateTime?
+  extractedVendorName  String?
+  extractedVendorGstin String?
+
+  // Review workflow
+  reviewStatus ReviewStatus @default(PENDING_REVIEW)
+  reviewedAt   DateTime?
+  reviewNotes  String?
+
+  // Link to created invoice (when converted)
+  linkedInvoiceId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedInvoice Invoice? @relation(fields: [linkedInvoiceId], references: [id])
+
+  @@index([userId, status, reviewStatus])
+  @@index([sourceType])
+  @@index([classification])
+  @@index([createdAt])
+}
+
+// GST Filing Period - Track GSTR-1 and GSTR-3B filing plans
+model GSTFilingPeriod {
+  id         String       @id @default(cuid())
+  userId     String
+  filingType FilingType // GSTR1 or GSTR3B
+  period     String // YYYY-MM format (e.g., "2024-01")
+  fiscalYear String // YYYY-YY format (e.g., "2024-25")
+  status     FilingStatus @default(DRAFT)
+  dueDate    DateTime
+
+  // Summary totals
+  totalTaxableValue Decimal @default(0)
+  totalIgstAmount   Decimal @default(0)
+  totalCgstAmount   Decimal @default(0)
+  totalSgstAmount   Decimal @default(0)
+  totalTaxAmount    Decimal @default(0)
+
+  // ITC Summary (for GSTR-3B)
+  totalItcIgst  Decimal @default(0)
+  totalItcCgst  Decimal @default(0)
+  totalItcSgst  Decimal @default(0)
+  netTaxPayable Decimal @default(0)
+
+  // Workflow timestamps
+  generatedAt DateTime?
+  approvedAt  DateTime?
+  filedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planItems FilingPlanItem[]
+
+  @@unique([userId, filingType, period])
+  @@index([userId, status, dueDate])
+  @@index([fiscalYear])
+}
+
+// Filing Plan Item - Individual items in GSTR-1/3B filing plan
+model FilingPlanItem {
+  id             String  @id @default(cuid())
+  filingPeriodId String
+  invoiceId      String? // Link to source invoice
+
+  // Invoice details (denormalized for filing)
+  invoiceNumber String
+  invoiceDate   DateTime?
+
+  // GSTR Table classification
+  gstrTable String // "4A", "5", "6A", "9B", "3.1a", "3.1b", "3.1d", etc.
+
+  // Recipient/Supplier details
+  recipientGstin String?
+  recipientName  String?
+
+  // Tax amounts
+  taxableValue Decimal
+  igstAmount   Decimal @default(0)
+  cgstAmount   Decimal @default(0)
+  sgstAmount   Decimal @default(0)
+
+  // Validation
+  confidenceScore  Int   @default(100) // 0-100
+  flags            Json? // Array of flag objects {code, message, severity}
+  validationErrors Json? // Array of validation error messages
+
+  // Manual adjustments
+  isManuallyAdjusted Boolean @default(false)
+  adjustmentNotes    String?
+  isIncluded         Boolean @default(true) // Can exclude from filing
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  filingPeriod GSTFilingPeriod @relation(fields: [filingPeriodId], references: [id], onDelete: Cascade)
+  invoice      Invoice?        @relation(fields: [invoiceId], references: [id])
+
+  @@index([filingPeriodId, gstrTable])
+  @@index([invoiceId])
+}
+
+// GSTR-2B Upload - Store uploaded GSTR-2B JSON files
+model GSTR2BUpload {
+  id           String   @id @default(cuid())
+  userId       String
+  gstin        String // User's GSTIN
+  returnPeriod String // MMYYYY format (e.g., "012024")
+  uploadDate   DateTime @default(now())
+  fileName     String? // Original filename
+  rawJson      Json? // Complete GSTR-2B JSON
+
+  // Processing status
+  status          String  @default("PROCESSING") // PROCESSING, COMPLETED, FAILED
+  errorMessage    String?
+  entriesCount    Int     @default(0)
+  matchedCount    Int     @default(0)
+  mismatchedCount Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries GSTR2BEntry[]
+
+  @@unique([userId, returnPeriod])
+  @@index([userId])
+  @@index([returnPeriod])
+}
+
+// GSTR-2B Entry - Individual entries from GSTR-2B for reconciliation
+model GSTR2BEntry {
+  id       String @id @default(cuid())
+  uploadId String
+
+  // Vendor details from 2B
+  vendorGstin String
+  vendorName  String?
+
+  // Invoice details from 2B
+  invoiceNumber String
+  invoiceDate   DateTime
+  invoiceValue  Decimal // Total invoice value
+  taxableValue  Decimal
+
+  // Tax amounts from 2B
+  igst Decimal @default(0)
+  cgst Decimal @default(0)
+  sgst Decimal @default(0)
+  cess Decimal @default(0)
+
+  // 2B specific fields
+  supplyType      String? // B2B, B2BA, CDNR, etc.
+  itcAvailability String? // Y/N from 2B
+  reason          String? // Reason code if ITC not available
+
+  // Reconciliation status
+  matchStatus      ITCMatchStatus @default(PENDING)
+  matchedInvoiceId String? // Link to matched purchase invoice
+  matchConfidence  Float? // 0-1 confidence score
+  mismatchDetails  Json? // Details of what doesn't match
+
+  // Manual resolution
+  manuallyResolved Boolean   @default(false)
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  resolvedBy       String? // User ID who resolved
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  upload         GSTR2BUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  matchedInvoice Invoice?     @relation(fields: [matchedInvoiceId], references: [id])
+
+  @@index([uploadId, matchStatus])
+  @@index([vendorGstin, invoiceNumber])
+  @@index([matchedInvoiceId])
+}
+
+// ITC Ledger - Track Input Tax Credit by period
+model ITCLedger {
+  id           String @id @default(cuid())
+  userId       String
+  returnPeriod String // MMYYYY format
+
+  // ITC from RCM (self-assessed, always claimable)
+  rcmIgst Decimal @default(0)
+  rcmCgst Decimal @default(0)
+  rcmSgst Decimal @default(0)
+
+  // ITC from B2B purchases (matched with 2B)
+  b2bIgst Decimal @default(0)
+  b2bCgst Decimal @default(0)
+  b2bSgst Decimal @default(0)
+
+  // ITC at risk (in 2B but not claimed / mismatch)
+  atRiskIgst Decimal @default(0)
+  atRiskCgst Decimal @default(0)
+  atRiskSgst Decimal @default(0)
+
+  // Net ITC available
+  netIgst Decimal @default(0)
+  netCgst Decimal @default(0)
+  netSgst Decimal @default(0)
+
+  // Accumulated ITC for refund (exports)
+  accumulatedItc Decimal @default(0)
+
+  lastUpdated DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, returnPeriod])
+  @@index([userId])
+  @@index([returnPeriod])
 }
 
 enum FeedbackType {
@@ -389,7 +678,7 @@ enum FeedbackStatus {
 }
 
 enum InvoiceType {
-  EXPORT       // Standard export invoice (current behavior)
+  EXPORT // Standard export invoice (current behavior)
   SELF_INVOICE // RCM self-invoice for unregistered suppliers
 }
 
@@ -399,4 +688,88 @@ enum PaymentMode {
   CHEQUE
   UPI
   OTHER
+}
+
+// ============================================================================
+// Phase 1: New Enums for Full GST Implementation
+// ============================================================================
+
+// Supplier types (extended RCM support)
+enum SupplierType {
+  INDIAN_UNREGISTERED // Current - requires state/stateCode
+  FOREIGN_SERVICE // Import of services (AWS, Figma, GitHub, etc.)
+}
+
+// RCM classification for GSTR-3B reporting
+enum RcmType {
+  INDIAN_UNREGISTERED // Report in GSTR-3B 3.1(d)
+  IMPORT_OF_SERVICES // Report in GSTR-3B 3.1(a)
+}
+
+// Document upload source types for Smart Inbox
+enum DocumentSourceType {
+  UPWORK
+  TOPTAL
+  CLIENT_INVOICE
+  VENDOR_BILL
+  BANK_STATEMENT
+  SCREENSHOT
+  OTHER
+}
+
+// Document processing status
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+// AI classification categories for uploaded documents
+enum DocumentClassification {
+  EXPORT_WITH_LUT // Foreign client, forex payment
+  EXPORT_WITHOUT_LUT // Alert: need to file LUT
+  DOMESTIC_B2B // Registered Indian client
+  DOMESTIC_B2C // Unregistered Indian client
+  PURCHASE_ITC // Vendor bill with GST
+  PURCHASE_RCM // Unregistered vendor / import of services
+  UNKNOWN // Manual classification needed
+}
+
+// Review status for inbox documents
+enum ReviewStatus {
+  PENDING_REVIEW // Awaiting review
+  AUTO_APPROVED // High confidence (90-100%)
+  REVIEW_RECOMMENDED // Medium confidence (70-89%)
+  MANUAL_REQUIRED // Low confidence (<70%)
+  APPROVED // Manually approved
+  REJECTED // Rejected by user
+  CONVERTED // Converted to invoice
+}
+
+// GST filing types
+enum FilingType {
+  GSTR1
+  GSTR3B
+}
+
+// Filing status workflow
+enum FilingStatus {
+  DRAFT
+  GENERATED
+  IN_REVIEW
+  APPROVED
+  FILED
+  AMENDED
+}
+
+// ITC match status for reconciliation
+enum ITCMatchStatus {
+  PENDING
+  MATCHED // All match - claim ITC
+  AMOUNT_MISMATCH // Values differ - review needed
+  NOT_IN_2B // You have invoice, not in 2B - follow up with vendor
+  IN_2B_ONLY // In 2B, you don't have invoice - verify purchase
+  REJECTED // Mismatch too large - cannot claim
+  MANUALLY_RESOLVED
 }

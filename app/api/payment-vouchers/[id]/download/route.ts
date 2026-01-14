@@ -48,7 +48,7 @@ export async function GET(
 
     // Generate PDF
     try {
-      const pdfBuffer = await generatePaymentVoucherPDF(voucher, voucher.selfInvoice, user)
+      const pdfBuffer = await generatePaymentVoucherPDF(voucher, user)
 
       // Create a safe filename
       const safeVoucherNumber = voucher.voucherNumber.replace(/\//g, '-')

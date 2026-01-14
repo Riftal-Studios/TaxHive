@@ -96,5 +96,9 @@
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "cookie": "^1.0.0",
+    "hono": "^4.11.4"
   }
 }

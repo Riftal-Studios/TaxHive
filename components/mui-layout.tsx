@@ -36,10 +36,14 @@ import {
   Feedback as FeedbackIcon,
   ReceiptLong as SelfInvoiceIcon,
   Store as SupplierIcon,
+  Inbox as InboxIcon,
+  CompareArrows as ReconcileIcon,
+  Assignment as FilingIcon,
 } from "@mui/icons-material";
 import { signOut } from "next-auth/react";
 import { useTheme as useAppTheme } from "@/components/theme-provider";
 import { FeedbackModal } from "@/components/feedback/FeedbackModal";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { Logo } from "@/components/logo";
 
 const drawerWidth = 280;
@@ -55,11 +59,14 @@ interface MUILayoutProps {
 
 const menuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, href: "/dashboard" },
+  { text: "Inbox", icon: <InboxIcon />, href: "/inbox" },
   { text: "Invoices", icon: <InvoiceIcon />, href: "/invoices" },
   { text: "Self Invoices", icon: <SelfInvoiceIcon />, href: "/self-invoices" },
   { text: "Clients", icon: <ClientsIcon />, href: "/clients" },
   { text: "Suppliers", icon: <SupplierIcon />, href: "/suppliers" },
   { text: "Payments", icon: <PaymentIcon />, href: "/payments" },
+  { text: "ITC Reconciliation", icon: <ReconcileIcon />, href: "/itc-reconciliation" },
+  { text: "GST Filings", icon: <FilingIcon />, href: "/gst-filings" },
   { text: "LUT Management", icon: <LUTIcon />, href: "/luts" },
 ];
 
@@ -343,6 +350,7 @@ export function MUILayout({ children, user }: MUILayoutProps) {
         {children}
       </Box>
 
+      <FeedbackButton />
       <FeedbackModal open={feedbackOpen} onClose={handleFeedbackClose} />
     </Box>
   );

@@ -6,14 +6,14 @@ function formatCurrency(amount: number, currency: string): string {
 }
 
 export interface EmailTemplateData {
-  // Common fields
-  clientName: string
-  senderName: string
+  // Common fields (optional for LUT reminders, required for invoice emails)
+  clientName?: string
+  senderName?: string
   senderEmail?: string
   companyName?: string
   companyAddress?: string
   companyGSTIN?: string
-  
+
   // Invoice specific
   invoiceNumber?: string
   invoiceDate?: string
@@ -22,18 +22,21 @@ export interface EmailTemplateData {
   currency?: string
   viewUrl?: string
   downloadUrl?: string
-  
+
   // Payment reminder specific
   daysOverdue?: number
-  
+
   // LUT specific
   lutNumber?: string
   expiryDate?: string
+  validTill?: string
   daysRemaining?: number
-  
+  userName?: string
+  renewalUrl?: string
+
   // Bank details for email
   bankDetails?: string
-  
+
   // Custom message
   customMessage?: string
 }
@@ -472,9 +475,208 @@ This is an automated reminder. Please do not reply directly to this message.`
     return { html, text }
   },
   
+  'lut-expiry-reminder': (data: EmailTemplateData & { userName?: string; renewalUrl?: string }) => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        ${baseStyles}
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header" style="background-color: #f59e0b;">
+            <h1>LUT Expiry Reminder</h1>
+          </div>
+
+          <div class="content">
+            <p>Dear ${data.userName || data.senderName},</p>
+
+            <p>
+              Your Letter of Undertaking (LUT) is set to expire in <strong>${data.daysRemaining} days</strong>.
+            </p>
+
+            <div class="invoice-details">
+              <div class="detail-row">
+                <span class="detail-label">LUT Number:</span>
+                <span class="detail-value">${data.lutNumber}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Expiry Date:</span>
+                <span class="detail-value">${data.expiryDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Days Remaining:</span>
+                <span class="detail-value">${data.daysRemaining} days</span>
+              </div>
+            </div>
+
+            <p><strong>What you need to do:</strong></p>
+
+            <ul>
+              <li>File Form GST RFD-11 on the GST portal before your current LUT expires</li>
+              <li>Update the new LUT details in TaxHive once approved</li>
+            </ul>
+
+            <p>Renewing on time ensures you can continue exporting services under LUT without charging IGST.</p>
+
+            <div style="text-align: center; margin: 30px 0;">
+              ${data.renewalUrl ? `<a href="${data.renewalUrl}" class="button">Renew LUT in TaxHive</a>` : ''}
+              <a href="https://www.gst.gov.in/" class="button button-secondary">Visit GST Portal</a>
+            </div>
+
+            <p>Best regards,<br>
+            TaxHive Team</p>
+          </div>
+
+          <div class="footer">
+            <p><strong>TaxHive</strong></p>
+            <p>GST-Compliant Invoice Management for Indian Freelancers</p>
+            <p style="margin-top: 20px; font-size: 12px;">
+              This is an automated reminder. Please do not reply directly to this message.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+
+    const text = `LUT Expiry Reminder
+
+Dear ${data.userName || data.senderName},
+
+Your Letter of Undertaking (LUT) is set to expire in ${data.daysRemaining} days.
+
+LUT Details:
+- LUT Number: ${data.lutNumber}
+- Expiry Date: ${data.expiryDate}
+- Days Remaining: ${data.daysRemaining} days
+
+What you need to do:
+- File Form GST RFD-11 on the GST portal before your current LUT expires
+- Update the new LUT details in TaxHive once approved
+
+Renewing on time ensures you can continue exporting services under LUT without charging IGST.
+
+${data.renewalUrl ? `Renew LUT in TaxHive: ${data.renewalUrl}` : ''}
+Visit GST Portal: https://www.gst.gov.in/
+
+Best regards,
+TaxHive Team
+
+This is an automated reminder. Please do not reply directly to this message.`
+
+    return { html, text }
+  },
+
+  'lut-renewal-reminder': (data: EmailTemplateData & { userName?: string; renewalUrl?: string }) => {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        ${baseStyles}
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header" style="background-color: #dc2626;">
+            <h1>Urgent: LUT Expiring Soon!</h1>
+          </div>
+
+          <div class="content">
+            <p>Dear ${data.userName || data.senderName},</p>
+
+            <p class="warning" style="font-size: 18px;">
+              Your Letter of Undertaking (LUT) expires in only <strong>${data.daysRemaining} days</strong>!
+            </p>
+
+            <div class="invoice-details" style="border: 2px solid #dc2626;">
+              <div class="detail-row">
+                <span class="detail-label">LUT Number:</span>
+                <span class="detail-value">${data.lutNumber}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Expiry Date:</span>
+                <span class="detail-value warning">${data.expiryDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Days Remaining:</span>
+                <span class="detail-value warning">${data.daysRemaining} days</span>
+              </div>
+            </div>
+
+            <p><strong>Immediate Action Required:</strong></p>
+
+            <p>If you haven't already filed your new LUT, please do so immediately to avoid:</p>
+
+            <ul>
+              <li style="color: #dc2626;">Being required to charge IGST on export invoices</li>
+              <li style="color: #dc2626;">Compliance issues with GST regulations</li>
+              <li style="color: #dc2626;">Additional paperwork to claim GST refunds</li>
+            </ul>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://www.gst.gov.in/" class="button" style="background-color: #dc2626;">File LUT Now on GST Portal</a>
+            </div>
+
+            <p>If you have already filed your new LUT, please update the details in TaxHive:</p>
+
+            <div style="text-align: center; margin: 20px 0;">
+              ${data.renewalUrl ? `<a href="${data.renewalUrl}" class="button">Update LUT in TaxHive</a>` : ''}
+            </div>
+
+            <p>Best regards,<br>
+            TaxHive Team</p>
+          </div>
+
+          <div class="footer">
+            <p><strong>TaxHive</strong></p>
+            <p>GST-Compliant Invoice Management for Indian Freelancers</p>
+            <p style="margin-top: 20px; font-size: 12px;">
+              This is an urgent automated reminder. Please do not reply directly to this message.
+            </p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+
+    const text = `URGENT: LUT Expiring Soon!
+
+Dear ${data.userName || data.senderName},
+
+Your Letter of Undertaking (LUT) expires in only ${data.daysRemaining} days!
+
+LUT Details:
+- LUT Number: ${data.lutNumber}
+- Expiry Date: ${data.expiryDate}
+- Days Remaining: ${data.daysRemaining} days
+
+IMMEDIATE ACTION REQUIRED:
+
+If you haven't already filed your new LUT, please do so immediately to avoid:
+- Being required to charge IGST on export invoices
+- Compliance issues with GST regulations
+- Additional paperwork to claim GST refunds
+
+File LUT Now on GST Portal: https://www.gst.gov.in/
+
+If you have already filed your new LUT, please update the details in TaxHive:
+${data.renewalUrl || ''}
+
+Best regards,
+TaxHive Team
+
+This is an urgent automated reminder. Please do not reply directly to this message.`
+
+    return { html, text }
+  },
+
   'lut-expiry': (data: EmailTemplateData) => {
     const isUrgent = (data.daysRemaining || 0) <= 7
-    
+
     const html = `
       <!DOCTYPE html>
       <html>

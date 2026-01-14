@@ -18,8 +18,11 @@ import {
   rcmGstRateSchema,
   getStateCodeFromGSTIN,
   exportHsnSacCodeSchema,
+  // Import of Services functions
+  calculateImportOfServicesGST,
+  validateImportOfServicesInvoice,
 } from '@/lib/validations/gst'
-import { InvoiceType, PaymentMode } from '@prisma/client'
+import { InvoiceType, PaymentMode, SupplierType, RcmType } from '@prisma/client'
 
 const lineItemSchema = z.object({
   description: z.string().min(1),
@@ -48,6 +51,11 @@ export const selfInvoiceRouter = createTRPCRouter({
         paymentMode: paymentModeSchema,
         paymentReference: z.string().optional(),
         paymentNotes: z.string().optional(),
+        // Foreign currency details (for Import of Services)
+        foreignCurrency: z.string().optional(),
+        foreignAmount: z.number().positive().optional(),
+        exchangeRate: z.number().positive().optional(),
+        exchangeSource: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -91,27 +99,129 @@ export const selfInvoiceRouter = createTRPCRouter({
         })
       }
 
-      // Calculate subtotal and GST components
+      // Calculate subtotal from line items
       const subtotal = calculateSubtotal(input.lineItems)
-      const gstComponents = calculateRCMGSTComponents(
-        subtotal,
-        input.gstRate,
-        supplier.stateCode,
-        recipientStateCode
-      )
 
-      // Validate self-invoice
-      const validation = validateRCMSelfInvoice({
-        invoiceDate: input.invoiceDate,
-        dateOfReceiptOfSupply: input.dateOfReceiptOfSupply,
-        gstRate: input.gstRate,
-        serviceCode: input.lineItems[0].sacCode,
-        supplierStateCode: supplier.stateCode,
-        recipientStateCode,
-        supplierName: supplier.name,
-        supplierAddress: supplier.address,
-        amount: subtotal,
-      })
+      // Variables for GST calculation and validation
+      let gstComponents: {
+        cgst: number
+        sgst: number
+        igst: number
+        totalTax: number
+        cgstRate?: number
+        sgstRate?: number
+        igstRate: number
+        foreignCurrency?: string
+        foreignAmount?: number
+        exchangeRate?: number
+      }
+      let validation: { isValid: boolean; errors: string[]; warnings: string[] }
+      let rcmType: RcmType
+      let placeOfSupply: string
+      let amountInINR: number
+      let foreignCurrencyData: { currency: string; amount: number; exchangeRate: number; source: string } | null = null
+
+      // Handle based on supplier type
+      if (supplier.supplierType === SupplierType.FOREIGN_SERVICE) {
+        // ==========================
+        // IMPORT OF SERVICES RCM
+        // ==========================
+        rcmType = RcmType.IMPORT_OF_SERVICES
+
+        // Validate required foreign currency details
+        if (!input.foreignCurrency || !input.foreignAmount || !input.exchangeRate) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Foreign currency, amount, and exchange rate are required for Import of Services',
+          })
+        }
+
+        // Validate supplier has country
+        if (!supplier.country) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Foreign supplier must have a country set',
+          })
+        }
+
+        // Calculate INR amount from foreign currency
+        amountInINR = input.foreignAmount * input.exchangeRate
+        foreignCurrencyData = {
+          currency: input.foreignCurrency,
+          amount: input.foreignAmount,
+          exchangeRate: input.exchangeRate,
+          source: input.exchangeSource || 'Manual',
+        }
+
+        // Calculate GST (always IGST for import of services)
+        gstComponents = calculateImportOfServicesGST(
+          amountInINR,
+          input.gstRate,
+          {
+            foreignCurrency: input.foreignCurrency,
+            foreignAmount: input.foreignAmount,
+            exchangeRate: input.exchangeRate,
+          }
+        )
+
+        // Validate import of services invoice
+        validation = validateImportOfServicesInvoice({
+          invoiceDate: input.invoiceDate,
+          dateOfReceiptOfSupply: input.dateOfReceiptOfSupply,
+          gstRate: input.gstRate,
+          serviceCode: input.lineItems[0].sacCode,
+          supplierName: supplier.name,
+          supplierCountry: supplier.country,
+          supplierCountryName: supplier.countryName || undefined,
+          amountInINR,
+          foreignCurrency: input.foreignCurrency,
+          foreignAmount: input.foreignAmount,
+          exchangeRate: input.exchangeRate,
+          exchangeRateSource: input.exchangeSource,
+        })
+
+        // Place of supply for import of services
+        placeOfSupply = 'Outside India (Import of Services)'
+      } else {
+        // ==========================
+        // INDIAN UNREGISTERED RCM
+        // ==========================
+        rcmType = RcmType.INDIAN_UNREGISTERED
+
+        // For Indian unregistered suppliers, stateCode is required
+        if (!supplier.stateCode) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Supplier state code is required for Indian unregistered suppliers',
+          })
+        }
+
+        amountInINR = subtotal
+
+        // Calculate GST components (may be IGST or CGST+SGST based on state)
+        gstComponents = calculateRCMGSTComponents(
+          subtotal,
+          input.gstRate,
+          supplier.stateCode,
+          recipientStateCode
+        )
+
+        // Validate Indian RCM self-invoice
+        validation = validateRCMSelfInvoice({
+          invoiceDate: input.invoiceDate,
+          dateOfReceiptOfSupply: input.dateOfReceiptOfSupply,
+          gstRate: input.gstRate,
+          serviceCode: input.lineItems[0].sacCode,
+          supplierStateCode: supplier.stateCode,
+          recipientStateCode,
+          supplierName: supplier.name,
+          supplierAddress: supplier.address,
+          amount: subtotal,
+        })
+
+        // Place of supply for Indian RCM
+        placeOfSupply = getRCMPlaceOfSupply(supplier.stateCode, recipientStateCode)
+      }
 
       if (!validation.isValid) {
         throw new TRPCError({
@@ -142,10 +252,7 @@ export const selfInvoiceRouter = createTRPCRouter({
         const invoiceNumber = generateSelfInvoiceNumber(currentFY, nextSequence)
 
         // Calculate total amount (including GST)
-        const totalAmount = subtotal + gstComponents.totalTax
-
-        // Place of supply for RCM
-        const placeOfSupply = getRCMPlaceOfSupply(supplier.stateCode, recipientStateCode)
+        const totalAmount = amountInINR + gstComponents.totalTax
 
         // Create self-invoice
         const invoice = await tx.invoice.create({
@@ -157,25 +264,30 @@ export const selfInvoiceRouter = createTRPCRouter({
             dueDate: input.invoiceDate, // Self-invoices are typically due immediately
             status: 'SENT', // Self-invoices are immediately sent (to yourself)
             invoiceType: InvoiceType.SELF_INVOICE,
-            placeOfSupply,
+            placeOfSupply, // Set based on supplier type above
             serviceCode: input.lineItems[0].sacCode,
             unregisteredSupplierId: input.unregisteredSupplierId,
             dateOfReceiptOfSupply: input.dateOfReceiptOfSupply,
-            currency: 'INR', // Self-invoices are always in INR
-            exchangeRate: 1,
-            exchangeSource: 'N/A',
-            subtotal,
+            // Currency handling based on supplier type
+            currency: foreignCurrencyData ? foreignCurrencyData.currency : 'INR',
+            exchangeRate: foreignCurrencyData ? foreignCurrencyData.exchangeRate : 1,
+            exchangeSource: foreignCurrencyData ? foreignCurrencyData.source : 'N/A',
+            subtotal: amountInINR, // Always store in INR
+            // Foreign currency details (for import of services)
+            foreignCurrency: foreignCurrencyData?.currency,
+            foreignAmount: foreignCurrencyData?.amount,
             // GST components
             igstRate: gstComponents.igstRate,
             igstAmount: gstComponents.igst,
-            cgstRate: gstComponents.cgstRate,
+            cgstRate: gstComponents.cgstRate ?? 0,
             cgstAmount: gstComponents.cgst,
-            sgstRate: gstComponents.sgstRate,
+            sgstRate: gstComponents.sgstRate ?? 0,
             sgstAmount: gstComponents.sgst,
             totalAmount,
-            totalInINR: totalAmount, // Already in INR
+            totalInINR: totalAmount, // Always in INR
             // RCM tracking
             isRCM: true,
+            rcmType, // IMPORT_OF_SERVICES or INDIAN_UNREGISTERED
             rcmLiability: gstComponents.totalTax,
             itcClaimable: gstComponents.totalTax, // Full ITC claimable
             // Payment status for self-invoice (marks payment made to supplier)
@@ -353,6 +465,10 @@ export const selfInvoiceRouter = createTRPCRouter({
         supplierId: z.string(),
         amount: z.number().positive(),
         gstRate: rcmGstRateSchema,
+        // Foreign currency details (optional, required for foreign suppliers)
+        foreignCurrency: z.string().optional(),
+        foreignAmount: z.number().positive().optional(),
+        exchangeRate: z.number().positive().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -383,7 +499,7 @@ export const selfInvoiceRouter = createTRPCRouter({
           id: input.supplierId,
           userId: ctx.session.user.id,
         },
-        select: { stateCode: true, state: true },
+        select: { stateCode: true, state: true, supplierType: true, country: true, countryName: true },
       })
 
       if (!supplier) {
@@ -393,22 +509,70 @@ export const selfInvoiceRouter = createTRPCRouter({
         })
       }
 
+      // Handle based on supplier type
+      if (supplier.supplierType === SupplierType.FOREIGN_SERVICE) {
+        // ==========================
+        // IMPORT OF SERVICES
+        // ==========================
+
+        // Validate foreign currency details are provided
+        if (!input.foreignCurrency || !input.foreignAmount || !input.exchangeRate) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Foreign currency details are required for Import of Services calculation',
+          })
+        }
+
+        const amountInINR = input.foreignAmount * input.exchangeRate
+        const gstComponents = calculateImportOfServicesGST(amountInINR, input.gstRate)
+
+        return {
+          ...gstComponents,
+          supplierCountry: supplier.country,
+          supplierCountryName: supplier.countryName,
+          supplierType: 'FOREIGN_SERVICE',
+          rcmType: 'IMPORT_OF_SERVICES',
+          gstr3bTable: '3.1(a)',
+          foreignCurrency: input.foreignCurrency,
+          foreignAmount: input.foreignAmount,
+          exchangeRate: input.exchangeRate,
+          amountInINR,
+          totalAmount: amountInINR + gstComponents.totalTax,
+        }
+      }
+
+      // ==========================
+      // INDIAN UNREGISTERED
+      // ==========================
+      if (!supplier.stateCode) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Supplier state code is required for Indian unregistered suppliers',
+        })
+      }
+
       const gstComponents = calculateRCMGSTComponents(
         input.amount,
         input.gstRate,
-        supplier.stateCode,
+        supplier.stateCode, // Now guaranteed non-null
         recipientStateCode
       )
 
       return {
         ...gstComponents,
         supplierState: supplier.state,
+        supplierType: 'INDIAN_UNREGISTERED',
+        rcmType: 'INDIAN_UNREGISTERED',
+        gstr3bTable: '3.1(d)',
         totalAmount: input.amount + gstComponents.totalTax,
       }
     }),
 
   /**
-   * Get RCM liability summary for GSTR-3B Table 3.1(d)
+   * Get RCM liability summary for GSTR-3B
+   * Returns separate summaries for:
+   * - Table 3.1(a) - Import of Services
+   * - Table 3.1(d) - Inward supplies from unregistered (Indian)
    */
   getRCMLiabilitySummary: protectedProcedure
     .input(
@@ -433,31 +597,60 @@ export const selfInvoiceRouter = createTRPCRouter({
           cgstAmount: true,
           sgstAmount: true,
           rcmLiability: true,
+          rcmType: true,
           subtotal: true,
         },
       })
 
-      // Calculate totals
-      const summary = invoices.reduce(
-        (acc, inv) => ({
-          taxableValue: acc.taxableValue + Number(inv.subtotal),
-          igst: acc.igst + Number(inv.igstAmount),
-          cgst: acc.cgst + Number(inv.cgstAmount),
-          sgst: acc.sgst + Number(inv.sgstAmount),
-          totalTax: acc.totalTax + Number(inv.rcmLiability),
-          count: acc.count + 1,
-        }),
-        { taxableValue: 0, igst: 0, cgst: 0, sgst: 0, totalTax: 0, count: 0 }
-      )
+      // Initialize summaries
+      const emptySummary = { taxableValue: 0, igst: 0, cgst: 0, sgst: 0, totalTax: 0, count: 0 }
+
+      // Separate by RCM type
+      const importOfServices = { ...emptySummary }
+      const indianUnregistered = { ...emptySummary }
+
+      for (const inv of invoices) {
+        const target = inv.rcmType === RcmType.IMPORT_OF_SERVICES ? importOfServices : indianUnregistered
+        target.taxableValue += Number(inv.subtotal)
+        target.igst += Number(inv.igstAmount)
+        target.cgst += Number(inv.cgstAmount)
+        target.sgst += Number(inv.sgstAmount)
+        target.totalTax += Number(inv.rcmLiability)
+        target.count += 1
+      }
+
+      // Calculate combined totals
+      const combined = {
+        taxableValue: importOfServices.taxableValue + indianUnregistered.taxableValue,
+        igst: importOfServices.igst + indianUnregistered.igst,
+        cgst: importOfServices.cgst + indianUnregistered.cgst,
+        sgst: importOfServices.sgst + indianUnregistered.sgst,
+        totalTax: importOfServices.totalTax + indianUnregistered.totalTax,
+        count: importOfServices.count + indianUnregistered.count,
+      }
 
       return {
-        ...summary,
-        description: 'GSTR-3B Table 3.1(d) - Tax payable on Reverse Charge',
+        // Table 3.1(a) - Import of Services (always IGST only)
+        table31a: {
+          ...importOfServices,
+          description: 'GSTR-3B Table 3.1(a) - Import of Services (IGST)',
+        },
+        // Table 3.1(d) - Inward supplies from unregistered (can be IGST or CGST+SGST)
+        table31d: {
+          ...indianUnregistered,
+          description: 'GSTR-3B Table 3.1(d) - Tax on Inward RCM (Unregistered)',
+        },
+        // Combined totals
+        combined: {
+          ...combined,
+          description: 'Total RCM Liability',
+        },
       }
     }),
 
   /**
    * Get ITC summary for GSTR-3B Table 4A(3)
+   * ITC from both Import of Services and Indian Unregistered RCM
    */
   getITCSummary: protectedProcedure
     .input(
@@ -482,24 +675,51 @@ export const selfInvoiceRouter = createTRPCRouter({
           cgstAmount: true,
           sgstAmount: true,
           itcClaimable: true,
+          rcmType: true,
         },
       })
 
-      // Calculate totals
-      const summary = invoices.reduce(
-        (acc, inv) => ({
-          igst: acc.igst + Number(inv.igstAmount),
-          cgst: acc.cgst + Number(inv.cgstAmount),
-          sgst: acc.sgst + Number(inv.sgstAmount),
-          totalITC: acc.totalITC + Number(inv.itcClaimable),
-          count: acc.count + 1,
-        }),
-        { igst: 0, cgst: 0, sgst: 0, totalITC: 0, count: 0 }
-      )
+      // Initialize summaries
+      const emptySummary = { igst: 0, cgst: 0, sgst: 0, totalITC: 0, count: 0 }
+
+      // Separate by RCM type
+      const importOfServices = { ...emptySummary }
+      const indianUnregistered = { ...emptySummary }
+
+      for (const inv of invoices) {
+        const target = inv.rcmType === RcmType.IMPORT_OF_SERVICES ? importOfServices : indianUnregistered
+        target.igst += Number(inv.igstAmount)
+        target.cgst += Number(inv.cgstAmount)
+        target.sgst += Number(inv.sgstAmount)
+        target.totalITC += Number(inv.itcClaimable)
+        target.count += 1
+      }
+
+      // Calculate combined totals (this is what goes into GSTR-3B Table 4A(3))
+      const combined = {
+        igst: importOfServices.igst + indianUnregistered.igst,
+        cgst: importOfServices.cgst + indianUnregistered.cgst,
+        sgst: importOfServices.sgst + indianUnregistered.sgst,
+        totalITC: importOfServices.totalITC + indianUnregistered.totalITC,
+        count: importOfServices.count + indianUnregistered.count,
+      }
 
       return {
-        ...summary,
-        description: 'GSTR-3B Table 4A(3) - ITC from Inward supplies liable to Reverse Charge',
+        // ITC from Import of Services (always IGST)
+        importOfServices: {
+          ...importOfServices,
+          description: 'ITC from Import of Services (IGST only)',
+        },
+        // ITC from Indian Unregistered (can be IGST or CGST+SGST)
+        indianUnregistered: {
+          ...indianUnregistered,
+          description: 'ITC from Indian Unregistered RCM',
+        },
+        // Combined ITC for GSTR-3B Table 4A(3)
+        combined: {
+          ...combined,
+          description: 'GSTR-3B Table 4A(3) - ITC from Inward supplies liable to Reverse Charge',
+        },
       }
     }),
 

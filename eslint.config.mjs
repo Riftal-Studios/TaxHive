@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "node_modules/**",
     "lib/init.js",
+    "playwright-report/**",
+    "test-results/**",
+    "coverage/**",
   ]),
   // JavaScript files - no TypeScript rules
   {
@@ -27,6 +30,13 @@ const eslintConfig = defineConfig([
     rules: {
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
+  // E2E test fixtures - Playwright's use() is not a React hook
+  {
+    files: ["**/tests/e2e/fixtures/**/*.{ts,tsx}"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
     },
   },
   // TypeScript source files - strict rules

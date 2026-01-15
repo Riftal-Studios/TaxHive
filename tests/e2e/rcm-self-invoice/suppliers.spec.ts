@@ -134,8 +134,10 @@ test.describe('Unregistered Suppliers Management', () => {
     })
 
     test('should navigate back when Back to Suppliers is clicked', async ({ authenticatedPage }) => {
-      // Click back link
-      await authenticatedPage.getByRole('link', { name: /back.*suppliers/i }).click()
+      // Click back link/button (could be either role)
+      const backElement = authenticatedPage.getByRole('link', { name: /back.*suppliers/i })
+        .or(authenticatedPage.getByRole('button', { name: /back.*suppliers/i }))
+      await backElement.click()
 
       // Should navigate to suppliers list
       await expect(authenticatedPage).toHaveURL(/\/suppliers/)
@@ -336,16 +338,16 @@ test.describe('Unregistered Suppliers Management', () => {
     test('should have suppliers link in sidebar navigation', async ({ authenticatedPage }) => {
       await authenticatedPage.goto('/dashboard')
 
-      // Check for suppliers link in navigation
-      const suppliersLink = authenticatedPage.getByRole('link', { name: /suppliers/i })
-      await expect(suppliersLink).toBeVisible()
+      // Check for suppliers button in navigation (sidebar uses ListItemButton)
+      const suppliersButton = authenticatedPage.getByRole('button', { name: /suppliers/i })
+      await expect(suppliersButton).toBeVisible()
     })
 
     test('should navigate from dashboard to suppliers', async ({ authenticatedPage }) => {
       await authenticatedPage.goto('/dashboard')
 
-      // Click suppliers link
-      await authenticatedPage.getByRole('link', { name: /suppliers/i }).click()
+      // Click suppliers button (sidebar uses ListItemButton)
+      await authenticatedPage.getByRole('button', { name: /suppliers/i }).click()
 
       // Should be on suppliers page
       await expect(authenticatedPage).toHaveURL(/\/suppliers/)

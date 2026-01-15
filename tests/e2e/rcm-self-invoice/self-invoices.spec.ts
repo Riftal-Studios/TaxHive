@@ -449,19 +449,19 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('Navigation Integration', () => {
-    test('should have self-invoices link in sidebar', async ({ authenticatedPage }) => {
+    test('should have self-invoices button in sidebar', async ({ authenticatedPage }) => {
       await authenticatedPage.goto('/dashboard')
 
-      // Check for self-invoices link
-      const selfInvoicesLink = authenticatedPage.getByRole('link', { name: /self.*invoices/i })
-      await expect(selfInvoicesLink).toBeVisible()
+      // Check for self-invoices button (sidebar uses ListItemButton)
+      const selfInvoicesButton = authenticatedPage.getByRole('button', { name: /self.*invoices/i })
+      await expect(selfInvoicesButton).toBeVisible()
     })
 
     test('should navigate from dashboard to self-invoices', async ({ authenticatedPage }) => {
       await authenticatedPage.goto('/dashboard')
 
-      // Click self-invoices link
-      await authenticatedPage.getByRole('link', { name: /self.*invoices/i }).click()
+      // Click self-invoices button (sidebar uses ListItemButton)
+      await authenticatedPage.getByRole('button', { name: /self.*invoices/i }).click()
 
       // Should be on self-invoices page
       await expect(authenticatedPage).toHaveURL(/\/self-invoices/)

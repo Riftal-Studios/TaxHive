@@ -6,8 +6,8 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       // Start from dashboard
       await authenticatedPage.goto('/dashboard')
 
-      // Navigate to suppliers
-      await authenticatedPage.getByRole('link', { name: /suppliers/i }).click()
+      // Navigate to suppliers (sidebar uses ListItemButton, not link)
+      await authenticatedPage.getByRole('button', { name: /suppliers/i }).click()
       await expect(authenticatedPage).toHaveURL(/\/suppliers/)
 
       // Create a new supplier
@@ -28,8 +28,8 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await expect(authenticatedPage.getByRole('dialog')).not.toBeVisible({ timeout: 5000 })
       await expect(authenticatedPage.getByText(supplierName)).toBeVisible()
 
-      // Navigate to create self-invoice
-      await authenticatedPage.getByRole('link', { name: /self.*invoices/i }).click()
+      // Navigate to create self-invoice (sidebar uses ListItemButton, not link)
+      await authenticatedPage.getByRole('button', { name: /self.*invoices/i }).click()
       await expect(authenticatedPage).toHaveURL(/\/self-invoices/)
 
       // Click create
@@ -170,7 +170,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
 
       // Check if there are existing invoices
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -196,7 +196,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -224,7 +224,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -243,7 +243,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -269,7 +269,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -326,7 +326,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -353,7 +353,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -376,7 +376,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/suppliers')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
+      const hasSuppliers = await supplierRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasSuppliers) {
         test.skip()
@@ -386,8 +386,8 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       // Go to supplier detail
       await supplierRow.click()
 
-      // Should show related invoices
-      await expect(authenticatedPage.getByText(/invoices|self.*invoices/i)).toBeVisible()
+      // Should show related invoices section (use first match to avoid strict mode)
+      await expect(authenticatedPage.getByText(/invoices/i).first()).toBeVisible()
     })
   })
 
@@ -396,7 +396,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()
@@ -426,7 +426,7 @@ test.describe('RCM Self Invoice Integration Tests', () => {
       await authenticatedPage.goto('/self-invoices')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
+      const hasInvoices = await invoiceRow.isVisible({ timeout: 3000 }).catch(() => false)
 
       if (!hasInvoices) {
         test.skip()

@@ -49,11 +49,14 @@ vi.mock('@/lib/queue/bullmq.service', () => ({
 import { db } from '@/lib/prisma'
 import { invoiceRouter } from '@/server/api/routers/invoice'
 
-// Set up transaction mock implementation
+// Set up transaction mock implementation with all required models
 ;(db.$transaction as any).mockImplementation(async (callback: any) => {
   return callback({
     invoice: db.invoice,
     invoiceItem: db.invoiceItem,
+    lUT: {
+      findUnique: vi.fn(),
+    },
   })
 })
 
@@ -77,12 +80,15 @@ const createCaller = () => {
 describe('Invoice Router', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    // Reset transaction mock
+
+    // Reset transaction mock with all required models
     ;(db.$transaction as any).mockImplementation(async (callback: any) => {
       return callback({
         invoice: db.invoice,
         invoiceItem: db.invoiceItem,
+        lUT: {
+          findUnique: vi.fn(),
+        },
       })
     })
   })
@@ -219,14 +225,24 @@ describe('Invoice Router', () => {
         status: 'DRAFT',
       }
 
-      // Mock transaction
+      // Mock transaction with proper structure matching actual router implementation
       const mockTx = {
         invoice: {
-          count: vi.fn().mockResolvedValue(0),
+          findMany: vi.fn().mockResolvedValue([]), // For getting existing invoice numbers
           create: vi.fn().mockResolvedValue(mockInvoice),
+          update: vi.fn().mockResolvedValue(mockInvoice), // For PDF status update
         },
-        lineItem: {
+        invoiceItem: {  // Changed from lineItem to invoiceItem
           createMany: vi.fn().mockResolvedValue({ count: 2 }),
+        },
+        lUT: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'lut-1',
+            lutNumber: 'AD1234567890123',
+            validFrom: new Date('2024-04-01'),
+            validTill: new Date('2025-03-31'),
+            isActive: true,
+          }),
         },
       }
 
@@ -237,10 +253,11 @@ describe('Invoice Router', () => {
       const caller = createCaller()
       const result = await caller.create(input)
 
-      expect(mockTx.invoice.count).toHaveBeenCalled()
+      expect(mockTx.invoice.findMany).toHaveBeenCalled() // Uses findMany for sequence
       expect(mockTx.invoice.create).toHaveBeenCalled()
-      expect(mockTx.lineItem.createMany).toHaveBeenCalled()
-      expect(result).toEqual(mockInvoice)
+      expect(mockTx.invoiceItem.createMany).toHaveBeenCalled() // Changed from lineItem
+      // Router returns { invoice, lutWarning }
+      expect(result.invoice).toEqual(mockInvoice)
     })
 
     it('should validate HSN/SAC codes', async () => {
@@ -294,10 +311,18 @@ describe('Invoice Router', () => {
       const mockTx = {
         invoice: {
           update: vi.fn().mockResolvedValue(mockUpdatedInvoice),
+          findUnique: vi.fn().mockResolvedValue({
+            id: 'inv-1',
+            exchangeRate: 83.5,
+            amountPaid: 0,
+          }),
         },
-        lineItem: {
+        invoiceItem: {  // Changed from lineItem
           deleteMany: vi.fn(),
           createMany: vi.fn(),
+        },
+        lUT: {
+          findUnique: vi.fn().mockResolvedValue(null),
         },
       }
 
@@ -309,11 +334,12 @@ describe('Invoice Router', () => {
       const result = await caller.update(input)
 
       expect(mockTx.invoice.update).toHaveBeenCalled()
-      expect(mockTx.lineItem.deleteMany).toHaveBeenCalledWith({
+      expect(mockTx.invoiceItem.deleteMany).toHaveBeenCalledWith({  // Changed from lineItem
         where: { invoiceId: 'inv-1' },
       })
-      expect(mockTx.lineItem.createMany).toHaveBeenCalled()
-      expect(result).toEqual(mockUpdatedInvoice)
+      expect(mockTx.invoiceItem.createMany).toHaveBeenCalled()  // Changed from lineItem
+      // Router returns { invoice, lutWarning }
+      expect(result.invoice).toEqual(mockUpdatedInvoice)
     })
   })
 
@@ -359,17 +385,25 @@ describe('Invoice Router', () => {
 
   describe('getNextInvoiceNumber', () => {
     it('should get next invoice number for fiscal year', async () => {
-      vi.mocked(db.invoice.count).mockResolvedValue(5)
+      // Router uses findMany to get existing invoice numbers, not count
+      vi.mocked(db.invoice.findMany).mockResolvedValue([
+        { invoiceNumber: 'FY24-25/001' },
+        { invoiceNumber: 'FY24-25/002' },
+        { invoiceNumber: 'FY24-25/003' },
+        { invoiceNumber: 'FY24-25/004' },
+        { invoiceNumber: 'FY24-25/005' },
+      ] as any)
 
       const caller = createCaller()
       const result = await caller.getNextInvoiceNumber()
 
-      expect(db.invoice.count).toHaveBeenCalled()
+      expect(db.invoice.findMany).toHaveBeenCalled()
       expect(result).toMatch(/^FY\d{2}-\d{2}\/006$/)
     })
 
     it('should start from 001 for new fiscal year', async () => {
-      vi.mocked(db.invoice.count).mockResolvedValue(0)
+      // Empty array means no existing invoices
+      vi.mocked(db.invoice.findMany).mockResolvedValue([])
 
       const caller = createCaller()
       const result = await caller.getNextInvoiceNumber()

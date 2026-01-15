@@ -5,18 +5,16 @@ import type { Session } from 'next-auth'
 vi.mock('server-only', () => ({}))
 
 // First, set up all mocks before any imports
-const mockEnqueueJob = vi.fn()
+const mockEnqueue = vi.fn()
 const mockGetJob = vi.fn()
-const mockRegisterHandler = vi.fn()
-const mockClose = vi.fn()
 
-vi.mock('@/lib/queue/bullmq.service', () => ({
-  BullMQService: vi.fn().mockImplementation(() => ({
-    enqueueJob: mockEnqueueJob,
+// Mock the queue module that the router actually uses
+vi.mock('@/lib/queue', () => ({
+  getQueueService: vi.fn(() => ({
+    enqueue: mockEnqueue,
     getJob: mockGetJob,
-    registerHandler: mockRegisterHandler,
-    close: mockClose,
   })),
+  isQueueServiceAvailable: vi.fn(() => true),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -53,7 +51,7 @@ describe('Invoice PDF Queue Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockEnqueueJob.mockClear()
+    mockEnqueue.mockClear()
     mockGetJob.mockClear()
   })
 
@@ -62,7 +60,16 @@ describe('Invoice PDF Queue Integration', () => {
       const mockJobId = 'job-123'
       const { prisma } = await import('@/lib/prisma')
       vi.mocked(prisma.invoice.findFirst).mockResolvedValue(mockInvoice as any)
-      mockEnqueueJob.mockResolvedValue({ id: mockJobId })
+      mockEnqueue.mockResolvedValue({
+        id: mockJobId,
+        type: 'PDF_GENERATION',
+        data: { invoiceId: 'invoice-123', userId: 'user-123' },
+        status: 'pending',
+        attempts: 0,
+        maxAttempts: 3,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
 
       // Create a minimal context for tRPC
       const ctx = {
@@ -79,7 +86,7 @@ describe('Invoice PDF Queue Integration', () => {
         message: 'PDF generation queued successfully',
       })
 
-      expect(mockEnqueueJob).toHaveBeenCalledWith('PDF_GENERATION', {
+      expect(mockEnqueue).toHaveBeenCalledWith('PDF_GENERATION', {
         invoiceId: 'invoice-123',
         userId: 'user-123',
       })

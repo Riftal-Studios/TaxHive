@@ -145,7 +145,7 @@ describe('InvoiceForm', () => {
 
   it('should calculate line item amounts correctly', async () => {
     const user = userEvent.setup()
-    
+
     render(
       <InvoiceForm
         clients={mockClients}
@@ -156,7 +156,8 @@ describe('InvoiceForm', () => {
     )
 
     const quantityInput = screen.getByLabelText(/quantity/i)
-    const rateInput = screen.getByLabelText(/rate/i)
+    // Use regex that matches "Rate" at start but not "Exchange Rate" or "Manual exchange rate"
+    const rateInput = screen.getByLabelText(/^rate\s/i)
     
     await user.clear(quantityInput)
     await user.type(quantityInput, '10')
@@ -172,7 +173,7 @@ describe('InvoiceForm', () => {
 
   it('should validate SAC/HSN code format', async () => {
     const user = userEvent.setup()
-    
+
     render(
       <InvoiceForm
         clients={mockClients}
@@ -183,19 +184,21 @@ describe('InvoiceForm', () => {
     )
 
     const sacInput = screen.getByLabelText(/sac.*code/i)
-    
+
     // Enter invalid SAC code
     await user.type(sacInput, '1234')
-    await user.tab() // Trigger blur
-    
-    expect(screen.getByText(/must be 8 digits/i)).toBeInTheDocument()
-    
+    // Submit form to trigger validation (validation happens on submit, not blur)
+    await user.click(screen.getByText(/save draft/i))
+
+    // Validation message from the component
+    expect(screen.getByText(/sac\/hsn code must be a valid code/i)).toBeInTheDocument()
+
     // Enter valid SAC code
     await user.clear(sacInput)
     await user.type(sacInput, '99831190')
-    await user.tab()
-    
-    expect(screen.queryByText(/must be 8 digits/i)).not.toBeInTheDocument()
+    await user.click(screen.getByText(/save draft/i))
+
+    expect(screen.queryByText(/sac\/hsn code must be a valid code/i)).not.toBeInTheDocument()
   })
 
   it('should calculate totals correctly', async () => {
@@ -212,19 +215,20 @@ describe('InvoiceForm', () => {
 
     // Fill first line item
     const quantityInput = screen.getByLabelText(/quantity/i)
-    const rateInput = screen.getByLabelText(/rate/i)
-    
+    // Use regex that matches "Rate" at start but not "Exchange Rate" or "Manual exchange rate"
+    const rateInput = screen.getByLabelText(/^rate\s/i)
+
     await user.clear(quantityInput)
     await user.type(quantityInput, '10')
-    
+
     await user.clear(rateInput)
     await user.type(rateInput, '100')
-    
+
     // Add second line item
     await user.click(screen.getByText(/add line item/i))
-    
+
     const quantityInputs = screen.getAllByLabelText(/quantity/i)
-    const rateInputs = screen.getAllByLabelText(/rate/i)
+    const rateInputs = screen.getAllByLabelText(/^rate\s/i)
     
     await user.clear(quantityInputs[1])
     await user.type(quantityInputs[1], '5')
@@ -234,7 +238,8 @@ describe('InvoiceForm', () => {
     
     // Check totals - check that the values are present somewhere
     expect(screen.getByText('Subtotal:')).toBeInTheDocument()
-    expect(screen.getByText('$2,000.00')).toBeInTheDocument()
+    // $2,000.00 appears twice (subtotal and total are equal with 0% IGST)
+    expect(screen.getAllByText('$2,000.00').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('IGST (0%):')).toBeInTheDocument()
     expect(screen.getByText('Total:')).toBeInTheDocument()
   })
@@ -286,8 +291,9 @@ describe('InvoiceForm', () => {
     await user.type(screen.getByLabelText(/sac.*code/i), '99831190')
     await user.clear(screen.getByLabelText(/quantity/i))
     await user.type(screen.getByLabelText(/quantity/i), '10')
-    await user.clear(screen.getByLabelText(/rate/i))
-    await user.type(screen.getByLabelText(/rate/i), '100')
+    // Use regex that matches "Rate" at start but not "Exchange Rate" or "Manual exchange rate"
+    await user.clear(screen.getByLabelText(/^rate\s/i))
+    await user.type(screen.getByLabelText(/^rate\s/i), '100')
     
     // Fill additional fields
     await user.type(screen.getByLabelText(/bank details/i), 'Bank: Test Bank\nAccount: 1234567890')

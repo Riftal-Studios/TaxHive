@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { SAC_HSN_CODES } from '@/lib/constants'
 
 describe('SAC/HSN Codes', () => {
-  it('should have all codes in 8-digit format', () => {
+  it('should have all codes in 6-8 digit format', () => {
+    // GST allows both 6-digit and 8-digit SAC/HSN codes
     SAC_HSN_CODES.forEach(sac => {
-      expect(sac.code).toMatch(/^\d{8}$/)
+      expect(sac.code).toMatch(/^\d{6,8}$/)
     })
   })
 

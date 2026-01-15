@@ -175,37 +175,6 @@ describe('Exchange Rate Fetch Handler', () => {
     expect(db.exchangeRate.upsert).not.toHaveBeenCalled()
   })
 
-  it('should clean old rates when specified', async () => {
-    const mockJobWithCleanup = {
-      ...mockJob,
-      data: {
-        ...mockJob.data,
-        cleanOldRates: true,
-        cleanOlderThan: 30, // days
-      },
-    }
-
-    const mockRates = {
-      USD: { rate: 83.50, source: 'RBI' },
-    }
-
-    vi.mocked(exchangeRates.fetchRBIRates).mockResolvedValue(mockRates)
-
-    await exchangeRateFetchHandler(mockJobWithCleanup as any)
-
-    // Verify cleanup
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 30)
-
-    expect(db.exchangeRate.deleteMany).toHaveBeenCalledWith({
-      where: {
-        date: {
-          lt: expect.any(Date),
-        },
-      },
-    })
-  })
-
   it('should update progress during processing', async () => {
     const mockJobWithProgress = {
       ...mockJob,

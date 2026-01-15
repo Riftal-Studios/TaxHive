@@ -15,13 +15,13 @@ describe('Type Fixes - TDD for fixing type errors', () => {
         },
       })
 
-      // Method should be 'enqueue', not 'enqueueJob'
+      // Primary method should be 'enqueue' (with 'enqueueJob' as alias for backward compatibility)
       expect(service.enqueue).toBeDefined()
-      expect((service as any).enqueueJob).toBeUndefined()
+      expect((service as any).enqueueJob).toBeDefined() // Alias exists for backward compatibility
 
-      // Method should be 'process', not 'registerHandler'
+      // Primary method should be 'process' (with 'registerHandler' as alias for backward compatibility)
       expect(service.process).toBeDefined()
-      expect((service as any).registerHandler).toBeUndefined()
+      expect((service as any).registerHandler).toBeDefined() // Alias exists for backward compatibility
 
       // getJob should only take jobId, not type
       const getJobSpy = vi.spyOn(service, 'getJob')

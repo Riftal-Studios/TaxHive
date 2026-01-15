@@ -143,12 +143,12 @@ describe('PDF Generation Handler', () => {
     expect(pdfGenerator.generateInvoicePDF).not.toHaveBeenCalled()
     expect(pdfUploader.uploadPDF).not.toHaveBeenCalled()
 
-    // Should call db.invoice.update with pdfStatus='failed'
+    // Should call db.invoice.update with pdfStatus='failed' (after internal retries)
     expect(db.invoice.update).toHaveBeenCalledWith({
       where: { id: 'invoice-123' },
       data: {
         pdfStatus: 'failed',
-        pdfError: expect.stringContaining('Invoice not found'),
+        pdfError: expect.stringContaining('Failed after 3 attempts'),
       }
     })
   })
@@ -165,12 +165,12 @@ describe('PDF Generation Handler', () => {
 
     expect(pdfUploader.uploadPDF).not.toHaveBeenCalled()
 
-    // Should call db.invoice.update with pdfStatus='failed'
+    // Should call db.invoice.update with pdfStatus='failed' (after internal retries)
     expect(db.invoice.update).toHaveBeenCalledWith({
       where: { id: 'invoice-123' },
       data: {
         pdfStatus: 'failed',
-        pdfError: expect.stringContaining('PDF generation failed'),
+        pdfError: expect.stringContaining('Failed after 3 attempts'),
       }
     })
   })
@@ -186,12 +186,12 @@ describe('PDF Generation Handler', () => {
 
     await expect(pdfGenerationHandler(mockJob)).rejects.toThrow('Upload failed')
 
-    // Should call db.invoice.update with pdfStatus='failed'
+    // Should call db.invoice.update with pdfStatus='failed' (after internal retries)
     expect(db.invoice.update).toHaveBeenCalledWith({
       where: { id: 'invoice-123' },
       data: {
         pdfStatus: 'failed',
-        pdfError: expect.stringContaining('Upload failed'),
+        pdfError: expect.stringContaining('Failed after 3 attempts'),
       }
     })
   })

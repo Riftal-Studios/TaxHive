@@ -8,6 +8,12 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/tests/e2e/**', // E2E tests run with Playwright, not Vitest
+      '**/tests/integration/**', // Integration tests need a real database
+    ],
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: [

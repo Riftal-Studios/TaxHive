@@ -311,13 +311,13 @@ describe('BullMQService', () => {
       const stats = await bullmqService.getStats()
 
       expect(Queue.prototype.getJobCounts).toHaveBeenCalled()
-      // The service creates 4 queues, so stats are multiplied by 4
+      // The service creates 6 queues (one per job type), so stats are multiplied by 6
       expect(stats).toEqual({
-        pending: 40,  // 10 * 4 queues
-        active: 8,    // 2 * 4 queues
-        completed: 600, // 150 * 4 queues
-        failed: 12,   // 3 * 4 queues
-        delayed: 20,  // 5 * 4 queues
+        pending: 60,  // 10 * 6 queues
+        active: 12,   // 2 * 6 queues
+        completed: 900, // 150 * 6 queues
+        failed: 18,   // 3 * 6 queues
+        delayed: 30,  // 5 * 6 queues
         paused: false,
       })
     })

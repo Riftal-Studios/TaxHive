@@ -668,62 +668,16 @@ export const invoiceRouter = createTRPCRouter({
       }
     }),
 
-  // Get current exchange rate for a currency
+  // Get current exchange rate for a currency (self-healing: auto-fetches if missing)
   getCurrentExchangeRate: protectedProcedure
     .input(z.object({
       currency: z.string(),
       date: z.string().optional(), // Optional date in YYYY-MM-DD format
     }))
-    .query(async ({ ctx, input }) => {
-      // Use provided date or today
+    .query(async ({ input }) => {
+      const { getOrFetchExchangeRate } = await import('@/lib/exchange-rates')
       const targetDate = input.date ? new Date(input.date) : new Date()
-      targetDate.setHours(0, 0, 0, 0)
-      
-      // First check if we have the rate for the target date
-      const exchangeRate = await ctx.prisma.exchangeRate.findFirst({
-        where: {
-          currency: input.currency,
-          date: {
-            gte: targetDate,
-            lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000),
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      })
-      
-      if (exchangeRate) {
-        return {
-          rate: Number(exchangeRate.rate),
-          source: exchangeRate.source,
-          date: exchangeRate.date,
-        }
-      }
-      
-      // If no rate found for target date, get the most recent rate before that date
-      const latestRate = await ctx.prisma.exchangeRate.findFirst({
-        where: {
-          currency: input.currency,
-          date: {
-            lte: targetDate,
-          },
-        },
-        orderBy: {
-          date: 'desc',
-        },
-      })
-      
-      if (latestRate) {
-        return {
-          rate: Number(latestRate.rate),
-          source: latestRate.source,
-          date: latestRate.date,
-        }
-      }
-      
-      // No rates found - return null to indicate manual entry needed
-      return null
+      return await getOrFetchExchangeRate(input.currency, targetDate)
     }),
 
   // Send invoice email

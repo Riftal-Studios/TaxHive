@@ -30,6 +30,10 @@ const RBI_SCRAPE_TIMEOUT = 10_000 // 10 seconds
  * https://www.rbi.org.in/scripts/ReferenceRateArchive.aspx
  *
  * ASP.NET WebForms scraping: GET → extract ViewState → POST form → parse HTML table
+ *
+ * NOTE: RBI uses F5 BIG-IP ASM with JavaScript challenge (f5_cspm). This requires
+ * executing JS to pass bot detection, so server-side fetch may be blocked (HTTP 418).
+ * When this happens, we fall through to Frankfurter/ECB as the primary data source.
  */
 export async function scrapeRBIReferenceRates(date: Date): Promise<ExchangeRate[]> {
   const controller = new AbortController()
@@ -37,12 +41,16 @@ export async function scrapeRBIReferenceRates(date: Date): Promise<ExchangeRate[
 
   try {
     const url = 'https://www.rbi.org.in/scripts/ReferenceRateArchive.aspx'
+    const browserUA =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
     // Step 1: GET the page to extract ASP.NET form tokens
     const getResponse = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TaxHive/1.0)',
+        'User-Agent': browserUA,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
       },
     })
 
@@ -50,6 +58,14 @@ export async function scrapeRBIReferenceRates(date: Date): Promise<ExchangeRate[
       console.error(`RBI page returned status ${getResponse.status}`)
       return []
     }
+
+    // Forward cookies from the GET response to the POST request
+    // RBI uses F5 BIG-IP WAF which requires session cookies on POST
+    const setCookieHeaders = getResponse.headers?.getSetCookie?.() ?? []
+    const cookies = setCookieHeaders
+      .map((c: string) => c.split(';')[0])
+      .filter(Boolean)
+      .join('; ')
 
     const formHtml = await getResponse.text()
     const formDoc = parse(formHtml)
@@ -76,18 +92,31 @@ export async function scrapeRBIReferenceRates(date: Date): Promise<ExchangeRate[
     formData.append('ctl00$ContentPlaceHolder1$txtToDate', dateStr)
     formData.append('ctl00$ContentPlaceHolder1$btnSubmit', 'Submit')
 
+    const postHeaders: Record<string, string> = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': browserUA,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Referer': url,
+      'Origin': 'https://www.rbi.org.in',
+    }
+    if (cookies) {
+      postHeaders['Cookie'] = cookies
+    }
+
     const postResponse = await fetch(url, {
       method: 'POST',
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (compatible; TaxHive/1.0)',
-      },
+      headers: postHeaders,
       body: formData.toString(),
     })
 
     if (!postResponse.ok) {
-      console.error(`RBI POST returned status ${postResponse.status}`)
+      // HTTP 418 is expected when F5 WAF JS challenge blocks the request
+      if (postResponse.status === 418) {
+        console.warn('RBI WAF blocked POST (HTTP 418) - falling back to Frankfurter API')
+      } else {
+        console.error(`RBI POST returned status ${postResponse.status}`)
+      }
       return []
     }
 

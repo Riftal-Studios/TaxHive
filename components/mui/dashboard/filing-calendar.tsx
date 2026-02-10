@@ -174,8 +174,8 @@ export function FilingCalendarCard() {
                     </Stack>
                   }
                   secondary={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="caption" color="text.secondary">
+                    <Stack component="span" direction="row" spacing={1} alignItems="center">
+                      <Typography variant="caption" color="text.secondary" component="span">
                         Due: {formatDate(filing.dueDate)}
                       </Typography>
                       <Chip
@@ -187,6 +187,7 @@ export function FilingCalendarCard() {
                       />
                     </Stack>
                   }
+                  secondaryTypographyProps={{ component: 'div' }}
                 />
                 {getStatusIcon(effectiveStatus)}
               </ListItem>

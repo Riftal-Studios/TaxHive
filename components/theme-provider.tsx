@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { ThemeProvider as MUIThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { SnackbarProvider } from "notistack";
@@ -26,18 +33,30 @@ interface ThemeProviderProps {
   defaultMode?: "light" | "dark" | "system";
 }
 
+// Read dark mode from the DOM class list without triggering a setState-in-effect lint error.
+// useSyncExternalStore ensures server/client consistency: getServerSnapshot returns false (light)
+// and getSnapshot reads the actual DOM class after hydration.
+function useInitialDarkMode(): boolean {
+  const subscribe = useCallback((cb: () => void) => {
+    // We only need the initial value; no live subscription needed.
+    // Return a no-op unsubscribe.
+    void cb;
+    return () => {};
+  }, []);
+  const getSnapshot = () =>
+    document.documentElement.classList.contains("dark");
+  const getServerSnapshot = () => false;
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
 export function ThemeProvider({
   children,
   defaultMode = "system",
 }: ThemeProviderProps) {
-  // Initialize from document class (set by ThemeScript before hydration) to prevent flash
-  // ThemeScript already applied the correct theme from localStorage/system preference
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return document.documentElement.classList.contains("dark");
-    }
-    return false;
-  });
+  // useSyncExternalStore returns false on server (matching SSR) and reads
+  // the actual <html> class on client, avoiding hydration mismatch.
+  const initialDark = useInitialDarkMode();
+  const [isDarkMode, setIsDarkMode] = useState(initialDark);
 
   useEffect(() => {
     // Update the document class for Tailwind dark mode

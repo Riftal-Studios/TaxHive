@@ -36,7 +36,7 @@ export default async function RootLayout({
       <head>
         <ThemeScript />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <SessionProvider session={session}>
           <TRPCReactProvider>
             <ThemeProvider>{children}</ThemeProvider>

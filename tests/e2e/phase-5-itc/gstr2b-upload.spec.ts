@@ -4,6 +4,8 @@ test.describe('GSTR-2B Upload', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/itc-reconciliation')
     await authenticatedPage.waitForLoadState('networkidle')
+    // Wait for React/tRPC to finish rendering page content
+    await authenticatedPage.getByText(/ITC Reconciliation/i).first().waitFor({ state: 'visible' })
   })
 
   test('should display ITC reconciliation page', async ({ authenticatedPage }) => {

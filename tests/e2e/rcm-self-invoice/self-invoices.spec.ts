@@ -39,47 +39,28 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('RCM Summary Section', () => {
-    test('should display RCM summary when invoices exist', async ({ authenticatedPage }) => {
+    test('should display RCM summary when invoices exist', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      // Check if there are invoices
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.getByRole('heading', { name: /self.*invoices/i }).waitFor({ state: 'visible' })
 
       // RCM summary section should be visible
       await expect(authenticatedPage.getByText(/total self invoices|rcm liability|itc claimable/i)).toBeVisible()
     })
 
-    test('should show RCM liability for fiscal year', async ({ authenticatedPage }) => {
+    test('should show RCM liability for fiscal year', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.getByRole('heading', { name: /self.*invoices/i }).waitFor({ state: 'visible' })
 
       // RCM liability amount
       await expect(authenticatedPage.getByText(/rcm liability/i)).toBeVisible()
     })
 
-    test('should show ITC claimable amount', async ({ authenticatedPage }) => {
+    test('should show ITC claimable amount', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.getByRole('heading', { name: /self.*invoices/i }).waitFor({ state: 'visible' })
 
       // ITC claimable
       await expect(authenticatedPage.getByText(/itc claimable/i)).toBeVisible()
@@ -87,16 +68,10 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('Self Invoice List Table', () => {
-    test('should show invoice table with correct columns', async ({ authenticatedPage }) => {
+    test('should show invoice table with correct columns', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.locator('table tbody tr').first().waitFor({ state: 'visible' })
 
       // Check column headers
       await expect(authenticatedPage.getByRole('columnheader', { name: /invoice/i })).toBeVisible()
@@ -108,46 +83,34 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       await expect(authenticatedPage.getByRole('columnheader', { name: /status/i })).toBeVisible()
     })
 
-    test('should show invoice number in SI/YYYY-YY/XXXX format', async ({ authenticatedPage }) => {
+    test('should show invoice number in SI/YYYY-YY/XXXX format', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // Check for SI/ format invoice number
       await expect(invoiceRow.getByText(/SI\/\d{4}-\d{2}\/\d+/)).toBeVisible()
     })
 
-    test('should show supplier name and state', async ({ authenticatedPage }) => {
+    test('should show supplier name and state', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // Supplier cell should show name and state code
       await expect(invoiceRow.locator('td').nth(1)).toContainText(/\(\d{2}\)/)
     })
 
-    test('should show GST breakdown (CGST/SGST or IGST)', async ({ authenticatedPage }) => {
+    test('should show GST breakdown (CGST/SGST or IGST)', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // GST column should show CGST/SGST or IGST
       const gstCell = invoiceRow.locator('td').nth(4)
@@ -159,16 +122,10 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('30-Day Rule Compliance Status', () => {
-    test('should show Compliant status chip for invoices within 30 days', async ({ authenticatedPage }) => {
+    test('should show Compliant status chip for invoices within 30 days', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.locator('table tbody tr').first().waitFor({ state: 'visible' })
 
       // Check for status chips
       const compliantChip = authenticatedPage.getByText(/compliant/i)
@@ -183,8 +140,9 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       expect(hasCompliant || hasWarning || hasOverdue).toBe(true)
     })
 
-    test('should show warning status for invoices nearing 30-day limit', async ({ authenticatedPage }) => {
+    test('should show warning status for invoices nearing 30-day limit', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       // Look for warning chip format "Xd Left"
       const warningChip = authenticatedPage.locator('[class*="Chip"]').filter({ hasText: /\d+d\s*left/i })
@@ -195,8 +153,9 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       expect(typeof hasWarning).toBe('boolean')
     })
 
-    test('should show overdue status for invoices past 30 days', async ({ authenticatedPage }) => {
+    test('should show overdue status for invoices past 30 days', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       // Look for overdue chip format "Xd Overdue"
       const overdueChip = authenticatedPage.locator('[class*="Chip"]').filter({ hasText: /overdue/i })
@@ -208,16 +167,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('Invoice Status', () => {
-    test('should show status chip (DRAFT, SENT, FINALIZED)', async ({ authenticatedPage }) => {
+    test('should show status chip (DRAFT, SENT, FINALIZED)', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // Status chip should be visible
       const statusChip = invoiceRow.locator('[class*="Chip"]').filter({
@@ -228,16 +183,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('Self Invoice Detail Page', () => {
-    test('should navigate to invoice detail when row is clicked', async ({ authenticatedPage }) => {
+    test('should navigate to invoice detail when row is clicked', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // Click on the row (not action buttons)
       await invoiceRow.click()
@@ -246,16 +197,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       await expect(authenticatedPage).toHaveURL(/\/self-invoices\/[a-z0-9]+/i)
     })
 
-    test('should display invoice header information', async ({ authenticatedPage }) => {
+    test('should display invoice header information', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       await invoiceRow.click()
       await authenticatedPage.waitForURL(/\/self-invoices\/[a-z0-9]+/i)
@@ -267,16 +214,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       await expect(authenticatedPage.getByText(/self.*invoice|rcm/i)).toBeVisible()
     })
 
-    test('should display supplier details', async ({ authenticatedPage }) => {
+    test('should display supplier details', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       await invoiceRow.click()
       await authenticatedPage.waitForURL(/\/self-invoices\/[a-z0-9]+/i)
@@ -285,16 +228,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       await expect(authenticatedPage.getByText(/supplier|from/i)).toBeVisible()
     })
 
-    test('should display GST breakdown', async ({ authenticatedPage }) => {
+    test('should display GST breakdown', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       await invoiceRow.click()
       await authenticatedPage.waitForURL(/\/self-invoices\/[a-z0-9]+/i)
@@ -306,16 +245,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       expect(hasCgstSgst || hasIgst).toBe(true)
     })
 
-    test('should display RCM compliance information', async ({ authenticatedPage }) => {
+    test('should display RCM compliance information', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       await invoiceRow.click()
       await authenticatedPage.waitForURL(/\/self-invoices\/[a-z0-9]+/i)
@@ -324,16 +259,12 @@ test.describe('Self Invoices (RCM) List and Details', () => {
       await expect(authenticatedPage.getByText(/date.*receipt|receipt.*date/i)).toBeVisible()
     })
 
-    test('should show payment voucher information', async ({ authenticatedPage }) => {
+    test('should show payment voucher information', async ({ authenticatedPage, testSelfInvoice, testPaymentVoucher }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       await invoiceRow.click()
       await authenticatedPage.waitForURL(/\/self-invoices\/[a-z0-9]+/i)
@@ -344,64 +275,48 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('Invoice Actions', () => {
-    test('should show view action button', async ({ authenticatedPage }) => {
+    test('should show view action button', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // View button
       const viewButton = invoiceRow.getByRole('button', { name: /view/i })
       await expect(viewButton).toBeVisible()
     })
 
-    test('should show edit action button', async ({ authenticatedPage }) => {
+    test('should show edit action button', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // Edit button
       const editButton = invoiceRow.getByRole('button', { name: /edit/i })
       await expect(editButton).toBeVisible()
     })
 
-    test('should show more actions menu', async ({ authenticatedPage }) => {
+    test('should show more actions menu', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // More button (three dots)
       const moreButton = invoiceRow.locator('button[aria-label*="more" i], button:has(svg[data-testid*="MoreVert"])')
       await expect(moreButton).toBeVisible()
     })
 
-    test('should show download options in more menu', async ({ authenticatedPage }) => {
+    test('should show download options in more menu', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await invoiceRow.waitFor({ state: 'visible' })
 
       // Click more button
       const moreButton = invoiceRow.locator('button').last()
@@ -413,31 +328,19 @@ test.describe('Self Invoices (RCM) List and Details', () => {
   })
 
   test.describe('Pagination', () => {
-    test('should show pagination controls', async ({ authenticatedPage }) => {
+    test('should show pagination controls', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.getByRole('heading', { name: /self.*invoices/i }).waitFor({ state: 'visible' })
 
       // Pagination should be visible
       await expect(authenticatedPage.getByText(/rows per page/i)).toBeVisible()
     })
 
-    test('should allow changing rows per page', async ({ authenticatedPage }) => {
+    test('should allow changing rows per page', async ({ authenticatedPage, testSelfInvoice }) => {
       await authenticatedPage.goto('/self-invoices')
-
-      const invoiceRow = authenticatedPage.locator('table tbody tr').first()
-      const hasInvoices = await invoiceRow.isVisible().catch(() => false)
-
-      if (!hasInvoices) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.waitForLoadState('networkidle')
+      await authenticatedPage.getByRole('heading', { name: /self.*invoices/i }).waitFor({ state: 'visible' })
 
       // Click rows per page selector
       const rowsSelector = authenticatedPage.locator('[class*="TablePagination"] select, [aria-haspopup="listbox"]').first()

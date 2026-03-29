@@ -30,102 +30,56 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Form Layout', () => {
-    test('should show page title', async ({ authenticatedPage }) => {
+    test('should show page title', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
-      // Wait for page to load
       await authenticatedPage.waitForLoadState('networkidle')
-
-      // Check if GSTIN warning is shown (prerequisites not met)
-      const gstinWarning = authenticatedPage.getByText(/complete.*profile|gstin.*required/i)
-      if (await gstinWarning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
-
-      // Check if supplier prompt is shown
-      const supplierPrompt = authenticatedPage.getByText(/no.*unregistered.*supplier/i)
-      if (await supplierPrompt.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Page title
       await expect(authenticatedPage.getByRole('heading', { name: /create.*self.*invoice/i })).toBeVisible()
     })
 
-    test('should show supplier selection field', async ({ authenticatedPage }) => {
+    test('should show supplier selection field', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      // Skip if prerequisites not met
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Supplier select should be visible
       await expect(authenticatedPage.getByLabel(/supplier/i)).toBeVisible()
     })
 
-    test('should show date fields', async ({ authenticatedPage }) => {
+    test('should show date fields', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Date fields
       await expect(authenticatedPage.getByLabel(/invoice.*date/i)).toBeVisible()
       await expect(authenticatedPage.getByLabel(/date.*receipt|receipt.*date/i)).toBeVisible()
     })
 
-    test('should show GST rate selection', async ({ authenticatedPage }) => {
+    test('should show GST rate selection', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // GST rate field
       await expect(authenticatedPage.getByLabel(/gst.*rate|tax.*rate/i)).toBeVisible()
     })
 
-    test('should show line items section', async ({ authenticatedPage }) => {
+    test('should show line items section', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Line items
       await expect(authenticatedPage.getByText(/line.*items|items|description/i)).toBeVisible()
     })
 
-    test('should show payment details section', async ({ authenticatedPage }) => {
+    test('should show payment details section', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Payment mode
       await expect(authenticatedPage.getByLabel(/payment.*mode|payment.*method/i)).toBeVisible()
@@ -133,16 +87,10 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('GST Rate Options', () => {
-    test('should show standard GST rates (5%, 12%, 18%, 28%)', async ({ authenticatedPage }) => {
+    test('should show standard GST rates (5%, 12%, 18%, 28%)', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Click GST rate dropdown
       const gstSelect = authenticatedPage.getByLabel(/gst.*rate|tax.*rate/i)
@@ -157,16 +105,10 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Payment Mode Options', () => {
-    test('should show all payment mode options', async ({ authenticatedPage }) => {
+    test('should show all payment mode options', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Click payment mode dropdown
       const paymentSelect = authenticatedPage.getByLabel(/payment.*mode|payment.*method/i)
@@ -181,47 +123,29 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Line Item Management', () => {
-    test('should have at least one line item by default', async ({ authenticatedPage }) => {
+    test('should have at least one line item by default', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // At least one line item input should be visible
       const descriptionField = authenticatedPage.getByLabel(/description/i).first()
       await expect(descriptionField).toBeVisible()
     })
 
-    test('should show Add Item button', async ({ authenticatedPage }) => {
+    test('should show Add Item button', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Add item button
       await expect(authenticatedPage.getByRole('button', { name: /add.*item|add.*line/i })).toBeVisible()
     })
 
-    test('should add new line item when button clicked', async ({ authenticatedPage }) => {
+    test('should add new line item when button clicked', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Count initial items
       const initialItems = await authenticatedPage.getByLabel(/description/i).count()
@@ -234,16 +158,10 @@ test.describe('Self Invoice Creation Form', () => {
       expect(newItems).toBeGreaterThan(initialItems)
     })
 
-    test('should allow removing line items', async ({ authenticatedPage }) => {
+    test('should allow removing line items', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Add an item first
       await authenticatedPage.getByRole('button', { name: /add.*item|add.*line/i }).click()
@@ -256,16 +174,10 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('GST Calculation Display', () => {
-    test('should show subtotal field', async ({ authenticatedPage }) => {
+    test('should show subtotal field', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Fill an amount to trigger calculations
       const amountField = authenticatedPage.getByLabel(/amount/i).first()
@@ -275,16 +187,10 @@ test.describe('Self Invoice Creation Form', () => {
       await expect(authenticatedPage.getByText(/subtotal/i)).toBeVisible()
     })
 
-    test('should calculate and display GST amounts', async ({ authenticatedPage }) => {
+    test('should calculate and display GST amounts', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Fill line item
       await authenticatedPage.getByLabel(/description/i).first().fill('Test Service')
@@ -305,16 +211,10 @@ test.describe('Self Invoice Creation Form', () => {
       expect(hasCgst || hasIgst).toBe(true)
     })
 
-    test('should show total amount', async ({ authenticatedPage }) => {
+    test('should show total amount', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Fill line item
       await authenticatedPage.getByLabel(/amount/i).first().fill('10000')
@@ -325,16 +225,10 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('30-Day Rule Validation', () => {
-    test('should show warning when date difference exceeds 25 days', async ({ authenticatedPage }) => {
+    test('should show warning when date difference exceeds 25 days', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // This test would require setting dates with >25 day gap
       // The form should show a warning
@@ -347,46 +241,28 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Form Submission', () => {
-    test('should have Create Invoice button', async ({ authenticatedPage }) => {
+    test('should have Create Invoice button', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Submit button
       await expect(authenticatedPage.getByRole('button', { name: /create.*invoice|save|submit/i })).toBeVisible()
     })
 
-    test('should have Cancel button', async ({ authenticatedPage }) => {
+    test('should have Cancel button', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Cancel button
       await expect(authenticatedPage.getByRole('button', { name: /cancel/i })).toBeVisible()
     })
 
-    test('should navigate back when Cancel is clicked', async ({ authenticatedPage }) => {
+    test('should navigate back when Cancel is clicked', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Click cancel
       await authenticatedPage.getByRole('button', { name: /cancel/i }).click()
@@ -395,16 +271,10 @@ test.describe('Self Invoice Creation Form', () => {
       await expect(authenticatedPage).toHaveURL(/\/self-invoices$/)
     })
 
-    test('should validate required fields on submit', async ({ authenticatedPage }) => {
+    test('should validate required fields on submit', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Try to submit without filling required fields
       await authenticatedPage.getByRole('button', { name: /create.*invoice|save|submit/i }).click()
@@ -416,33 +286,20 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Add Supplier from Form', () => {
-    test('should show Add Supplier option', async ({ authenticatedPage }) => {
+    test('should show Add Supplier option', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      // Check for GSTIN warning only (not supplier warning)
-      const gstinWarning = authenticatedPage.getByText(/complete.*profile|gstin.*required/i)
-      if (await gstinWarning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Add supplier button should be visible (either in dropdown or as separate button)
       const addSupplierButton = authenticatedPage.getByRole('button', { name: /add.*supplier|new.*supplier/i })
       await expect(addSupplierButton).toBeVisible()
     })
 
-    test('should open supplier dialog when Add Supplier is clicked', async ({ authenticatedPage }) => {
+    test('should open supplier dialog when Add Supplier is clicked', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const gstinWarning = authenticatedPage.getByText(/complete.*profile|gstin.*required/i)
-      if (await gstinWarning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Click Add Supplier
       await authenticatedPage.getByRole('button', { name: /add.*supplier|new.*supplier/i }).click()
@@ -453,16 +310,10 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Intrastate vs Interstate GST', () => {
-    test('should show CGST + SGST for intrastate transaction', async ({ authenticatedPage }) => {
+    test('should show CGST + SGST for intrastate transaction', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Select supplier from same state as user
       const supplierSelect = authenticatedPage.getByLabel(/supplier/i)
@@ -511,32 +362,20 @@ test.describe('Self Invoice Creation Form', () => {
   })
 
   test.describe('Notes Field', () => {
-    test('should show optional notes field', async ({ authenticatedPage }) => {
+    test('should show optional notes field', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Notes field (usually a textarea)
       const notesField = authenticatedPage.getByLabel(/notes|remarks|additional/i)
       await expect(notesField).toBeVisible()
     })
 
-    test('should allow entering notes', async ({ authenticatedPage }) => {
+    test('should allow entering notes', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/self-invoices/new')
-
       await authenticatedPage.waitForLoadState('networkidle')
-
-      const warning = authenticatedPage.getByText(/complete.*profile|no.*supplier/i)
-      if (await warning.isVisible().catch(() => false)) {
-        test.skip()
-        return
-      }
+      await authenticatedPage.getByRole('heading', { name: /create.*self.*invoice|self.*invoice/i }).waitFor({ state: 'visible' })
 
       // Fill notes
       const notesField = authenticatedPage.getByLabel(/notes|remarks|additional/i)

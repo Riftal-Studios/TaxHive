@@ -67,7 +67,7 @@ async function createTestInvoice(userId: string, clientId: string, overrides: Pa
     data: {
       userId,
       clientId,
-      invoiceNumber: `FY24-25/${faker.number.int({ min: 1, max: 999 }).toString().padStart(3, '0')}`,
+      invoiceNumber: `FY24-25/${faker.number.int({ min: 1, max: 999999 }).toString().padStart(3, '0')}`,
       invoiceDate: new Date(),
       dueDate: faker.date.future(),
       status: 'DRAFT',
@@ -133,7 +133,7 @@ async function createTestSelfInvoice(userId: string, supplierId: string, overrid
       userId,
       clientId: null,
       unregisteredSupplierId: supplierId,
-      invoiceNumber: `SI/2024-25/${faker.number.int({ min: 1, max: 999 }).toString().padStart(4, '0')}`,
+      invoiceNumber: `SI/2024-25/${faker.number.int({ min: 1, max: 999999 }).toString().padStart(4, '0')}`,
       invoiceDate: new Date(),
       dateOfReceiptOfSupply: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
       dueDate: new Date(),

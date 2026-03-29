@@ -145,17 +145,12 @@ test.describe('Unregistered Suppliers Management', () => {
   })
 
   test.describe('Supplier Detail View', () => {
-    test('should navigate to supplier detail page', async ({ authenticatedPage }) => {
+    test('should navigate to supplier detail page', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
-      // Check if there are suppliers in the list
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // Click on first supplier
       await supplierRow.click()
@@ -164,16 +159,12 @@ test.describe('Unregistered Suppliers Management', () => {
       await expect(authenticatedPage.getByText(/supplier details|address/i)).toBeVisible()
     })
 
-    test('should display supplier information', async ({ authenticatedPage }) => {
+    test('should display supplier information', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       await supplierRow.click()
 
@@ -182,16 +173,12 @@ test.describe('Unregistered Suppliers Management', () => {
       await expect(authenticatedPage.getByText(/address/i)).toBeVisible()
     })
 
-    test('should show linked self-invoices for supplier', async ({ authenticatedPage }) => {
+    test('should show linked self-invoices for supplier', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       await supplierRow.click()
 
@@ -201,16 +188,12 @@ test.describe('Unregistered Suppliers Management', () => {
   })
 
   test.describe('Edit Supplier', () => {
-    test('should navigate to edit page for existing supplier', async ({ authenticatedPage }) => {
+    test('should navigate to edit page for existing supplier', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // Click edit button in row
       const editButton = supplierRow.getByRole('button', { name: /edit/i })
@@ -220,16 +203,12 @@ test.describe('Unregistered Suppliers Management', () => {
       await expect(authenticatedPage).toHaveURL(/\/suppliers\/.*\/edit/)
     })
 
-    test('should update supplier successfully', async ({ authenticatedPage }) => {
+    test('should update supplier successfully', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // Click edit
       const editButton = supplierRow.getByRole('button', { name: /edit/i })
@@ -256,16 +235,12 @@ test.describe('Unregistered Suppliers Management', () => {
   })
 
   test.describe('Delete Supplier', () => {
-    test('should show delete confirmation dialog', async ({ authenticatedPage }) => {
+    test('should show delete confirmation dialog', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // Click delete button
       const deleteButton = authenticatedPage.getByRole('button', { name: /delete/i }).first()
@@ -275,16 +250,12 @@ test.describe('Unregistered Suppliers Management', () => {
       await expect(authenticatedPage.getByText(/confirm|are you sure/i)).toBeVisible()
     })
 
-    test('should cancel delete operation', async ({ authenticatedPage }) => {
+    test('should cancel delete operation', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // Click delete
       const deleteButton = authenticatedPage.getByRole('button', { name: /delete/i }).first()
@@ -299,38 +270,30 @@ test.describe('Unregistered Suppliers Management', () => {
   })
 
   test.describe('Supplier List Features', () => {
-    test('should display supplier state and state code', async ({ authenticatedPage }) => {
+    test('should display supplier state and state code', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // State info should be visible in the table
       await expect(supplierRow.getByText(/\(\d{2}\)/)).toBeVisible() // State code in parentheses
     })
 
-    test('should show active/inactive status', async ({ authenticatedPage }) => {
+    test('should show active/inactive status', async ({ authenticatedPage, testIndianSupplier }) => {
       await authenticatedPage.goto('/suppliers')
+      await authenticatedPage.waitForLoadState('networkidle')
 
       const supplierRow = authenticatedPage.locator('table tbody tr').first()
-      const hasSuppliers = await supplierRow.isVisible().catch(() => false)
-
-      if (!hasSuppliers) {
-        test.skip()
-        return
-      }
+      await supplierRow.waitFor({ state: 'visible' })
 
       // Status indicator should be present
       const statusChip = supplierRow.locator('[class*="Chip"]')
       const hasStatus = await statusChip.isVisible().catch(() => false)
 
       // Either has status chip or just shows supplier info
-      expect(hasStatus || hasSuppliers).toBe(true)
+      expect(hasStatus || true).toBe(true)
     })
   })
 

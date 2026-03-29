@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   description: "Invoice management system for Indian businesses exporting services with GST compliance",
   icons: {
     icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
       { url: '/favicon.svg', type: 'image/svg+xml' },
     ],
     apple: [

@@ -12,6 +12,7 @@ import { ThemeProvider as MUIThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { SnackbarProvider } from "notistack";
 import { theme as lightTheme, darkTheme } from "@/lib/theme";
+import { ThemeRegistry } from "./theme-registry";
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -33,15 +34,14 @@ interface ThemeProviderProps {
   defaultMode?: "light" | "dark" | "system";
 }
 
-// Read dark mode from the DOM class list without triggering a setState-in-effect lint error.
-// useSyncExternalStore ensures server/client consistency: getServerSnapshot returns false (light)
-// and getSnapshot reads the actual DOM class after hydration.
-function useInitialDarkMode(): boolean {
-  const subscribe = useCallback((cb: () => void) => {
-    // We only need the initial value; no live subscription needed.
-    // Return a no-op unsubscribe.
-    void cb;
-    return () => {};
+function useDocumentDarkClass(): boolean {
+  const subscribe = useCallback((callback: () => void) => {
+    const observer = new MutationObserver(callback);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
   }, []);
   const getSnapshot = () =>
     document.documentElement.classList.contains("dark");
@@ -53,9 +53,7 @@ export function ThemeProvider({
   children,
   defaultMode = "system",
 }: ThemeProviderProps) {
-  // useSyncExternalStore returns false on server (matching SSR) and reads
-  // the actual <html> class on client, avoiding hydration mismatch.
-  const initialDark = useInitialDarkMode();
+  const initialDark = useDocumentDarkClass();
   const [isDarkMode, setIsDarkMode] = useState(initialDark);
 
   useEffect(() => {
@@ -89,20 +87,22 @@ export function ThemeProvider({
   const activeTheme = isDarkMode ? darkTheme : lightTheme;
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
-      <MUIThemeProvider theme={activeTheme}>
-        <CssBaseline />
-        <SnackbarProvider
-          maxSnack={3}
-          anchorOrigin={{
-            vertical: "bottom",
-            horizontal: "right",
-          }}
-          autoHideDuration={5000}
-        >
-          {children}
-        </SnackbarProvider>
-      </MUIThemeProvider>
-    </ThemeContext.Provider>
+    <ThemeRegistry>
+      <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+        <MUIThemeProvider theme={activeTheme}>
+          <CssBaseline />
+          <SnackbarProvider
+            maxSnack={3}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "right",
+            }}
+            autoHideDuration={5000}
+          >
+            {children}
+          </SnackbarProvider>
+        </MUIThemeProvider>
+      </ThemeContext.Provider>
+    </ThemeRegistry>
   );
 }

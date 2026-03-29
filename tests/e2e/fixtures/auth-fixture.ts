@@ -34,6 +34,7 @@ async function createJwtToken(user: User): Promise<string> {
       id: user.id,
       name: user.name,
       email: user.email,
+      role: user.role,
       onboardingCompleted: user.onboardingCompleted,
       onboardingStep: user.onboardingStep,
     },

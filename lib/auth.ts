@@ -121,6 +121,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.name = token.name;
         session.user.email = token.email;
+        session.user.role = token.role;
         session.user.onboardingCompleted = token.onboardingCompleted;
         session.user.onboardingStep = token.onboardingStep;
       }
@@ -148,6 +149,7 @@ export const authOptions: NextAuthOptions = {
           token.id = dbUser.id;
           token.name = dbUser.name;
           token.email = dbUser.email;
+          token.role = dbUser.role;
           token.onboardingCompleted = dbUser.onboardingCompleted;
           token.onboardingStep = dbUser.onboardingStep;
         }

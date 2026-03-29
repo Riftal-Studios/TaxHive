@@ -39,6 +39,8 @@ import {
   Inbox as InboxIcon,
   CompareArrows as ReconcileIcon,
   Assignment as FilingIcon,
+  AccountBalance as AccountingIcon,
+  AdminPanelSettings as AdminIcon,
 } from "@mui/icons-material";
 import { signOut } from "next-auth/react";
 import { useTheme as useAppTheme } from "@/components/theme-provider";
@@ -54,10 +56,11 @@ interface MUILayoutProps {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    role?: string;
   };
 }
 
-const menuItems = [
+const baseMenuItems = [
   { text: "Dashboard", icon: <DashboardIcon />, href: "/dashboard" },
   { text: "Inbox", icon: <InboxIcon />, href: "/inbox" },
   { text: "Invoices", icon: <InvoiceIcon />, href: "/invoices" },
@@ -68,7 +71,10 @@ const menuItems = [
   { text: "ITC Reconciliation", icon: <ReconcileIcon />, href: "/itc-reconciliation" },
   { text: "GST Filings", icon: <FilingIcon />, href: "/gst-filings" },
   { text: "LUT Management", icon: <LUTIcon />, href: "/luts" },
+  { text: "Accounting", icon: <AccountingIcon />, href: "/accounting" },
 ];
+
+const adminMenuItem = { text: "Admin", icon: <AdminIcon />, href: "/admin" };
 
 const bottomMenuItems: Array<{
   text: string;
@@ -85,6 +91,10 @@ export function MUILayout({ children, user }: MUILayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { isDarkMode, toggleTheme } = useAppTheme();
+
+  const menuItems = user?.role === "ADMIN"
+    ? [...baseMenuItems, adminMenuItem]
+    : baseMenuItems;
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

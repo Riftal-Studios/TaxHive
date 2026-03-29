@@ -16,6 +16,7 @@ model User {
   emailVerified       DateTime?
   password            String? // Hashed password
   name                String?
+  role                Role      @default(USER)
   gstin               String? // GST Identification Number
   pan                 String? // PAN Number
   address             String?
@@ -39,6 +40,10 @@ model User {
   gstFilingPeriods      GSTFilingPeriod[]
   gstr2bUploads         GSTR2BUpload[]
   itcLedgers            ITCLedger[]
+  // Double-entry accounting ledger
+  glAccounts            GLAccount[]
+  journalEntries        JournalEntry[]
+  accountingPeriods     AccountingPeriod[]
 }
 
 model Account {
@@ -664,6 +669,11 @@ model ITCLedger {
   @@index([returnPeriod])
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum FeedbackType {
   BUG
   FEATURE
@@ -772,4 +782,144 @@ enum ITCMatchStatus {
   IN_2B_ONLY // In 2B, you don't have invoice - verify purchase
   REJECTED // Mismatch too large - cannot claim
   MANUALLY_RESOLVED
+}
+
+// ============================================================================
+// Double-Entry Accounting Ledger System
+// ============================================================================
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalEntryType {
+  INVOICE_CREATION
+  INVOICE_CANCELLATION
+  PAYMENT_RECEIVED
+  PAYMENT_REVERSAL
+  FOREX_GAIN_LOSS
+  RCM_SELF_ASSESSMENT
+  ITC_CLAIM
+  ITC_REVERSAL
+  PERIOD_CLOSE
+  ADJUSTMENT
+}
+
+enum JournalEntryStatus {
+  DRAFT
+  POSTED
+  REVERSED
+  VOID
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSING
+  CLOSED
+  REOPENED
+}
+
+// Chart of Accounts
+model GLAccount {
+  id          String      @id @default(cuid())
+  userId      String
+  accountCode String // e.g. "1120"
+  accountName String
+  accountType AccountType
+  parentId    String? // Self-relation for hierarchy
+  currency    String? // For currency-specific AR accounts
+  isActive    Boolean     @default(true)
+  isSystem    Boolean     @default(false) // System-seeded accounts
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent        GLAccount?    @relation("GLAccountHierarchy", fields: [parentId], references: [id])
+  children      GLAccount[]   @relation("GLAccountHierarchy")
+  ledgerEntries LedgerEntry[]
+
+  @@unique([userId, accountCode])
+  @@index([userId, accountType])
+  @@index([userId, isActive])
+}
+
+// Journal Entry - Transaction header (groups related debit/credit lines)
+model JournalEntry {
+  id            String             @id @default(cuid())
+  userId        String
+  entryNumber   String // Sequential: JE/2025-26/0001
+  entryDate     DateTime
+  entryType     JournalEntryType
+  description   String
+  sourceType    String? // "Invoice", "Payment", "Adjustment"
+  sourceId      String? // ID of source record
+  fiscalPeriod  String // YYYY-MM
+  fiscalYear    String // YYYY-YY
+  status        JournalEntryStatus @default(DRAFT)
+  postedAt      DateTime?
+  reversedAt    DateTime?
+  reversalOfId  String? // Self-relation for reversals
+  createdBy     String
+  approvedBy    String?
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reversalOf JournalEntry?  @relation("JournalEntryReversal", fields: [reversalOfId], references: [id])
+  reversals  JournalEntry[] @relation("JournalEntryReversal")
+  lines      LedgerEntry[]
+
+  @@unique([userId, entryNumber])
+  @@index([userId, entryDate])
+  @@index([userId, fiscalPeriod])
+  @@index([sourceType, sourceId])
+}
+
+// Ledger Entry - Individual debit/credit lines
+model LedgerEntry {
+  id             String  @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  debitAmount    Decimal @default(0)
+  creditAmount   Decimal @default(0)
+  currency       String? // Foreign currency code
+  foreignDebit   Decimal? // Amount in foreign currency
+  foreignCredit  Decimal? // Amount in foreign currency
+  exchangeRate   Decimal? // Rate used for conversion
+  description    String
+  reference      String?
+  metadata       Json? // Additional context
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      GLAccount    @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+// Accounting Period - Period management + closing snapshots
+model AccountingPeriod {
+  id             String       @id @default(cuid())
+  userId         String
+  period         String // YYYY-MM
+  fiscalYear     String // YYYY-YY
+  startDate      DateTime
+  endDate        DateTime
+  status         PeriodStatus @default(OPEN)
+  closedAt       DateTime?
+  closedBy       String?
+  closingBalance Json? // Snapshot of all account balances at close
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period])
+  @@index([userId, status])
 }
